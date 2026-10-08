@@ -4,8 +4,9 @@ import { useI18n } from '@/i18n/LanguageContext'
 import { IconGlobe } from '@/components/icons'
 
 import { Logo } from '@/components/ui/Logo'
+import { assetUrl } from '@/lib/asset'
 
-const HERO_IMG = '/Login-01.png'
+const HERO_IMG = assetUrl('Login-01.png')
 
 /** Motes of light rising through the photograph, echoing the network glow over
  *  the map. Positions are fixed rather than random so a re-render never makes

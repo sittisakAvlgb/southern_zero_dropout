@@ -17,9 +17,10 @@ import {
   type ChatMsg,
 } from '@/lib/ai'
 import { IconArrowRight, IconChevronRight, IconClose, IconSend } from '@/components/icons'
+import { assetUrl } from '@/lib/asset'
 
 /** the platform's own mascot — public/ChatBot.png, copied from assets/image */
-const MASCOT = '/ChatBot.png'
+const MASCOT = assetUrl('ChatBot.png')
 
 const CHIPS = [
   { th: 'พื้นที่ไหนเสี่ยงสูงสุด', en: 'Which areas carry the most risk' },

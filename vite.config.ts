@@ -57,7 +57,12 @@ function claudeApi(apiKey?: string): PluginOption {
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '')
   const apiKey = env.ANTHROPIC_API_KEY || process.env.ANTHROPIC_API_KEY
+  // Netlify และ dev server เสิร์ฟจากรากโดเมน จึงใช้ '/' เป็นค่าปกติ
+  // ส่วน GitHub Pages เสิร์ฟใต้ /<repo>/ — workflow จะตั้ง GITHUB_PAGES ให้
+  // อย่า hardcode base เป็น subpath เด็ดขาด เพราะจะทำให้ Netlify พังทันที
+  const base = process.env.GITHUB_PAGES ? '/southern_zero_dropout/' : '/'
   return {
+    base,
     plugins: [react(), claudeApi(apiKey)],
     resolve: {
       alias: { '@': path.resolve(__dirname, './src') },

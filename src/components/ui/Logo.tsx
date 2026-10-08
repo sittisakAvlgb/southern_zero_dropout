@@ -1,3 +1,5 @@
+import { assetUrl } from '@/lib/asset'
+
 /**
  * The Southern Zero Dropout mark.
  *
@@ -17,7 +19,7 @@ export function Logo({
 }) {
   const img = (
     <img
-      src="/logo.png"
+      src={assetUrl('logo.png')}
       alt="Southern Zero Dropout"
       className="block h-full w-full object-contain"
       draggable={false}

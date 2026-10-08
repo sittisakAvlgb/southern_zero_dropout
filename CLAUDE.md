@@ -26,6 +26,17 @@ npm run build      # tsc -b && vite build — ต้องผ่านก่อ�
    (`t`, `pn`, `dn`, `pick`, `lang`) ส่วนข้อความเฉพาะหน้าให้ทำตามแบบที่ไฟล์นั้นใช้อยู่
 5. **ห้าม commit คีย์** `ANTHROPIC_API_KEY` อยู่ฝั่ง server เท่านั้น
    (Netlify env var) ดู `.env.example`
+6. **ห้ามเขียนพาธรูปแบบ `/logo.png` ตรง ๆ** — เว็บถูกเสิร์ฟ 2 ที่ที่ base ต่างกัน
+   (Netlify = `/` · GitHub Pages = `/southern_zero_dropout/`) ใช้
+   `assetUrl('logo.png')` จาก `src/lib/asset.ts` เสมอ และอย่า hardcode `base`
+   ใน `vite.config.ts` เป็น subpath เพราะจะทำให้ Netlify พังทันที
+
+## เว็บมี 2 ที่ ใช้คนละอย่าง
+
+| ที่ | ลิงก์ | ใช้ทำอะไร |
+|---|---|---|
+| **Netlify** | courageous-tapioca-33318a.netlify.app | เดโมตัวจริง — มี Netlify Functions จึงต่อ AI ได้ |
+| **GitHub Pages** | sittisakavlgb.github.io/southern_zero_dropout/ | เดโม static — **ไม่มี `/api/chat`** ผู้ช่วย AI จะอยู่โหมด `localAnswer()` เสมอ |
 
 ## ผู้ใช้ตัวจริงคือครู
 
