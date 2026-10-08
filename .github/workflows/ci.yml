@@ -1,0 +1,20 @@
+name: CI
+
+# กันไม่ให้โค้ดที่ build ไม่ผ่าน เข้าไปถึง main (และถึง Netlify)
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+      - run: npm ci
+      # tsc -b && vite build — ครอบทั้ง typecheck (strict) และ build จริง
+      - run: npm run build

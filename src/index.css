@@ -1,0 +1,140 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: light;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  @apply bg-surface-muted text-ink antialiased;
+  font-feature-settings: 'kern';
+}
+
+/* Runtime language → font switch */
+body.lang-th,
+body.lang-th input,
+body.lang-th button,
+body.lang-th textarea {
+  font-family: 'Kanit', sans-serif;
+  /* Thai text must not break words oddly */
+  word-break: normal;
+  line-break: normal;
+}
+
+/* English and Malay (Rumi) share the Latin face */
+body.lang-en,
+body.lang-en input,
+body.lang-en button,
+body.lang-en textarea,
+body.lang-ms,
+body.lang-ms input,
+body.lang-ms button,
+body.lang-ms textarea {
+  font-family: 'Ubuntu', sans-serif;
+}
+
+/* Numeric emphasis */
+.tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Focus visibility for keyboard users */
+:focus-visible {
+  outline: 2px solid #2f66f6;
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+/* Text fields already show focus through their own border and ring. The global
+   outline drew a second box around them — on a bare field such as the command
+   palette's it landed across the row above it and read as a rendering fault. */
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible {
+  outline: none;
+}
+
+/* Scrollbar polish */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 999px;
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+  background-clip: content-box;
+}
+
+/* Skeleton shimmer */
+.skeleton {
+  position: relative;
+  overflow: hidden;
+  background: #eef2f8;
+}
+.skeleton::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.6),
+    transparent
+  );
+  animation: shimmer 1.4s infinite;
+}
+@keyframes shimmer {
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+/* Range slider (filters) — the track is painted inline as a gradient so the
+   filled part follows the value; this styles the thumb on both engines. */
+.range-brand::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 16px;
+  width: 16px;
+  border-radius: 999px;
+  background: #ffffff;
+  border: 3px solid #2f66f6;
+  box-shadow: 0 1px 3px rgba(15, 42, 107, 0.25);
+  cursor: pointer;
+  transition: transform 0.15s ease;
+}
+.range-brand::-webkit-slider-thumb:hover {
+  transform: scale(1.15);
+}
+.range-brand:active::-webkit-slider-thumb {
+  transform: scale(0.95);
+}
+.range-brand::-moz-range-thumb {
+  height: 16px;
+  width: 16px;
+  border-radius: 999px;
+  background: #ffffff;
+  border: 3px solid #2f66f6;
+  box-shadow: 0 1px 3px rgba(15, 42, 107, 0.25);
+  cursor: pointer;
+}
+
+/* Utility: hide scrollbar on horizontal KPI scrollers (mobile) */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}

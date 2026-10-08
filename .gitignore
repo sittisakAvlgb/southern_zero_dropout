@@ -1,0 +1,23 @@
+node_modules
+dist
+dist-ssr
+*.local
+.env
+.env.*
+!.env.example
+.vscode/*
+!.vscode/extensions.json
+.DS_Store
+*.log
+npm-debug.log*
+
+# เอกสารลูกค้า — ห้ามเข้า git history (ส่งให้ทีมทางช่องทางอื่น)
+assets/unpublished/
+
+# ผูกกับบัญชี deploy ของเครื่องนี้
+.netlify/
+
+# ไฟล์ที่ tsc/vite สร้าง ไม่ใช่ซอร์ส
+*.tsbuildinfo
+vite.config.js
+vite.config.d.ts

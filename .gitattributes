@@ -1,0 +1,7 @@
+# ตรึง line ending ให้เป็น LF ใน repo — กันกรณีน้องใช้ Mac/Linux แล้ว diff
+# ขึ้นมาทั้งไฟล์ทั้งที่แก้บรรทัดเดียว
+* text=auto eol=lf
+*.png binary
+*.jpg binary
+*.webp binary
+*.pdf binary

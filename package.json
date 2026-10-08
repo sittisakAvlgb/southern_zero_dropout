@@ -1,0 +1,36 @@
+{
+  "name": "southern-zero-dropout-platform",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Southern Zero Dropout Platform — มองเห็นทุกคน ออกแบบโอกาสเฉพาะบุคคล · ระบบกลางดูแลเด็กในจังหวัดชายแดนภาคใต้ ตั้งแต่เริ่มมีความเสี่ยงจนกลับเข้าสู่การเรียนรู้หรือมีอาชีพอย่างมั่นคง",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "preview": "vite preview",
+    "start": "node server.mjs",
+    "serve": "npm run build && node server.mjs",
+    "lint": "eslint ."
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.110.0",
+    "apexcharts": "^6.8.0",
+    "framer-motion": "^11.3.19",
+    "react": "^18.3.1",
+    "react-apexcharts": "^2.1.1",
+    "react-dom": "^18.3.1",
+    "react-router-dom": "^6.26.0",
+    "recharts": "^2.12.7"
+  },
+  "devDependencies": {
+    "@types/node": "^20.19.43",
+    "@types/react": "^18.3.3",
+    "@types/react-dom": "^18.3.0",
+    "@vitejs/plugin-react": "^4.3.1",
+    "autoprefixer": "^10.4.19",
+    "postcss": "^8.4.40",
+    "tailwindcss": "^3.4.7",
+    "typescript": "^5.5.4",
+    "vite": "^5.3.5"
+  }
+}
