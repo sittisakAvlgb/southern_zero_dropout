@@ -136,6 +136,8 @@ export interface Referral {
   tambonKey: string
   need: ReferralNeed
   fromAgencyId: string
+  /** ชื่อผู้ส่งที่แสดงได้เสมอ — ผู้ส่งที่เป็นโรงเรียนไม่อยู่ใน AGENCIES */
+  fromName: string
   toAgencyId: string
   status: ReferralStatus
   openedDaysAgo: number

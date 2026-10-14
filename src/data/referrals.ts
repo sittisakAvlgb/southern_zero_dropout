@@ -16,6 +16,7 @@ import type {
 import { hashSeed, makeRng, pick, randInt } from '@/lib/format'
 import { AGENCIES, AGENCY_BY_ID, routeAgency } from './agencies'
 import { STUDENTS } from './students'
+import { SCHOOL_BY_ID } from './schools'
 import { OOSC } from './oosc'
 import { PLANS } from './plans'
 import { DISTRICT_BY_KEY as DISTRICT_GEO_BY_KEY } from './geo'
@@ -102,6 +103,10 @@ interface Subject {
   tambonKey: string
   consent: ConsentStatus
   urgentHint: boolean
+  /** นักเรียนในระบบ — ผู้ส่งต่อคือโรงเรียนของเด็กเอง */
+  schoolKey?: string
+  /** เคสของเด็กปิดแล้ว การส่งต่อต้องไม่ค้างอยู่ */
+  closed: boolean
 }
 
 const SUBJECTS: Subject[] = [
@@ -113,6 +118,8 @@ const SUBJECTS: Subject[] = [
     tambonKey: s.tambonKey,
     consent: s.consent,
     urgentHint: s.riskLevel === 'critical',
+    schoolKey: s.schoolKey,
+    closed: s.caseStage === 'returned' || s.caseStage === 'resolved',
   })),
   ...OOSC.map((r) => ({
     id: r.id,
@@ -122,6 +129,7 @@ const SUBJECTS: Subject[] = [
     tambonKey: r.tambonKey,
     consent: r.consent,
     urgentHint: r.status === 'unreachable',
+    closed: r.status === 'returned' || r.status === 'working',
   })),
 ]
 
@@ -176,8 +184,18 @@ function buildReferral(
             : roll > 0.12 ? 'sent'
               : 'rejected'
   }
+  // เคสของเด็กปิดแล้ว — ส่งต่อที่ยังเปิดอยู่ต้องจบแล้ว เดิมเด็กที่ปิดเคสไปแล้ว
+  // (เช่น ฮาฟิซ อาแว) ยังมีส่งต่อ "รับเรื่องแล้ว" ค้างอยู่
+  if (subject.closed && status !== 'rejected') status = 'completed'
   const open = status === 'sent' || status === 'accepted' || status === 'inProgress'
   if (open && openedDaysAgo > slaDays) status = 'overdue'
+
+  // ผู้ส่งของนักเรียนในระบบคือโรงเรียนของเด็กเอง เดิมสุ่มหน่วยงานการศึกษา
+  // สักแห่ง นักเรียนของครูจึงถูก "ส่งต่อโดยอาชีวศึกษาจังหวัด" ยังเรียก pick()
+  // ด้านบนตามเดิมเพื่อไม่ให้ลำดับการสุ่มเลื่อน
+  const school = subject.schoolKey ? SCHOOL_BY_ID[subject.schoolKey] : undefined
+  const fromAgencyId = school ? `SCHOOL:${school.id}` : from.id
+  const fromName = school ? `โรงเรียน${school.name}` : from.th
 
   return {
     id,
@@ -187,7 +205,8 @@ function buildReferral(
     districtKey: subject.districtKey,
     tambonKey: subject.tambonKey,
     need,
-    fromAgencyId: from.id,
+    fromAgencyId,
+    fromName,
     toAgencyId: to.id,
     status,
     openedDaysAgo,

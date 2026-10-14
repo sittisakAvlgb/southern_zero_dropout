@@ -1075,7 +1075,7 @@ function ReferralRow({
         </span>
         <span className="mt-0.5 block truncate text-[11px] text-ink-muted">
           {t(`need.${r.need}`)} · {dn(r.districtKey)} ·{' '}
-          <span className="text-ink-faint">{th ? from?.th : from?.en}</span>
+          <span className="text-ink-faint">{from ? (th ? from.th : from.en) : r.fromName}</span>
           {' → '}
           <span className="font-medium text-ink-muted">{th ? to?.th : to?.en}</span>
         </span>
@@ -1250,7 +1250,7 @@ function CaseDrawer({
                     style={{ background: AGENCY_KIND_COLOR[from?.kind ?? 'admin'] }}
                   />
                   <span className="truncate text-[12px] font-medium text-ink">
-                    {th ? from?.th : from?.en}
+                    {from ? (th ? from.th : from.en) : r.fromName}
                   </span>
                 </span>
               </span>
