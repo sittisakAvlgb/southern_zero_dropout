@@ -13,9 +13,13 @@
 // optimistic cache. Nothing else about the shape would change.
 // ─────────────────────────────────────────────────────────────
 import { useCallback, useSyncExternalStore } from 'react'
-import type { CaseStage, CauseKey, InterventionEvent, Student } from '@/types'
+import type { CaseStage, CauseKey, InterventionEvent, OpportunityPlan, PlanStepStatus, Student } from '@/types'
 
-export type LogMode = 'contact' | 'visit'
+export type LogMode = 'contact' | 'visit' | 'talk' | 'note'
+
+/** อุปสรรคที่ครูเลือกได้เมื่อแผนเดินต่อไม่ได้ — ห้าข้อตาม brief
+ *  แต่ละข้อมีทางเลือกถัดไปที่ AI เสนอใน lib/planOps.ts */
+export type ObstacleKey = 'unreachable' | 'absent' | 'noFamilyInfo' | 'noCooperation' | 'needAgency'
 export type ContactOutcome = 'reached' | 'appointment' | 'noAnswer' | 'wrongNumber' | 'refused'
 
 /** What a home visit finds. None of it is seeded — it is empty until a teacher
@@ -78,15 +82,49 @@ export interface CaseLogEntry {
   /** ขั้นของเคสหลังรายการนี้ — ตอนนี้ใช้กับการปิดเคสเท่านั้น ('resolved')
    *  ครูเป็นคนกดเสมอ ระบบเสนอได้แต่ไม่ปิดเอง */
   stage?: CaseStage
+  /** ผลลัพธ์ของการช่วยเหลือครั้งนี้ ตามที่ครูบันทึก */
+  result?: string
+  /** ครูแจ้งว่าแผนติดอุปสรรค */
+  obstacle?: ObstacleKey
+  /** ส่งต่อจากหน้าเคสโดยตรง ไม่ต้องออกไปเริ่มใหม่ที่เมนูส่งต่อ */
+  referral?: {
+    agencyId: string
+    agencyName: string
+    reason: string
+    /** ข้อมูลที่ครูเลือกให้หน่วยงานเห็น — คุมตาม PDPA และความยินยอม */
+    share: string[]
+  }
+  /** ครอบครัวเห็นชอบแผนแล้ว */
+  familyAgreed?: boolean
 }
+
+/** สถานะขั้นในแผนที่ครูเปลี่ยน — ทับข้อมูลตั้งต้นของแผน */
+export interface PlanStepMark {
+  status: PlanStepStatus
+  at: string
+  by: string
+  note?: string
+  /** เวลาเครื่องตอนติ๊ก — ใช้เรียง timeline ในวันเดียวกัน (`at` รู้แค่วันที่) */
+  ts?: number
+}
+
+/** เวลาที่บันทึกถูกสร้าง ดึงจาก id ซึ่งขึ้นต้นด้วย Date.now() */
+export const entryTs = (e: Pick<CaseLogEntry, 'id'>): number => Number(e.id.split('-')[1]) || 0
 
 interface LogState {
   entries: CaseLogEntry[]
   /** childId → the person who took the case in this app */
   owners: Record<string, string>
+  /** stepId → สถานะที่ครูเปลี่ยน
+   *
+   *  เดิมหน้าเส้นทางโอกาสเก็บขั้นที่ติ๊กเสร็จไว้ใน React state ของหน้าเอง
+   *  รีโหลดแล้วหายหมด ทั้งที่ทุกอย่างอื่นที่ครูทำถูกเก็บถาวรที่นี่ */
+  steps: Record<string, PlanStepMark>
+  /** แผนที่ครูสร้างเอง childId → plan */
+  plans: Record<string, OpportunityPlan>
 }
 
-const EMPTY: LogState = { entries: [], owners: {} }
+const EMPTY: LogState = { entries: [], owners: {}, steps: {}, plans: {} }
 
 // ── the store ────────────────────────────────────────────────
 let scope = 'anon'
@@ -101,9 +139,13 @@ function read(who: string): LogState {
     const raw = localStorage.getItem(keyFor(who))
     if (!raw) return EMPTY
     const parsed = JSON.parse(raw) as Partial<LogState>
+    const obj = (v: unknown) => (v && typeof v === 'object' ? v : {})
     return {
       entries: Array.isArray(parsed.entries) ? parsed.entries : [],
-      owners: parsed.owners && typeof parsed.owners === 'object' ? parsed.owners : {},
+      owners: obj(parsed.owners) as LogState['owners'],
+      // บันทึกรุ่นก่อนไม่มีสองช่องนี้ — อ่านเป็นว่างแทนที่จะพัง
+      steps: obj(parsed.steps) as LogState['steps'],
+      plans: obj(parsed.plans) as LogState['plans'],
     }
   } catch {
     // a private window, cleared site data, or a half-written value — an empty
@@ -179,10 +221,23 @@ export function useCaseLog(userKey: string | undefined) {
   const clearChild = useCallback((childId: string) => {
     const owners = { ...state.owners }
     delete owners[childId]
-    setState({ entries: state.entries.filter((e) => e.childId !== childId), owners })
+    const plans = { ...state.plans }
+    delete plans[childId]
+    const steps = Object.fromEntries(
+      Object.entries(state.steps).filter(([id]) => !id.startsWith(`${childId}-`)),
+    )
+    setState({ entries: state.entries.filter((e) => e.childId !== childId), owners, steps, plans })
   }, [])
 
-  return { ...current, add, remove, setFollowUpDone, setOwner, clearChild }
+  const markStep = useCallback((stepId: string, mark: PlanStepMark) => {
+    setState({ ...state, steps: { ...state.steps, [stepId]: { ts: Date.now(), ...mark } } })
+  }, [])
+
+  const savePlan = useCallback((plan: OpportunityPlan) => {
+    setState({ ...state, plans: { ...state.plans, [plan.childId]: plan } })
+  }, [])
+
+  return { ...current, add, remove, setFollowUpDone, setOwner, clearChild, markStep, savePlan }
 }
 
 // ── reading the log back onto a child ────────────────────────
@@ -253,4 +308,42 @@ export function openFollowUps(log: LogState, today = new Date()): FollowUp[] {
       return { entry, daysAway: Math.round((at - t0) / 86400000) }
     })
     .sort((a, b) => a.daysAway - b.daysAway)
+}
+
+// ── แผนตามที่บัญชีนี้ทำงานไว้ ────────────────────────────────
+
+const daysBetween = (iso: string, today = new Date()) => {
+  const t0 = Date.UTC(today.getFullYear(), today.getMonth(), today.getDate())
+  const [y, m, d] = iso.split('-').map(Number)
+  return Math.max(0, Math.round((t0 - Date.UTC(y, (m ?? 1) - 1, d ?? 1)) / 86400000))
+}
+
+/** แผนทั้งหมดของบัญชีนี้: แผนตั้งต้น + แผนที่ครูสร้างเอง แล้วทับด้วยสถานะ
+ *  ขั้นที่ครูเปลี่ยน — นิยามเดียว หน้าเส้นทางโอกาส หน้าครู และหน้าแฟ้มเด็ก
+ *  จึงเห็นแผนตรงกันเสมอ */
+export function applyPlans(base: OpportunityPlan[], log: LogState): OpportunityPlan[] {
+  const own = Object.values(log.plans).filter((p) => !base.some((b) => b.childId === p.childId))
+  return [...base, ...own].map((p) => {
+    const marks = p.steps.map((s) => log.steps[s.id])
+    const touched = marks.some(Boolean)
+    let steps = p.steps.map((s, i) => (marks[i] ? { ...s, status: marks[i]!.status } : s))
+    // ทำขั้นปัจจุบันเสร็จแล้ว ขั้นถัดไปต้องเปิดเอง ไม่งั้นแผนจะค้างโดยไม่มีขั้นที่กำลังทำ
+    if (touched && !steps.some((s) => s.status === 'active' || s.status === 'blocked')) {
+      const next = steps.findIndex((s) => s.status === 'pending')
+      if (next >= 0) steps = steps.map((s, i) => (i === next ? { ...s, status: 'active' } : s))
+    }
+    const done = steps.filter((s) => s.status === 'done').length
+    const mine = log.entries.filter((e) => e.childId === p.childId)
+    const latest = [
+      ...marks.filter(Boolean).map((m) => m!.at),
+      ...mine.map((e) => e.date),
+    ].sort().at(-1)
+    return {
+      ...p,
+      steps,
+      progress: Math.round((done / Math.max(1, steps.length)) * 100),
+      reviewedDaysAgo: latest ? Math.min(p.reviewedDaysAgo, daysBetween(latest)) : p.reviewedDaysAgo,
+      agreedByFamily: p.agreedByFamily || mine.some((e) => e.familyAgreed),
+    }
+  })
 }

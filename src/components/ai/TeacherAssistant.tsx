@@ -33,6 +33,8 @@ export function TeacherAssistant({
   onClose,
   lastDone,
   onOpen,
+  hasPlan,
+  onPlan,
   onAsk,
   asked,
   asking,
@@ -48,6 +50,10 @@ export function TeacherAssistant({
   /** สิ่งที่ช่วยไปแล้วล่าสุด — ครูต้องเห็นก่อนลงมือ จะได้ไม่ทำซ้ำ */
   lastDone: (studentId: string) => { text: string; daysAgo: number; by: string } | undefined
   onOpen: (studentId: string) => void
+  /** เด็กคนนี้มีแผนช่วยเหลือแล้วหรือยัง */
+  hasPlan: (studentId: string) => boolean
+  /** ไปที่แผนของเด็ก — เปิดเคสถ้ามีแผน หรือเปิดหน้าสร้างแผนถ้ายังไม่มี */
+  onPlan: (studentId: string) => void
   onAsk: (q: string) => void
   asked: { text: string; to?: string; label?: string } | null
   asking: boolean
@@ -335,6 +341,15 @@ export function TeacherAssistant({
                 className="rounded-xl border border-surface-border bg-white px-4 py-3 text-[14px] font-medium text-ink transition-colors hover:border-brand-400"
               >
                 {th ? 'เปิดแฟ้มเด็ก' : 'Open the file'}
+              </button>
+              {/* เชื่อมกับหน้าเส้นทางโอกาส — เข้าเคสของเด็กคนนี้ได้ทันที ไม่ต้อง
+                  ไปหาชื่อในรายการเอง ถ้ายังไม่มีแผนจะพาไปหน้าสร้างแผน */}
+              <button
+                type="button"
+                onClick={() => onPlan(s.id)}
+                className="rounded-xl border border-surface-border bg-white px-4 py-3 text-[14px] font-medium text-ink transition-colors hover:border-brand-400"
+              >
+                {hasPlan(s.id) ? (th ? 'เปิดแผน' : 'Open the plan') : th ? 'สร้างแผน' : 'Make a plan'}
               </button>
               {pending.length > 1 && (
                 <button

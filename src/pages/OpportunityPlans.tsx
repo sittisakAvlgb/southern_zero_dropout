@@ -5,6 +5,8 @@ import type { OpportunityPlan, Pathway, PlanStepStatus } from '@/types'
 import { useI18n } from '@/i18n/LanguageContext'
 import { useScopedData } from '@/auth/scope'
 import { canWorkCases } from '@/auth/roles'
+import { applyPlans, useCaseLog } from '@/lib/caseLog'
+import { TeacherPlanWorkspace } from '@/components/plans/TeacherPlanWorkspace'
 import { DirectOnlyNotice } from '@/components/auth/DirectOnlyNotice'
 import { PageHeader, Breadcrumb } from '@/components/ui/PageHeader'
 import { Card, CardHeader } from '@/components/ui/Card'
@@ -52,7 +54,15 @@ function healthOf(p: OpportunityPlan): Health {
 
 type FocusKey = 'none' | 'blocked' | 'stale' | 'notAgreed'
 
+/** ครูได้ที่ทำงานของตัวเอง (TeacherPlanWorkspace) — เรียงตามความเร่งด่วน
+ *  มีขั้นตอนถัดไป AI แนะนำ และทำทุกอย่างจบในเคส บทบาทที่กำกับดูแลหลายแผน
+ *  (ผอ. · เขต · สพฐ.) ยังใช้หน้าภาพรวมเดิมซึ่งเหมาะกับการดูทีละมาก ๆ */
 export default function OpportunityPlans() {
+  const { user } = useScopedData()
+  return user?.role === 'teacher' ? <TeacherPlanWorkspace /> : <OversightPlans />
+}
+
+function OversightPlans() {
   const { t, lang } = useI18n()
   const th = lang === 'th'
   const { plans, user } = useScopedData()
@@ -66,9 +76,9 @@ export default function OpportunityPlans() {
   const [focus, setFocus] = useState<FocusKey>('none')
   const [page, setPage] = useState(1)
 
-  // Steps ticked off during this session, layered over the read-only mock so
-  // finishing a step visibly moves the plan instead of only firing a toast.
-  const [extraDone, setExtraDone] = useState<Record<string, string[]>>({})
+  // ขั้นที่ติ๊กเสร็จบันทึกถาวรใน caseLog — เดิมเก็บใน React state ของหน้า
+  // (extraDone) รีโหลดแล้วหายหมด และหน้าอื่นไม่เคยเห็น
+  const log = useCaseLog(user?.id)
 
   const [openId, setOpenId] = useState<string | null>(null)
   const [closing, setClosing] = useState(false)
@@ -80,21 +90,7 @@ export default function OpportunityPlans() {
     }, 240)
   }
 
-  const records = useMemo(
-    () =>
-      plans.map((p) => {
-        const extra = extraDone[p.id]
-        if (!extra?.length) return p
-        const steps = p.steps.map((s) =>
-          extra.includes(s.id) ? { ...s, status: 'done' as PlanStepStatus } : s,
-        )
-        const progress = Math.round(
-          (steps.filter((s) => s.status === 'done').length / Math.max(1, steps.length)) * 100,
-        )
-        return { ...p, steps, progress, reviewedDaysAgo: 0 }
-      }),
-    [plans, extraDone],
-  )
+  const records = useMemo(() => applyPlans(plans, log), [plans, log])
 
   const stats = useMemo(() => {
     const count = (p: (x: OpportunityPlan) => boolean) => records.filter(p).length
@@ -209,7 +205,11 @@ export default function OpportunityPlans() {
 
   const completeStep = (p: OpportunityPlan, stepId: string) => {
     if (!mayAct) return refuse()
-    setExtraDone((m) => ({ ...m, [p.id]: [...(m[p.id] ?? []), stepId] }))
+    log.markStep(stepId, {
+      status: 'done',
+      at: new Date().toISOString().slice(0, 10),
+      by: user?.ownerName ?? user?.name ?? '',
+    })
     push(th ? `บันทึกขั้นตอนของ ${p.childName} แล้ว` : `Step completed for ${p.childName}`)
   }
 
