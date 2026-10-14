@@ -31,6 +31,7 @@ import { StudentTimeline } from '@/components/followup/StudentFollow'
 import { Drawer, inputCls, isoIn, textareaCls } from '@/components/referrals/ui'
 import { byOf } from '@/components/referrals/useRefCases'
 import { LogForm, type LogResult } from '@/pages/Student360'
+import { Attendance, CaseSummary, FamilyFromVisit, Grades, MicButton } from './DeskExtras'
 
 const MASCOT = assetUrl('ChatBot.png')
 
@@ -68,6 +69,7 @@ export function TeacherStudentDesk() {
   const [picking, setPicking] = useState(false)
   const noteRef = useRef<HTMLInputElement>(null)
   const wide = useMedia('(min-width: 1536px)')
+  const [summaryOpen, setSummaryOpen] = useState(false)
 
   const pick = (sid: string) => {
     const next = new URLSearchParams(params)
@@ -134,7 +136,7 @@ export function TeacherStudentDesk() {
 
   // แต่ละส่วนนิยามครั้งเดียว — สองเลย์เอาต์ต่างกันแค่การจัดวาง
   const sec = {
-    summary: <Summary fc={fc} />,
+    summary: <Summary fc={fc} onSummary={() => setSummaryOpen(true)} />,
     close: <CloseBanner fc={fc} mayAct={mayAct} onAssess={() => setSheet({ sheet: 'close' })} onReopen={() => setSheet({ sheet: 'reopen' })} />,
     observations: (
       <Observations
@@ -200,6 +202,9 @@ export function TeacherStudentDesk() {
     team: <Team fc={fc} entries={entries} me={by} />,
     related: <Related fc={fc} entries={entries} mayAct={mayAct} onVisit={() => setLogMode('visit')} />,
     more: <MoreInfo fc={fc} th={th} t={t} />,
+    attendance: <Attendance s={fc.s} />,
+    grades: <Grades s={fc.s} />,
+    family: <FamilyFromVisit visit={entries.find((e) => e.mode === 'visit')} t={t} mayAct={mayAct} onVisit={() => setLogMode('visit')} />,
   }
 
   return (
@@ -250,8 +255,11 @@ export function TeacherStudentDesk() {
               <div className="space-y-4">
                 {sec.appointments}
                 {sec.outcome}
+                {sec.attendance}
                 {sec.goals}
                 {sec.trend}
+                {sec.grades}
+                {sec.family}
                 {sec.team}
                 {sec.related}
                 {sec.more}
@@ -266,10 +274,13 @@ export function TeacherStudentDesk() {
               {sec.ai}
               {sec.appointments}
               {sec.outcome}
+              {sec.attendance}
               {sec.goals}
               {sec.note}
               {sec.timeline}
               {sec.trend}
+              {sec.grades}
+              {sec.family}
               {sec.team}
               {sec.related}
               {sec.more}
@@ -298,6 +309,9 @@ export function TeacherStudentDesk() {
 
       {sheet && (
         <FollowCaseDetail key={JSON.stringify(sheet)} c={fc} entries={entries} log={log} user={user} mayAct={mayAct} initial={sheet} closeAfter onClose={() => setSheet(null)} />
+      )}
+      {summaryOpen && (
+        <CaseSummary fc={fc} entries={entries} obs={obs.filter((o) => !o.resolvedTs).map((o) => o.text)} by={by} t={t} onClose={() => setSummaryOpen(false)} />
       )}
       {logMode && <LogForm mode={logMode} student={fc.s} actor={by} onCancel={() => setLogMode(null)} onSave={saveLogForm} th={th} t={t} />}
       {picking && (
@@ -365,7 +379,7 @@ function StudentPickRow({ c, active, onPick }: { c: FollowCase; active: boolean;
 }
 
 /** 1. เด็กคนนี้เป็นใคร — คะแนนต้องมีคำอธิบายเสมอ */
-function Summary({ fc }: { fc: FollowCase }) {
+function Summary({ fc, onSummary }: { fc: FollowCase; onSummary: () => void }) {
   const s = fc.s
   const tr = riskTrend(s)
   const st = caseStatus(fc)
@@ -381,9 +395,14 @@ function Summary({ fc }: { fc: FollowCase }) {
           <p className="mt-0.5 text-[14px] text-ink-muted">
             ครูเจ้าของเคส: <span className="font-semibold text-ink">{s.caseOwner || 'ยังไม่มี'}</span>
           </p>
-          <span className="mt-2 inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[13px] font-bold" style={{ background: `${st.color}14`, color: st.color }}>
-            สถานะ: {st.th}
-          </span>
+          <div className="mt-2 flex flex-wrap items-center gap-2">
+            <span className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[13px] font-bold" style={{ background: `${st.color}14`, color: st.color }}>
+              สถานะ: {st.th}
+            </span>
+            <button type="button" onClick={onSummary} className="rounded-full border border-surface-border px-3 py-1 text-[13px] font-semibold text-brand-700">
+              สรุปเคส / ส่งออก
+            </button>
+          </div>
         </div>
         {/* มือถือ: แถวเดียวเต็มความกว้าง คะแนนซ้าย คำอธิบายขวา · จอใหญ่: กล่องชิดขวา */}
         <div className="flex items-center justify-between gap-3 rounded-2xl px-4 py-3 sm:block sm:text-right" style={{ background: `${RISK_COLOR[s.riskLevel]}12` }}>
@@ -543,6 +562,7 @@ function Observations({
               }
             }}
           />
+          <MicButton onText={(v) => setText((x) => (x ? `${x} ${v}` : v))} />
           <button
             type="button"
             disabled={text.trim().length < 3}
@@ -988,6 +1008,7 @@ function QuickNote({ onSave, inputRef }: { onSave: (t: string) => void; inputRef
         className={inputCls}
         aria-label="บันทึกสั้น"
       />
+      <MicButton onText={(x) => setV((p) => (p ? `${p} ${x}` : x))} />
       <button type="button" disabled={v.trim().length < 3} onClick={save} className="shrink-0 rounded-xl bg-brand-500 px-4 text-[14.5px] font-semibold text-white disabled:opacity-40">
         บันทึก
       </button>
