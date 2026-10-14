@@ -2,7 +2,10 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { useScopedData } from '@/auth/scope'
-import { canAccess } from '@/auth/roles'
+import { canAccess, canWorkCases } from '@/auth/roles'
+import { recommendSteps, type StepAction } from '@/lib/recommend'
+import { Sparkline } from '@/components/ui/Sparkline'
+import { useToast } from '@/components/ui/Toast'
 import { useI18n } from '@/i18n/LanguageContext'
 import { formatNumber } from '@/lib/format'
 import { RISK_COLOR } from '@/lib/risk'
@@ -38,9 +41,13 @@ export function TeacherWorkspace() {
   const { lang, t } = useI18n()
   const th = lang === 'th'
   const nav = useNavigate()
+  const toast = useToast()
   const { user, schools, students, cases, referrals, plans } = useScopedData()
 
   const log = useCaseLog(user?.id)
+  /** บัญชีระดับกำกับดูแล (สพฐ. ส่วนกลาง / ศอ.บต.) อ่านคำแนะนำได้ แต่ไม่ลงมือ
+   *  แทนเจ้าของเคส — AI ต้องไม่กลายเป็นทางลัดข้ามด่านสิทธิ์ */
+  const mayAct = canWorkCases(user)
 
   /** The caseload as this account has left it. Reading the raw seeded rows here
    *  meant a parent reached on the child's page was still counted under "ต้อง
@@ -117,6 +124,18 @@ export function TeacherWorkspace() {
           reveal(listRef.current)
         },
       })
+    if (ops.rising)
+      out.push({
+        key: 'rising',
+        text: th
+          ? `นักเรียน ${ops.rising} คนมีความเสี่ยงเพิ่มขึ้นใน 8 สัปดาห์`
+          : `${ops.rising} students' risk has climbed over 8 weeks`,
+        tone: RISK_COLOR.high,
+        onClick: () => {
+          setFocus('rising')
+          reveal(listRef.current)
+        },
+      })
     if (falling)
       out.push({
         key: 'falling',
@@ -138,8 +157,83 @@ export function TeacherWorkspace() {
           reveal(listRef.current)
         },
       })
+    // บรรทัดเดียวในชุดนี้ที่เป็นข่าวดี วางท้ายสุดโดยตั้งใจ — งานที่ค้างต้อง
+    // มาก่อน แต่ครูก็ควรได้เห็นว่ามีเคสที่สำเร็จแล้วเหมือนกัน
+    if (ops.closable)
+      out.push({
+        key: 'closable',
+        text: th
+          ? `${ops.closable} เคสเข้าเกณฑ์ปิดได้แล้ว`
+          : `${ops.closable} cases now meet the bar to close`,
+        tone: RISK_COLOR.normal,
+        onClick: () => {
+          setFocus('closable')
+          reveal(listRef.current)
+        },
+      })
     return out
-  }, [dueNow.length, ops.overdue, ops.needParent, falling, th])
+  }, [dueNow.length, ops.overdue, ops.needParent, ops.rising, ops.closable, falling, th])
+
+  /** ลงมือตามคำแนะนำ — เขียนลง `useCaseLog` ซึ่งเป็นกลไกเดิมที่หน้าเด็กใช้
+   *  อยู่แล้ว ทั้งสองหน้าจึงเห็นตรงกันทันทีผ่าน `applyLog`
+   *
+   *  เจตนาคือ "AI ร่าง ครูยืนยัน" ไม่ใช่ "AI ลงมือเอง" — ทุกปุ่มคือการกระทำ
+   *  ที่ครูตั้งใจกด และบันทึกไว้ในชื่อครู ไม่ใช่ชื่อระบบ */
+  const applyStep = (studentId: string, name: string, act: StepAction) => {
+    if (!mayAct) {
+      toast.push(
+        th
+          ? 'บัญชีระดับกำกับดูแลดูข้อมูลได้ แต่ไม่ลงมือกับเคสรายบุคคล'
+          : 'A supervising account can read this, but not act on an individual case',
+        'info',
+      )
+      return
+    }
+    const today = new Date()
+    const iso = (d: Date) => d.toISOString().slice(0, 10)
+    const by = user?.ownerName ?? user?.name ?? (th ? 'ครูผู้รับผิดชอบ' : 'Case owner')
+
+    if (act === 'followUp') {
+      const when = new Date(today)
+      when.setDate(when.getDate() + 7)
+      log.add({
+        childId: studentId,
+        mode: 'contact',
+        date: iso(today),
+        note: th ? 'ตั้งนัดติดตามจากคำแนะนำในหน้าแรก' : 'Follow-up set from the home-page recommendation',
+        by,
+        followUpDate: iso(when),
+      })
+      toast.push(
+        th ? `นัดติดตาม ${name} วันที่ ${iso(when)} แล้ว` : `Follow-up for ${name} set for ${iso(when)}`,
+      )
+      return
+    }
+
+    if (act === 'visit') {
+      log.add({
+        childId: studentId,
+        mode: 'visit',
+        date: iso(today),
+        note: th ? 'บันทึกการลงเยี่ยมบ้านจากคำแนะนำในหน้าแรก' : 'Home visit logged from the home-page recommendation',
+        by,
+        homeVisited: true,
+      })
+      toast.push(th ? `บันทึกการเยี่ยมบ้าน ${name} แล้ว` : `Home visit logged for ${name}`)
+      return
+    }
+
+    log.add({
+      childId: studentId,
+      mode: 'contact',
+      date: iso(today),
+      outcome: 'reached',
+      note: th ? 'บันทึกการติดต่อผู้ปกครองจากคำแนะนำในหน้าแรก' : 'Guardian contact logged from the home-page recommendation',
+      by,
+      parentContact: 'ok',
+    })
+    toast.push(th ? `บันทึกการติดต่อผู้ปกครองของ ${name} แล้ว` : `Guardian contact logged for ${name}`)
+  }
 
   /** ACTION — งานเดียวที่ควรเริ่มก่อน เลือกตามสิ่งที่ผูกเวลามากที่สุด
    *  ครูที่มีเวลา 10 นาทีต่อวันไม่ควรต้องเลือกเองจากปุ่มที่หนักเท่ากันสี่ปุ่ม */
@@ -362,7 +456,9 @@ export function TeacherWorkspace() {
                   ? RISK_COLOR.critical
                   : task.tone === 'high'
                     ? RISK_COLOR.high
-                    : RISK_COLOR.watch
+                    : task.tone === 'good'
+                      ? RISK_COLOR.normal
+                      : RISK_COLOR.watch
               const on = focus === task.filter
               return (
                 <motion.button
@@ -506,13 +602,37 @@ export function TeacherWorkspace() {
                     {a.student.riskScore}
                   </span>
                   <span className="min-w-0 flex-1">
-                    <span className="block truncate text-[13px] font-semibold text-ink">
+                    <span className="block truncate text-[13.5px] font-semibold text-ink">
                       {a.student.name}
                     </span>
-                    <span className="block text-[11px] text-ink-faint">
+                    <span className="block text-[11.5px] text-ink-faint">
                       {GRADE_LABEL(a.student.gradeKey, th)} · {t(`risk.${a.student.riskLevel}`)}
                     </span>
                   </span>
+                  {/* รู้ก่อน — 85 เฉย ๆ บอกไม่ได้ว่าเด็กกำลังแย่ลงหรือกำลังดีขึ้น
+                      เส้นนี้คือ riskHistory 8 สัปดาห์ จุดท้ายคือคะแนนที่แสดงอยู่ */}
+                  {(() => {
+                    const hist = a.student.riskHistory
+                    if (hist.length < 2) return null
+                    const d = a.student.riskScore - hist[0].score
+                    const worse = d > 0
+                    return (
+                      <span className="shrink-0 text-right">
+                        <Sparkline
+                          data={hist.map((p) => p.score)}
+                          color={worse ? RISK_COLOR.critical : RISK_COLOR.normal}
+                          width={56}
+                          height={20}
+                        />
+                        <span
+                          className="block text-[11px] font-bold tabular"
+                          style={{ color: worse ? RISK_COLOR.critical : RISK_COLOR.normal }}
+                        >
+                          {worse ? '▲' : '▼'} {Math.abs(d)}
+                        </span>
+                      </span>
+                    )
+                  })()}
                 </div>
 
                 {/* the reasons are fields off this child's record, each with the
@@ -532,22 +652,67 @@ export function TeacherWorkspace() {
                   ))}
                 </ul>
 
-                {/* `nextAction` is templated off the risk level, so printing it
-                    here put the same sentence on two cards and in the brief
-                    above. What is specific to this child — and computed — is on
-                    their own page under "สิ่งที่ยังค้างอยู่กับเด็กคนนี้". */}
+                {/* AI ช่วยแนะนำ → ลงมือช่วย
+                    `student.nextAction` เป็นเทมเพลตสามแบบตามระดับความเสี่ยง
+                    เด็กที่ยากจนกับเด็กที่ถูกให้แต่งงานเร็วจึงเคยได้ประโยค
+                    เดียวกัน ที่นี่อ่าน causeKeys ของเด็กคนนี้จริง และทุกข้อ
+                    มี "เพราะอะไร" ที่ครูย้อนตรวจได้ */}
+                {(() => {
+                  const steps = recommendSteps(a.student, th).slice(0, 2)
+                  return (
+                    <div className="mt-3 rounded-lg bg-surface-muted/70 p-2.5">
+                      <p className="mb-1.5 text-[11.5px] font-semibold text-ink-muted">
+                        {th ? 'ควรเริ่มช่วยอย่างไร' : 'Where to start'}
+                      </p>
+                      <ul className="space-y-2">
+                        {steps.map((step) => (
+                          <li key={step.key}>
+                            <p className="text-[12.5px] font-medium leading-snug text-ink">
+                              {th ? step.th : step.en}
+                            </p>
+                            <p className="mt-0.5 text-[11px] leading-snug text-ink-faint">
+                              {th ? step.whyTh : step.whyEn}
+                            </p>
+                            {step.action && mayAct && (
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  applyStep(a.student.id, a.student.name, step.action!)
+                                }
+                                className="mt-1.5 rounded-lg border border-brand-300 bg-white px-2.5 py-1.5 text-[11.5px] font-semibold text-brand-700 transition-colors hover:border-brand-500 hover:bg-brand-50"
+                              >
+                                {step.action === 'followUp'
+                                  ? th
+                                    ? 'ตั้งนัดติดตาม'
+                                    : 'Set the follow-up'
+                                  : step.action === 'visit'
+                                    ? th
+                                      ? 'บันทึกว่าเยี่ยมบ้านแล้ว'
+                                      : 'Log the home visit'
+                                    : th
+                                      ? 'บันทึกว่าติดต่อแล้ว'
+                                      : 'Log the contact'}
+                              </button>
+                            )}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )
+                })()}
+
                 <div className="mt-3 flex gap-1.5">
                   <button
                     type="button"
                     onClick={() => go(`/student?id=${a.student.id}`)}
-                    className="flex-1 rounded-lg bg-brand-500 px-2.5 py-1.5 text-[12px] font-medium text-white transition-colors hover:bg-brand-600"
+                    className="flex-1 rounded-lg bg-brand-500 px-2.5 py-2 text-[12.5px] font-medium text-white transition-colors hover:bg-brand-600"
                   >
                     {th ? 'เปิดแฟ้มเด็ก' : 'Open the file'}
                   </button>
                   <button
                     type="button"
                     onClick={() => go('/referral')}
-                    className="rounded-lg border border-surface-border px-2.5 py-1.5 text-[12px] font-medium text-ink-muted transition-colors hover:border-brand-400 hover:text-brand-600"
+                    className="rounded-lg border border-surface-border px-2.5 py-2 text-[12.5px] font-medium text-ink-muted transition-colors hover:border-brand-400 hover:text-brand-600"
                   >
                     {th ? 'ขอความช่วยเหลือ' : 'Ask for support'}
                   </button>

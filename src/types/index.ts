@@ -345,6 +345,16 @@ export interface AttendancePoint {
   rate: number // 0–100
 }
 
+/** คะแนนเสี่ยงของเด็กคนหนึ่ง ณ สัปดาห์หนึ่ง
+ *
+ *  เดิมระบบเก็บคะแนนเสี่ยงเป็นค่าล่าสุดค่าเดียว จึงตอบไม่ได้ว่า "เด็กคนไหน
+ *  เสี่ยงเพิ่มขึ้น" และ "ที่ช่วยไปแล้วดีขึ้นหรือยัง" ซึ่งเป็น 2 ใน 8 คำถาม
+ *  ที่ระบบต้องตอบให้ครู จุดสุดท้ายของ series เท่ากับ `riskScore` เสมอ */
+export interface RiskPoint {
+  week: string
+  score: number // 0–100
+}
+
 export interface GradePoint {
   term: string
   gpa: number // 0–4
@@ -389,6 +399,8 @@ export interface Student {
   wellbeingRisk: number
   parentRisk: number
   attendance: AttendancePoint[]
+  /** 8 สัปดาห์ย้อนหลัง จุดสุดท้ายคือ `riskScore` */
+  riskHistory: RiskPoint[]
   grades: GradePoint[]
   parentContact: 'ok' | 'delayed' | 'unreachable'
   homeVisited: boolean

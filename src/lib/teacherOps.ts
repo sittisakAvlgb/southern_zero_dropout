@@ -9,11 +9,17 @@
 // stage and the dated intervention timeline.
 //
 // What is deliberately absent, because the data does not hold it: a diary of
-// scheduled visits, uploaded evidence, a home GPS pin (the platform's own rule
-// is never to place a child's home on a map) and a before/after risk score —
-// the record carries one risk value, not a history of them.
+// scheduled visits, uploaded evidence, and a home GPS pin (the platform's own
+// rule is never to place a child's home on a map).
+//
+// A before/after risk score used to be on that list too. `riskHistory` now
+// carries eight weekly points per child, so "ใครเสี่ยงเพิ่มขึ้น" and "ที่ช่วย
+// ไปแล้วดีขึ้นหรือยัง" are answerable — and the suggestion that a case is
+// ready to close rests on that movement rather than on a case simply going
+// quiet. The teacher still closes it; the system only proposes.
 // ─────────────────────────────────────────────────────────────
 import type { CaseRecord, CaseStage, InterventionEvent, RiskLevel, Student } from '@/types'
+import { closability } from './recommend'
 
 /** One job on the teacher's desk, with somewhere to go and do it. */
 export interface TeacherTask {
@@ -21,12 +27,12 @@ export interface TeacherTask {
   th: string
   en: string
   count: number
-  tone: 'critical' | 'high' | 'watch'
+  tone: 'critical' | 'high' | 'watch' | 'good'
   /** the filter this card stands for, applied to the case list below */
   filter: TaskFilter
 }
 
-export type TaskFilter = 'critical' | 'parents' | 'visit' | 'overdue'
+export type TaskFilter = 'critical' | 'parents' | 'visit' | 'overdue' | 'rising' | 'closable'
 
 /** A reason, drawn from a field rather than written by a model. */
 export interface RiskSignal {
@@ -48,6 +54,10 @@ export interface StudentAlert {
 
 export interface CaseRow {
   student: Student
+  /** คะแนนเสี่ยงเปลี่ยนไปเท่าไรใน 8 สัปดาห์ — บวกคือแย่ลง */
+  riskDelta: number
+  /** เข้าเกณฑ์เสนอปิดเคสแล้วหรือยัง */
+  closable: boolean
   stage: CaseStage
   /** the matching case record, when the two datasets agree on a name */
   record: CaseRecord | undefined
@@ -67,6 +77,10 @@ export interface TeacherOps {
   needParent: number
   needVisit: number
   overdue: number
+  /** เด็กที่คะแนนเสี่ยงไต่ขึ้นในรอบ 8 สัปดาห์ */
+  rising: number
+  /** เคสที่เข้าเกณฑ์ปิดแล้ว รอครูตรวจและกดปิด */
+  closable: number
   resolved: number
   /** share of the caseload closed — the only outcome figure the data supports */
   resolvedPct: number
@@ -94,6 +108,11 @@ export function matchesTask(row: CaseRow, filter: TaskFilter): boolean {
       return HIGH.has(row.student.riskLevel) && !row.student.homeVisited
     case 'overdue':
       return row.overdue
+    case 'rising':
+      // ขยับ 5 คะแนนขึ้นไปจึงนับ — ต่ำกว่านั้นคือความแกว่งปกติของ series
+      return row.riskDelta >= 5
+    case 'closable':
+      return row.closable
   }
 }
 
@@ -110,8 +129,11 @@ export function buildTeacherOps(input: {
   const rows: CaseRow[] = students
     .map((s) => {
       const record = byName.get(s.name)
+      const firstScore = s.riskHistory[0]?.score ?? s.riskScore
       return {
         student: s,
+        riskDelta: s.riskScore - firstScore,
+        closable: closability(s).ready,
         stage: s.caseStage,
         record,
         overdue: Boolean(record?.slaBreached),
@@ -132,6 +154,8 @@ export function buildTeacherOps(input: {
   const needParent = count('parents')
   const needVisit = count('visit')
   const overdue = count('overdue')
+  const rising = count('rising')
+  const closable = count('closable')
 
   const tasks: TeacherTask[] = (
     [
@@ -160,12 +184,30 @@ export function buildTeacherOps(input: {
         tone: 'high',
       },
       {
+        key: 'rising',
+        filter: 'rising',
+        th: 'ความเสี่ยงเพิ่มขึ้น',
+        en: 'Risk rising',
+        count: rising,
+        tone: 'high',
+      },
+      {
         key: 'visit',
         filter: 'visit',
         th: 'เสี่ยงสูงและยังไม่ได้เยี่ยมบ้าน',
         en: 'At risk, not yet visited',
         count: needVisit,
         tone: 'watch',
+      },
+      // ใบเดียวในแถวนี้ที่เป็นข่าวดี — ถ้าไม่มีใครบอกว่าเคสไหนปิดได้
+      // เคสจะค้างสะสมจนตัวเลข "เลยกำหนด" หมดความหมาย
+      {
+        key: 'closable',
+        filter: 'closable',
+        th: 'เข้าเกณฑ์ปิดเคสได้',
+        en: 'Ready to close',
+        count: closable,
+        tone: 'good',
       },
     ] as TeacherTask[]
   ).filter((t) => t.count > 0)
@@ -233,6 +275,8 @@ export function buildTeacherOps(input: {
     needParent,
     needVisit,
     overdue,
+    rising,
+    closable,
     resolved,
     resolvedPct: students.length ? (resolved / students.length) * 100 : 0,
     attendanceRate: rates.length ? rates.reduce((a, b) => a + b, 0) / rates.length : 0,

@@ -7,6 +7,7 @@ import type {
   GradeLevel,
   GradePoint,
   InterventionEvent,
+  RiskPoint,
   Student,
 } from '@/types'
 import { computeRiskScore, riskLevel } from '@/lib/risk'
@@ -64,12 +65,32 @@ const DISTRICT_KIND = Object.fromEntries(
   DISTRICTS_GEO.map((d) => [d.key, d.kind]),
 ) as Record<string, string>
 
-function attendance(rng: () => number, base: number): AttendancePoint[] {
+/** `trend` คือทิศทางเฉลี่ยต่อสัปดาห์ ค่าลบ = การมาเรียนถดถอย ซึ่งเป็นค่า
+ *  ตั้งต้นของเด็กที่ยังไม่ได้รับการช่วยเหลือ ส่วนเด็กที่มีแผนช่วยเหลือแล้ว
+ *  ส่งค่าบวกเข้ามา เพื่อให้ข้อมูลมีเด็กที่ "กำลังกลับมา" อยู่จริง */
+function attendance(rng: () => number, base: number, trend = -1): AttendancePoint[] {
   const out: AttendancePoint[] = []
   let v = base
   for (let i = 1; i <= 8; i++) {
-    v = Math.max(30, Math.min(100, v + (rng() * 14 - 8)))
+    v = Math.max(30, Math.min(100, v + (rng() * 14 - 7 + trend)))
     out.push({ week: `W${i}`, rate: Math.round(v) })
+  }
+  return out
+}
+
+/** คะแนนเสี่ยง 8 สัปดาห์ที่ "ลงเอย" ที่ค่าปัจจุบันพอดี
+ *
+ *  เดินถอยหลังจาก `now` แล้วกลับลำดับ เพื่อให้จุดสุดท้ายเท่ากับ `riskScore`
+ *  เสมอ ถ้าเดินไปข้างหน้าแล้วปล่อยให้สุ่ม จุดสุดท้ายจะไม่ตรงกับเลขที่แสดง
+ *  อยู่บนเกจ ซึ่งครูจะจับได้ทันทีว่ากราฟกับตัวเลขไม่ตรงกัน
+ *
+ *  `drift` เป็นบวก = ช่วงที่ผ่านมาความเสี่ยงไต่ขึ้น (เด็กแย่ลง) */
+function riskSeries(rng: () => number, now: number, drift: number): RiskPoint[] {
+  const out: RiskPoint[] = [{ week: 'W8', score: now }]
+  let v = now
+  for (let i = 7; i >= 1; i--) {
+    v = Math.max(5, Math.min(100, v - drift + (rng() * 6 - 3)))
+    out.unshift({ week: `W${i}`, score: Math.round(v) })
   }
   return out
 }
@@ -138,7 +159,15 @@ function buildStudent(idx: number): Student {
     level === 'high' || level === 'critical'
       ? GUIDANCE_OWNER
       : OWNERS[hashSeed(school.id + '|' + randInt(rng, 0, 2)) % OWNERS.length]
-  const absenceStreak = Math.round((attendanceRisk / 100) * 16)
+  /** เด็กที่มีแผนช่วยเหลือแล้วหรือกลับเข้าเรียนแล้ว คือกลุ่มที่สถานการณ์
+   *  กำลังดีขึ้น เดิมชุดข้อมูลไม่มีเด็กกลุ่มนี้เลย — `absenceStreak` คำนวณ
+   *  จาก attendanceRisk ซึ่งต่ำสุดคือ 22 จึงไม่มีเด็กคนไหนเลิกขาดเรียนได้
+   *  และคะแนนเสี่ยงก็มีแต่ขาขึ้น ผลคือปลายทางของระบบ ("ช่วยแล้วดีขึ้นจน
+   *  ปิดเคสได้") พิสูจน์ไม่ได้เลยทั้งที่เป็นเป้าหมายของทั้งแพลตฟอร์ม */
+  const recovering = ['planned', 'returned', 'resolved'].includes(stage)
+  const absenceStreak = recovering
+    ? randInt(rng, 0, 2)
+    : Math.round((attendanceRisk / 100) * 16)
 
   const status: ChildStatus =
     stage === 'returned' || stage === 'resolved'
@@ -207,7 +236,14 @@ function buildStudent(idx: number): Student {
     vulnerableGroup: familyRisk > 58 || rng() > 0.66,
     causeKeys,
     attendanceRisk, academicRisk, behaviorRisk, familyRisk, wellbeingRisk, parentRisk,
-    attendance: attendance(rng, 100 - attendanceRisk * 0.5),
+    attendance: attendance(
+      rng,
+      recovering ? Math.max(78, 100 - attendanceRisk * 0.5) : 100 - attendanceRisk * 0.5,
+      recovering ? 3 : -1,
+    ),
+    // ขาขึ้น = แย่ลง เด็กที่ยังไม่ได้รับการช่วยเหลือจึงไต่ขึ้น ส่วนเด็กที่
+    // มีแผนแล้วเดินลง ซึ่งเป็นภาพของ "ช่วยแล้วได้ผล"
+    riskHistory: riskSeries(rng, riskScore, recovering ? -randInt(rng, 3, 7) : randInt(rng, 0, 4)),
     grades: grades(rng, 3.6 - academicRisk / 45),
     parentContact,
     homeVisited: ['homeVisit', 'referred', 'planned', 'returned', 'resolved'].includes(stage),
