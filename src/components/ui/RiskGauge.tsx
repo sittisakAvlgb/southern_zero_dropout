@@ -125,15 +125,17 @@ export function RiskGauge({
           <span className="text-[30px] font-bold leading-none" style={{ color }}>
             <AnimatedCounter value={score} />
           </span>
-          <span className="mt-0.5 text-[10px] font-medium text-ink-faint">
-            / 100 · {t('risk.score')}
+          {/* two lines at 12px: one line at this size is wider than the ring */}
+          <span className="mt-1 text-center text-[12px] font-medium leading-tight text-ink-muted">
+            <span className="block">/ 100</span>
+            <span className="block">{t('risk.score')}</span>
           </span>
         </div>
       </div>
 
       {showLevel && (
         <span
-          className="-mt-1 rounded-full px-2.5 py-0.5 text-[11px] font-bold"
+          className="-mt-1 rounded-full px-2.5 py-0.5 text-[12px] font-bold"
           style={{ backgroundColor: RISK_BG[level], color }}
         >
           {t(`risk.${level}`)}

@@ -469,7 +469,7 @@ export default function Student360() {
                   type="button"
                   onClick={() => setRiskFilter(k)}
                   aria-pressed={riskFilter === k}
-                  className={`rounded-full px-2 py-0.5 text-[11px] font-medium transition-colors ${
+                  className={`rounded-full px-2 py-0.5 text-[12px] font-medium transition-colors ${
                     riskFilter === k
                       ? 'bg-brand-500 text-white'
                       : 'bg-surface-muted text-ink-muted hover:text-ink'
@@ -503,7 +503,7 @@ export default function Student360() {
                     }`}
                   >
                     <span
-                      className="tabular grid h-8 w-8 shrink-0 place-items-center rounded-lg text-[11px] font-bold"
+                      className="tabular grid h-8 w-8 shrink-0 place-items-center rounded-lg text-[12px] font-bold"
                       style={{ backgroundColor: RISK_BG[s.riskLevel], color: RISK_COLOR[s.riskLevel] }}
                     >
                       {s.riskScore}
@@ -512,7 +512,7 @@ export default function Student360() {
                       <span className="block truncate text-[13px] font-semibold text-ink">
                         {s.name}
                       </span>
-                      <span className="block truncate text-[10px] text-ink-muted">
+                      <span className="block truncate text-[12px] text-ink-muted">
                         {s.id} · {t(`grade.${s.gradeKey}`)}
                       </span>
                     </span>
@@ -600,7 +600,7 @@ export default function Student360() {
                 <div className="flex flex-wrap items-center gap-2">
                   {/* when the parent was last reached, from this account's own
                       log — a caseload without it re-dials the same family twice */}
-                  <span className="text-[11px] text-ink-faint">
+                  <span className="text-[13px] text-ink-muted">
                     {t('st.lastContact')}:{' '}
                     <span className="font-semibold text-ink-muted">
                       {latestContact ? latestContact.date : t('st.neverContacted')}
@@ -661,7 +661,7 @@ export default function Student360() {
                           <button
                             type="button"
                             onClick={a.run}
-                            className="shrink-0 rounded-lg bg-white px-2.5 py-1 text-[11px] font-semibold text-brand-600 ring-1 ring-surface-border transition-colors hover:ring-brand-400"
+                            className="shrink-0 rounded-lg bg-white px-2.5 py-1 text-[13px] font-semibold text-brand-600 ring-1 ring-surface-border transition-colors hover:ring-brand-400"
                           >
                             {th ? a.doTh : a.doEn}
                           </button>
@@ -890,7 +890,7 @@ export default function Student360() {
                           grid: { borderColor: '#eef2f8', strokeDashArray: 4 },
                           xaxis: {
                             categories: selected.attendance.map((a) => a.week),
-                            labels: { style: { fontSize: '10px', colors: '#94a3b8' } },
+                            labels: { style: { fontSize: '12px', colors: '#5b6b82' } },
                             axisBorder: { show: false },
                             axisTicks: { show: false },
                           },
@@ -900,7 +900,7 @@ export default function Student360() {
                             tickAmount: 4,
                             labels: {
                               formatter: (v: number) => `${v.toFixed(0)}%`,
-                              style: { fontSize: '10px', colors: '#94a3b8' },
+                              style: { fontSize: '12px', colors: '#5b6b82' },
                             },
                           },
                           tooltip: { y: { formatter: (v: number) => `${v}%` } },
@@ -933,7 +933,7 @@ export default function Student360() {
                           grid: { borderColor: '#eef2f8', strokeDashArray: 4 },
                           xaxis: {
                             categories: selected.grades.map((g) => g.term),
-                            labels: { style: { fontSize: '10px', colors: '#94a3b8' } },
+                            labels: { style: { fontSize: '12px', colors: '#5b6b82' } },
                             axisBorder: { show: false },
                             axisTicks: { show: false },
                           },
@@ -943,7 +943,7 @@ export default function Student360() {
                             tickAmount: 4,
                             labels: {
                               formatter: (v: number) => v.toFixed(1),
-                              style: { fontSize: '10px', colors: '#94a3b8' },
+                              style: { fontSize: '12px', colors: '#5b6b82' },
                             },
                           },
                           tooltip: { y: { formatter: (v: number) => v.toFixed(2) } },
@@ -1027,7 +1027,7 @@ export default function Student360() {
                             .filter(([, v]) => v)
                             .map(([k, v]) => (
                               <div key={k}>
-                                <dt className="text-[11px] text-ink-faint">{k}</dt>
+                                <dt className="text-[12px] text-ink-muted">{k}</dt>
                                 <dd className="text-[13px] font-semibold text-ink">{v}</dd>
                               </div>
                             ))}
@@ -1035,7 +1035,7 @@ export default function Student360() {
 
                         {Boolean(latestVisit.family?.study.length) && (
                           <div>
-                            <p className="mb-1.5 text-[11px] text-ink-faint">{t('hv.study')}</p>
+                            <p className="mb-1.5 text-[12px] text-ink-muted">{t('hv.study')}</p>
                             <div className="flex flex-wrap gap-1.5">
                               {latestVisit.family!.study.map((c) => (
                                 <Chip key={c} tone="good">
@@ -1048,7 +1048,7 @@ export default function Student360() {
 
                         {Boolean(latestVisit.family?.findings.length) && (
                           <div>
-                            <p className="mb-1.5 text-[11px] text-ink-faint">{t('hv.findings')}</p>
+                            <p className="mb-1.5 text-[12px] text-ink-muted">{t('hv.findings')}</p>
                             <div className="flex flex-wrap gap-1.5">
                               {latestVisit.family!.findings.map((f) => (
                                 <Chip key={f} tone="warn">
@@ -1061,7 +1061,7 @@ export default function Student360() {
 
                         {latestVisit.signature && (
                           <div>
-                            <p className="mb-1.5 text-[11px] text-ink-faint">{t('hv.viewSig')}</p>
+                            <p className="mb-1.5 text-[12px] text-ink-muted">{t('hv.viewSig')}</p>
                             <div className="inline-flex flex-col items-start gap-1 rounded-xl border border-surface-border p-3">
                               {latestVisit.signature.image && (
                                 <img
@@ -1073,7 +1073,7 @@ export default function Student360() {
                               <p className="text-[12px] font-semibold text-ink">
                                 {latestVisit.signature.name}
                               </p>
-                              <p className="text-[11px] text-ink-faint">
+                              <p className="text-[12px] text-ink-muted">
                                 {new Date(latestVisit.signature.at).toLocaleString(
                                   th ? 'th-TH' : 'en-GB',
                                 )}
@@ -1082,7 +1082,7 @@ export default function Student360() {
                           </div>
                         )}
 
-                        <p className="text-[11px] leading-snug text-ink-faint">
+                        <p className="text-[12px] leading-snug text-ink-muted">
                           {t('hv.signStorage')}
                         </p>
                       </div>
@@ -1159,21 +1159,21 @@ export default function Student360() {
                               }`}
                             />
                             <div className="flex flex-wrap items-center gap-2">
-                              <span className="inline-flex items-center gap-1 text-[11px] font-medium text-ink-muted">
+                              <span className="inline-flex items-center gap-1 text-[12px] font-medium text-ink-muted">
                                 <IconClock width={12} height={12} />
                                 {row.date}
                               </span>
-                              <span className="rounded-full bg-brand-50 px-2 py-0.5 text-[11px] font-semibold text-brand-700">
+                              <span className="rounded-full bg-brand-50 px-2 py-0.5 text-[12px] font-semibold text-brand-700">
                                 {chip}
                               </span>
                               {row.kind === 'mine' && (
-                                <span className="rounded-full bg-risk-normal/10 px-2 py-0.5 text-[11px] font-semibold text-risk-normal">
+                                <span className="rounded-full bg-risk-normal/10 px-2 py-0.5 text-[12px] font-semibold text-risk-normal">
                                   {t('st.yours')}
                                 </span>
                               )}
                               {row.kind === 'mine' && row.entry.followUpDate && (
                                 <span
-                                  className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${
+                                  className={`rounded-full px-2 py-0.5 text-[12px] font-semibold ${
                                     row.entry.followUpDone
                                       ? 'bg-surface-muted text-ink-faint line-through'
                                       : 'bg-risk-watch/10 text-risk-watch'
@@ -1185,14 +1185,14 @@ export default function Student360() {
                             </div>
                             <p className="mt-1 text-sm text-ink">{note}</p>
                             <div className="mt-0.5 flex flex-wrap items-center gap-3">
-                              <span className="text-[11px] text-ink-faint">{by}</span>
+                              <span className="text-[12px] text-ink-muted">{by}</span>
                               {row.kind === 'mine' && row.entry.followUpDate && (
                                 <button
                                   type="button"
                                   onClick={() =>
                                     log.setFollowUpDone(row.entry.id, !row.entry.followUpDone)
                                   }
-                                  className="text-[11px] font-semibold text-brand-600 underline-offset-2 hover:underline"
+                                  className="text-[12px] font-semibold text-brand-600 underline-offset-2 hover:underline"
                                 >
                                   {row.entry.followUpDone ? t('st.followUpNone') : t('st.markDone')}
                                 </button>
@@ -1205,7 +1205,7 @@ export default function Student360() {
                                     log.remove(row.entry.id)
                                     toast.push(t('st.deleted'))
                                   }}
-                                  className="text-[11px] font-semibold text-ink-faint underline-offset-2 hover:text-risk-critical hover:underline"
+                                  className="text-[12px] font-semibold text-ink-muted underline-offset-2 hover:text-risk-critical hover:underline"
                                 >
                                   {t('st.deleteEntry')}
                                 </button>
@@ -1348,7 +1348,7 @@ function SignaturePad({
         <button
           type="button"
           onClick={clear}
-          className="mt-1.5 text-[11px] font-semibold text-ink-faint underline-offset-2 hover:text-risk-critical hover:underline"
+          className="mt-1.5 text-[12px] font-semibold text-ink-muted underline-offset-2 hover:text-risk-critical hover:underline"
         >
           {t('hv.signClear')}
         </button>
@@ -1527,7 +1527,7 @@ function LogForm({
             <p className="truncate text-[15px] font-bold text-ink">
               {mode === 'visit' ? t('st.visitTitle') : t('st.logTitle')}
             </p>
-            <p className="mt-0.5 truncate text-[11px] text-ink-muted">
+            <p className="mt-0.5 truncate text-[12px] text-ink-muted">
               {student.name} · {t(`grade.${student.gradeKey}`)} · {student.id}
             </p>
           </div>
@@ -1584,7 +1584,7 @@ function LogForm({
                 <input type="date" value={followUpDate} onChange={(e) => setFollowUpDate(e.target.value)} min={date} className={INPUT} />
               </Field>
             </div>
-            <p className="-mt-2 text-[10px] text-ink-faint">{t('st.followUpHint')}</p>
+            <p className="-mt-2 text-[12px] text-ink-muted">{t('st.followUpHint')}</p>
 
             <Field label={t('st.noteLabel')}>
               <textarea
@@ -1596,7 +1596,7 @@ function LogForm({
               />
             </Field>
 
-            <p className="flex items-center gap-1.5 text-[11px] text-ink-faint">
+            <p className="flex items-center gap-1.5 text-[12px] text-ink-muted">
               <IconUser width={12} height={12} />
               {t('st.by')}: {actor}
             </p>
@@ -1638,7 +1638,7 @@ function LogForm({
                     )}
                   </Field>
                 </div>
-                <p className="-mt-1 text-[10px] text-ink-faint">{t('hv.arriveHint')}</p>
+                <p className="-mt-1 text-[12px] text-ink-muted">{t('hv.arriveHint')}</p>
 
                 <Field label={t('hv.attendees')}>
                   <div className="flex flex-wrap gap-1.5">
@@ -1776,10 +1776,10 @@ function LogForm({
                   className={INPUT}
                 />
                 <SignaturePad value={signImage} onChange={setSignImage} t={t} />
-                <p className="text-[10px] leading-snug text-ink-faint">{t('hv.signStorage')}</p>
+                <p className="text-[12px] leading-snug text-ink-muted">{t('hv.signStorage')}</p>
               </Section>
 
-              <p className="flex items-center gap-1.5 text-[11px] text-ink-faint">
+              <p className="flex items-center gap-1.5 text-[12px] text-ink-muted">
                 <IconUser width={12} height={12} />
                 {t('st.by')}: {actor}
               </p>
@@ -1796,12 +1796,12 @@ function LogForm({
                   transition={{ duration: 0.35 }}
                 />
               </div>
-              <p className="hidden text-[11px] text-ink-faint sm:block">
+              <p className="hidden text-[12px] text-ink-muted sm:block">
                 {th ? `กรอกแล้ว ${filled} จาก 6 หัวข้อ` : `${filled} of 6 sections filled`}
               </p>
             </div>
           ) : (
-            <p className="text-[11px] text-ink-faint">{!ready && t('st.pickRequired')}</p>
+            <p className="text-[12px] text-ink-muted">{!ready && t('st.pickRequired')}</p>
           )}
           <div className="flex shrink-0 gap-2">
             <Button variant="ghost" onClick={close}>
@@ -1845,12 +1845,12 @@ function Section({
   return (
     <section className="rounded-2xl border border-surface-border p-3.5">
       <div className="mb-2.5 flex items-baseline gap-2">
-        <span className="grid h-5 w-5 shrink-0 place-items-center rounded-md bg-brand-50 text-[11px] font-bold text-brand-700">
+        <span className="grid h-5 w-5 shrink-0 place-items-center rounded-md bg-brand-50 text-[12px] font-bold text-brand-700">
           {n}
         </span>
         <h3 className="text-[13px] font-bold text-ink">{title}</h3>
       </div>
-      {hint && <p className="-mt-1.5 mb-2 text-[10px] text-ink-faint">{hint}</p>}
+      {hint && <p className="-mt-1.5 mb-2 text-[12px] text-ink-muted">{hint}</p>}
       <div className="flex flex-col gap-3">{children}</div>
     </section>
   )
@@ -1869,12 +1869,12 @@ function Field({
 }) {
   return (
     <div>
-      <p className="mb-1.5 text-[11px] font-semibold text-ink">
+      <p className="mb-1.5 text-[12px] font-semibold text-ink">
         {label}
         {required && <span className="ml-1 text-risk-critical">*</span>}
       </p>
       {children}
-      {hint && <p className="mt-1 text-[10px] text-ink-faint">{hint}</p>}
+      {hint && <p className="mt-1 text-[12px] text-ink-muted">{hint}</p>}
     </div>
   )
 }
@@ -1905,7 +1905,7 @@ function ChoiceChip({
       aria-pressed={active}
       whileHover={{ y: -1 }}
       whileTap={{ scale: 0.97 }}
-      className={`rounded-full border px-2.5 py-1 text-[11px] font-medium transition-colors ${
+      className={`rounded-full border px-2.5 py-1 text-[12px] font-medium transition-colors ${
         active ? on : 'border-surface-border text-ink-muted hover:bg-surface-muted'
       }`}
     >
@@ -1955,11 +1955,11 @@ function RiskTab({
                   <div className="mb-1 flex items-baseline justify-between gap-2 text-xs">
                     <span className="font-medium text-ink">
                       {th ? r.th : r.en}
-                      <span className="ml-1.5 text-[10px] text-ink-faint">
+                      <span className="ml-1.5 text-[12px] text-ink-muted">
                         {th ? r.en : r.th} · {th ? 'น้ำหนัก' : 'weight'} {Math.round(r.weight * 100)}%
                       </span>
                     </span>
-                    <span className="shrink-0 text-[11px] text-ink-muted">
+                    <span className="shrink-0 text-[12px] text-ink-muted">
                       <span className="tabular font-bold" style={{ color: RISK_COLOR[lvl] }}>
                         {r.value}
                       </span>
@@ -2044,10 +2044,10 @@ function ScoreBuildBar({
   return (
     <div>
       <div className="flex items-baseline justify-between gap-2">
-        <p className="text-[11px] font-medium text-ink-muted">
+        <p className="text-[12px] font-medium text-ink-muted">
           {th ? 'คะแนนนี้ประกอบขึ้นจาก 6 ด้าน' : 'How the six factors build this score'}
         </p>
-        <p className="text-[11px] text-ink-faint">
+        <p className="text-[12px] text-ink-muted">
           <span className="tabular text-lg font-bold" style={{ color: RISK_COLOR[level] }}>
             {total}
           </span>
@@ -2067,7 +2067,7 @@ function ScoreBuildBar({
             title={`${th ? r.th : r.en} ${r.points}`}
           >
             {r.points >= 9 && (
-              <span className="tabular absolute inset-0 grid place-items-center text-[10px] font-bold text-white/95">
+              <span className="tabular absolute inset-0 grid place-items-center text-[12px] font-bold text-white/95">
                 {r.points}
               </span>
             )}
@@ -2086,7 +2086,7 @@ function ScoreBuildBar({
 
       <div className="mt-1.5 flex flex-wrap gap-x-3 gap-y-1">
         {rows.map((r, i) => (
-          <span key={r.key} className="inline-flex items-center gap-1 text-[10px] text-ink-muted">
+          <span key={r.key} className="inline-flex items-center gap-1 text-[12px] text-ink-muted">
             <span
               className="h-2 w-2 rounded-full"
               style={{ backgroundColor: FACTOR_COLOR[i % FACTOR_COLOR.length] }}
@@ -2095,7 +2095,7 @@ function ScoreBuildBar({
             <span className="tabular font-semibold text-ink">{r.points}</span>
           </span>
         ))}
-        <span className="ml-auto text-[10px] text-ink-faint">
+        <span className="ml-auto text-[12px] text-ink-muted">
           {th ? 'เส้นแบ่งคือเกณฑ์ 40 / 70 / 85' : 'lines mark the 40 / 70 / 85 thresholds'}
         </span>
       </div>
@@ -2128,7 +2128,7 @@ function Chip({
           : 'bg-surface-muted text-ink-muted'
   return (
     <span
-      className={`inline-flex max-w-[220px] items-center gap-1 truncate rounded-full px-2 py-0.5 text-[11px] font-semibold ${cls}`}
+      className={`inline-flex max-w-[220px] items-center gap-1 truncate rounded-full px-2 py-0.5 text-[12px] font-semibold ${cls}`}
     >
       {icon}
       {children}
@@ -2324,11 +2324,11 @@ function LinkedRow({
       <div className="min-w-0 flex-1">
         <p className="flex items-center gap-1.5 text-[12px] font-semibold text-ink">
           {label}
-          <span className="tabular rounded-full bg-surface-muted px-1.5 text-[10px] text-ink-muted">
+          <span className="tabular rounded-full bg-surface-muted px-1.5 text-[12px] text-ink-muted">
             {count}
           </span>
         </p>
-        <p className="truncate text-[11px] text-ink-muted">{detail}</p>
+        <p className="truncate text-[12px] text-ink-muted">{detail}</p>
       </div>
       {cta && (
         <Button size="sm" variant="ghost" icon={<IconArrowRight width={13} height={13} />} onClick={cta.fn}>
