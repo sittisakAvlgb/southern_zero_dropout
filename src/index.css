@@ -26,6 +26,12 @@ body.lang-th button,
 body.lang-th textarea,
 body.lang-th select {
   font-family: 'Sarabun', 'Kanit', sans-serif;
+  /* Sarabun 400 เส้นบางเกินไปบน Windows/Android ที่ 13–15px — ใช้ 500 เป็นค่าตั้งต้น
+     ให้เส้นคมชัด ตัวหนา (600/700) ยังต่างจากเนื้อความชัดเจน */
+  font-weight: 500;
+  /* antialiased ทำให้เส้นบางลงอีกบน macOS — ปล่อยให้ระบบเลือกเอง */
+  -webkit-font-smoothing: auto;
+  text-rendering: optimizeLegibility;
   /* Thai text must not break words oddly */
   word-break: normal;
   line-break: normal;

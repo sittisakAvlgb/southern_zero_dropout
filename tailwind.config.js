@@ -32,10 +32,12 @@ export default {
           muted: '#f6f8fc',
           border: '#e6ebf3',
         },
+        // ตัวหนังสือรองเข้มขึ้นให้คมและอ่านง่ายสำหรับครูที่อายุมาก
+        // muted ~7:1 · faint ~4.8:1 บนพื้นขาว (เดิม faint 2.6:1 ต่ำกว่าเกณฑ์ WCAG AA)
         ink: {
           DEFAULT: '#0f1b2d',
-          muted: '#5b6b82',
-          faint: '#94a3b8',
+          muted: '#46566c',
+          faint: '#64748b',
         },
       },
       fontFamily: {
