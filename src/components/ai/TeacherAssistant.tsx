@@ -177,8 +177,8 @@ export function TeacherAssistant({
         {row && s && (
           <motion.div
             key={s.id}
-            initial={{ opacity: 0, x: 16 }}
-            animate={{ opacity: 1, x: 0 }}
+            initial={{ x: 16 }}
+            animate={{ x: 0 }}
             transition={{ duration: 0.22 }}
             className="mt-4 rounded-2xl border border-surface-border bg-white p-4 shadow-card"
           >
@@ -311,8 +311,8 @@ export function TeacherAssistant({
 
       {local && (
         <motion.div
-          initial={{ opacity: 0, y: 4 }}
-          animate={{ opacity: 1, y: 0 }}
+          initial={{ y: 4 }}
+          animate={{ y: 0 }}
           className="mt-3 flex gap-2.5 rounded-2xl border border-surface-border bg-white p-3.5"
         >
           <img src={MASCOT} alt="" className="h-8 w-8 shrink-0 object-contain" draggable={false} />
@@ -356,8 +356,8 @@ export function TeacherAssistant({
 
       {asked && !local && (
         <motion.div
-          initial={{ opacity: 0, y: 4 }}
-          animate={{ opacity: 1, y: 0 }}
+          initial={{ y: 4 }}
+          animate={{ y: 0 }}
           className="mt-3 flex gap-2.5 rounded-2xl border border-surface-border bg-white p-3.5"
         >
           <img src={MASCOT} alt="" className="h-8 w-8 shrink-0 object-contain" draggable={false} />

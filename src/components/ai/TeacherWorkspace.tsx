@@ -318,8 +318,10 @@ export function TeacherWorkspace() {
 
   return (
     <motion.section
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
+      // transform อย่างเดียว ตามกฎใน AppLayout — opacity ในขาเข้าเคยทำให้
+      // หน้าค้างจางจนต้องรีเฟรชเมื่อสลับเมนูเร็ว ๆ
+      initial={{ y: 10 }}
+      animate={{ y: 0 }}
       transition={{ duration: 0.4 }}
       className="mb-4 space-y-3"
     >
@@ -469,9 +471,7 @@ export function TeacherWorkspace() {
               {rows.map((r, i) => (
                 <motion.tr
                   key={r.student.id}
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  transition={{ delay: Math.min(i, 8) * 0.03, duration: 0.25 }}
+                  // ไม่มี animation ขาเข้า — แถวที่ค้างจางคือรายชื่อเด็กที่ครูมองไม่เห็น
                   onClick={() => go(`/student?id=${r.student.id}`)}
                   className="cursor-pointer border-b border-surface-border last:border-0 transition-colors hover:bg-brand-50/40"
                 >

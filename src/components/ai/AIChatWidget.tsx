@@ -6,6 +6,7 @@ import { useAuth } from '@/auth/AuthContext'
 import { ROLE_META, canAccess, canWorkCases } from '@/auth/roles'
 import { overviewStats, scopedCases, scopedStudents } from '@/auth/scope'
 import { oosSplit } from '@/lib/oos'
+import { applyLog, useCaseLog } from '@/lib/caseLog'
 import { formatNumber } from '@/lib/format'
 import { RISK_COLOR } from '@/lib/risk'
 import {
@@ -138,6 +139,7 @@ export function AIChatWidget() {
    *  จะได้ไม่ต้องตามแก้ทุกครั้งที่เพิ่มบทบาทใหม่ */
   const caseworker = canWorkCases(user) && user?.role !== 'exec'
   const chips = caseworker ? CASEWORK_CHIPS : OVERSIGHT_CHIPS
+  const caseLog = useCaseLog(user?.id)
 
   /** The opening message carries real numbers, so saying hello is also useful.
    *  Only built while the panel is open — it walks the scoped datasets. */
@@ -157,7 +159,10 @@ export function AIChatWidget() {
     // ครูยังไม่มี /oosc ในเมนูด้วย การสรุปตัวเลขนั้นให้ดูจึงเป็นการคืนสิ่งที่
     // เมนูตั้งใจปิดไว้
     if (caseworker) {
-      const mine = scopedStudents(user)
+      // ผ่าน applyLog เหมือนหน้าครู — อ่านข้อมูลดิบแล้วการติดต่อที่ครูเพิ่ง
+      // บันทึกจะไม่ถูกนับ ตัวลอยเคยบอก "ติดต่อผู้ปกครองไม่ได้ 8" ขณะที่หน้า
+      // เดียวกันบอก 7 — ข้อเท็จจริงเดียว สองคำตอบ บนจอเดียวกัน
+      const mine = scopedStudents(user).map((st) => applyLog(st, caseLog))
       const high = mine.filter((s) => s.riskLevel === 'high' || s.riskLevel === 'critical').length
       const noContact = mine.filter((s) => s.parentContact !== 'ok').length
       const notVisited = mine.filter(
@@ -232,7 +237,7 @@ export function AIChatWidget() {
         to: firstAllowed('/intervention', '/referral', '/'),
       },
     ]
-  }, [open, user, th, caseworker])
+  }, [open, user, th, caseworker, caseLog])
 
   const goTo = (to: string) => {
     nav(user && !canAccess(user, to) ? '/' : to)

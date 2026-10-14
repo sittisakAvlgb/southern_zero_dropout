@@ -5,10 +5,16 @@ import { TopBar } from './TopBar'
 import { BottomNav } from './BottomNav'
 import { ErrorBoundary } from '../ErrorBoundary'
 import { AIChatWidget } from '../ai/AIChatWidget'
+import { useAuth } from '@/auth/AuthContext'
 
 export function AppLayout() {
   const [collapsed, setCollapsed] = useState(false)
   const location = useLocation()
+  const { user } = useAuth()
+  /** หน้าแรกของครูมีเลขา AI ฝังอยู่ในหน้าแล้ว (TeacherAssistant) ตัวลอยมุมจอ
+   *  จึงเป็นตัวที่สอง — มาสคอตเดียวกัน ทักซ้ำ คำถามซ้ำ และเคยบอกเลขไม่ตรงกัน
+   *  ด้วย หน้าอื่นยังมีตัวลอยไว้ ครูจะได้ถามได้จากหน้าแฟ้มเด็กหรือหน้าส่งต่อ */
+  const assistantOnPage = user?.role === 'teacher' && location.pathname === '/'
 
   // Scroll to top on route change.
   useEffect(() => {
@@ -37,7 +43,7 @@ export function AppLayout() {
         </main>
       </div>
       <BottomNav />
-      <AIChatWidget />
+      {!assistantOnPage && <AIChatWidget />}
     </div>
   )
 }
