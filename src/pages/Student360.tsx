@@ -71,7 +71,7 @@ function subScoreLevel(v: number): RiskLevel {
 type Tab = 'overview' | 'risk' | 'trend' | 'visit' | 'timeline'
 type RiskFilter = 'all' | 'high' | 'watch' | 'normal'
 
-interface LogResult {
+export interface LogResult {
   mode: LogMode
   date: string
   /** the timeline sentence assembled from the form */
@@ -1166,7 +1166,7 @@ function SignaturePad({
 
 /* ─────────────── logging form ─────────────── */
 
-function LogForm({
+export function LogForm({
   mode,
   student,
   actor,

@@ -383,6 +383,7 @@ const OUT_TITLE = { contact: 'บันทึกการติดต่อผ�
 function ActionSheet({
   sheet,
   c,
+  entries,
   tl,
   by,
   log,
@@ -486,8 +487,11 @@ function ActionSheet({
                 ...(chosen!.parent ? { parentContact: chosen!.parent } : {}),
                 ...(chosen!.visited ? { homeVisited: true } : {}),
               })
-              // ทำตามนัดแล้ว — ปิดนัดนั้น
-              if (c.followUp) log.setFollowUpDone(c.followUp.entry.id, true)
+              // ทำตามนัดแล้ว — ปิดเฉพาะนัดที่เป็นเรื่องเดียวกัน โทรไม่ติดไม่ได้แปลว่า
+              // นัดประสานผู้นำชุมชนเสร็จแล้ว (เคยปิดนัดแรกสุดทิ้งทุกครั้งที่บันทึกอะไรก็ได้)
+              const same = (m?: string) => !m || m === what || (sheet.mode === 'contact' && m === 'โทรผู้ปกครอง' && method === 'โทรผู้ปกครอง')
+              const due = entries.find((e) => e.followUpDate && !e.followUpDone && same(e.followUpMethod))
+              if (due) log.setFollowUpDone(due.id, true)
               setSaved({ th, refer: chosen!.refer })
             }}
           >

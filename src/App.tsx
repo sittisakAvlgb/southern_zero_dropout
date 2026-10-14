@@ -14,7 +14,7 @@ import OpportunityPlans from './pages/OpportunityPlans'
 import Referrals from './pages/Referrals'
 import InterventionTracking from './pages/InterventionTracking'
 import SchoolPerformance from './pages/SchoolPerformance'
-import Student360 from './pages/Student360'
+import Student360 from './components/student/StudentRoute'
 import Reports from './pages/Reports'
 import Settings from './pages/Settings'
 

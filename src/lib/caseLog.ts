@@ -73,6 +73,9 @@ export interface CaseLogEntry {
   followUpOwner?: string
   /** การยกระดับที่ครูกดเอง เช่น "แจ้ง ผอ." — ไม่มีการยกระดับอัตโนมัติ */
   escalation?: string
+  /** ครูตอบข้อเสนอของ AI: `pick:<key>` เลือก · `adjust:<key>` ปรับเอง · `dismiss:<key>` ไม่ใช้
+   *  เก็บไว้ให้ตรวจย้อนได้ว่าครูตัดสินใจอะไร และไม่เสนอทางที่ครูปฏิเสธซ้ำ */
+  choice?: string
   followUpDone?: boolean
   /** what this entry did to the child's own record */
   parentContact?: Student['parentContact']
@@ -188,6 +191,26 @@ export interface ConsentRecord {
   ts: number
 }
 
+/** สิ่งที่ครูพบ — ข้อมูลที่ครูเห็นเอง สำคัญกว่าสิ่งที่ AI อนุมาน และเป็นบริบทที่
+ *  AI ต้องใช้ประกอบคำแนะนำ ครูแก้ไขได้ และทำเครื่องหมายว่าคลี่คลายแล้วได้
+ *  (ไม่ลบทิ้ง — ประวัติว่าเคยพบอะไรยังมีค่า) */
+export interface Observation {
+  id: string
+  text: string
+  ts: number
+  by: string
+  resolvedTs?: number
+}
+
+/** เป้าหมายการช่วยเหลือที่ครูยืนยัน — AI เสนอได้ ครูแก้และยืนยันเอง */
+export interface CareGoal {
+  items: { text: string; done?: boolean }[]
+  /** วันครบกำหนด YYYY-MM-DD */
+  due: string
+  ts: number
+  by: string
+}
+
 /** สถานะขั้นในแผนที่ครูเปลี่ยน — ทับข้อมูลตั้งต้นของแผน */
 export interface PlanStepMark {
   status: PlanStepStatus
@@ -218,9 +241,13 @@ interface LogState {
   refEvents: Record<string, RefEvent[]>
   /** ความยินยอมที่ครูบันทึก childId → record */
   consents: Record<string, ConsentRecord>
+  /** สิ่งที่ครูพบ childId → รายการ (ใหม่ก่อน) */
+  observations: Record<string, Observation[]>
+  /** เป้าหมายการช่วยเหลือ childId → เป้าหมายที่ครูยืนยัน */
+  goals: Record<string, CareGoal>
 }
 
-const EMPTY: LogState = { entries: [], owners: {}, steps: {}, plans: {}, refs: {}, refEvents: {}, consents: {} }
+const EMPTY: LogState = { entries: [], owners: {}, steps: {}, plans: {}, refs: {}, refEvents: {}, consents: {}, observations: {}, goals: {} }
 
 // ── the store ────────────────────────────────────────────────
 let scope = 'anon'
@@ -245,6 +272,8 @@ function read(who: string): LogState {
       refs: obj(parsed.refs) as LogState['refs'],
       refEvents: obj(parsed.refEvents) as LogState['refEvents'],
       consents: obj(parsed.consents) as LogState['consents'],
+      observations: obj(parsed.observations) as LogState['observations'],
+      goals: obj(parsed.goals) as LogState['goals'],
     }
   } catch {
     // a private window, cleared site data, or a half-written value — an empty
@@ -328,7 +357,11 @@ export function useCaseLog(userKey: string | undefined) {
     const refs = Object.fromEntries(Object.entries(state.refs).filter(([, r]) => r.childId !== childId))
     const consents = { ...state.consents }
     delete consents[childId]
-    setState({ ...state, entries: state.entries.filter((e) => e.childId !== childId), owners, steps, plans, refs, consents })
+    const observations = { ...state.observations }
+    delete observations[childId]
+    const goals = { ...state.goals }
+    delete goals[childId]
+    setState({ ...state, entries: state.entries.filter((e) => e.childId !== childId), owners, steps, plans, refs, consents, observations, goals })
   }, [])
 
   const markStep = useCallback((stepId: string, mark: PlanStepMark) => {
@@ -360,11 +393,27 @@ export function useCaseLog(userKey: string | undefined) {
     })
   }, [])
 
+  const addObservation = useCallback((childId: string, text: string, by: string) => {
+    const o: Observation = { id: `obs-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`, text, ts: Date.now(), by }
+    setState({ ...state, observations: { ...state.observations, [childId]: [o, ...(state.observations[childId] ?? [])] } })
+  }, [])
+
+  const updateObservation = useCallback((childId: string, id: string, patch: Partial<Pick<Observation, 'text' | 'resolvedTs'>>) => {
+    setState({
+      ...state,
+      observations: { ...state.observations, [childId]: (state.observations[childId] ?? []).map((o) => (o.id === id ? { ...o, ...patch } : o)) },
+    })
+  }, [])
+
+  const saveGoal = useCallback((childId: string, goal: CareGoal) => {
+    setState({ ...state, goals: { ...state.goals, [childId]: goal } })
+  }, [])
+
   const saveConsent = useCallback((childId: string, rec: ConsentRecord) => {
     setState({ ...state, consents: { ...state.consents, [childId]: rec } })
   }, [])
 
-  return { ...current, add, remove, setFollowUpDone, setOwner, clearChild, markStep, savePlan, addRef, addRefEvent, shiftRef, saveConsent }
+  return { ...current, add, remove, setFollowUpDone, setOwner, clearChild, markStep, savePlan, addRef, addRefEvent, shiftRef, saveConsent, addObservation, updateObservation, saveGoal }
 }
 
 // ── reading the log back onto a child ────────────────────────
@@ -452,8 +501,8 @@ export function lastLoggedMap(log: Pick<LogState, 'entries' | 'steps'>): Record<
   return out
 }
 
-/** งานเอกสารที่ไม่ได้แตะตัวเด็ก: นัด หรือ Escalate — บันทึกใน Timeline แต่ไม่นับเป็นการอัปเดตเคส */
-export const isScheduleOnly = (e: CaseLogEntry) => (Boolean(e.followUpMethod) || Boolean(e.escalation)) && e.mode === 'note' && !e.result
+/** งานเอกสารที่ไม่ได้แตะตัวเด็ก: นัด · Escalate · เลือก/ปฏิเสธข้อเสนอ AI — บันทึกใน Timeline แต่ไม่นับเป็นการอัปเดตเคส */
+export const isScheduleOnly = (e: CaseLogEntry) => (Boolean(e.followUpMethod) || Boolean(e.escalation) || Boolean(e.choice)) && e.mode === 'note' && !e.result
 
 // ── แผนตามที่บัญชีนี้ทำงานไว้ ────────────────────────────────
 

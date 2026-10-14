@@ -68,7 +68,7 @@ export interface NextAction {
   go: Go
 }
 
-export const METHODS = ['โทรผู้ปกครอง', 'คุยกับนักเรียน', 'เยี่ยมบ้าน', 'ประชุมทีม', 'ติดตามหน่วยงาน', 'ประเมินซ้ำ'] as const
+export const METHODS = ['โทรผู้ปกครอง', 'ประสานผู้นำชุมชน', 'คุยกับนักเรียน', 'เยี่ยมบ้าน', 'ประชุมทีม', 'ติดตามหน่วยงาน', 'ประเมินซ้ำ'] as const
 
 export interface FollowCase {
   s: Student
