@@ -11,6 +11,7 @@ import { SCHOOL_OWNER_ID } from '@/data/plans'
 import type { useCaseLog } from '@/lib/caseLog'
 import { useI18n } from '@/i18n/LanguageContext'
 import { useToast } from '@/components/ui/Toast'
+import { useScrollLock } from '@/lib/useScrollLock'
 import { IconArrowRight, IconClose } from '@/components/icons'
 import { assetUrl } from '@/lib/asset'
 
@@ -55,6 +56,7 @@ export function CreatePlanView({
 }) {
   const { t } = useI18n()
   const { push } = useToast()
+  useScrollLock()
   const suggested = useMemo(() => suggestPathway(s), [s])
   const agencies = useMemo(() => suggestAgencies(s, s.provinceKey).filter((a) => a.why).slice(0, 4), [s])
   const cause = s.causeKeys.map(reasonFor).find(Boolean)

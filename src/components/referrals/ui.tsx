@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react'
+import { useScrollLock } from '@/lib/useScrollLock'
 import { motion } from 'framer-motion'
 import { IconArrowRight, IconClose } from '@/components/icons'
 import { BUCKET_META, CONSENT_META, type Bucket, type ConsentState, type Sla } from '@/lib/refOps'
@@ -19,6 +20,7 @@ export function Drawer({
   footer?: ReactNode
   children: ReactNode
 }) {
+  useScrollLock()
   return (
     <div className="fixed inset-0 z-[70] flex justify-end">
       <button type="button" aria-label="ปิด" className="absolute inset-0 bg-brand-950/35" onClick={onClose} />

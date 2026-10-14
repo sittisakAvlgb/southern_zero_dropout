@@ -23,6 +23,7 @@ import {
 import type { LogMode, ObstacleKey, useCaseLog } from '@/lib/caseLog'
 import { Skeleton } from '@/components/ui/Skeleton'
 import { useToast } from '@/components/ui/Toast'
+import { useScrollLock } from '@/lib/useScrollLock'
 import { IconArrowRight, IconClose } from '@/components/icons'
 import { assetUrl } from '@/lib/asset'
 
@@ -68,6 +69,7 @@ export function PlanCaseView({
   onClose: () => void
 }) {
   const { push } = useToast()
+  useScrollLock()
   const [sheet, setSheet] = useState<Sheet>(null)
   const [referPreset, setReferPreset] = useState<{ kinds?: AgencyKind[]; reason?: string }>({})
   const by = user?.ownerName ?? user?.name ?? 'ครูผู้รับผิดชอบ'
