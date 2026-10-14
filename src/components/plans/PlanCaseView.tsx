@@ -1,6 +1,11 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { motion } from 'framer-motion'
-import type { Agency, AgencyKind, PlanStep } from '@/types'
+import { useNavigate } from 'react-router-dom'
+import { useScopedData } from '@/auth/scope'
+import { CreateReferral } from '@/components/referrals/CreateReferral'
+import { useRefCases } from '@/components/referrals/useRefCases'
+import { BucketBadge } from '@/components/referrals/ui'
+import type { AgencyKind, PlanStep } from '@/types'
 import type { User } from '@/auth/roles'
 import { RISK_COLOR } from '@/lib/risk'
 import { GRADE_LABEL } from '@/lib/schoolOps'
@@ -9,11 +14,9 @@ import { isSchoolStep, stepDaysLeft, stepDueDate, PATHWAY_COLOR } from '@/data/p
 import {
   OBSTACLES,
   PRIORITY_META,
-  SHARE_OPTIONS,
   aiSummary,
   finalAssessment,
   milestones,
-  suggestAgencies,
   timeline,
   type PlanCase,
 } from '@/lib/planOps'
@@ -88,7 +91,13 @@ export function PlanCaseView({
   const ms = milestones(c)
   const [allTl, setAllTl] = useState(false)
 
-  const lastReferral = log.entries.find((e) => e.childId === p.childId && e.referral)
+  // การส่งต่อของเด็กคนนี้ที่ยังเปิดอยู่ — สถานะจริงจากศูนย์ส่งต่อ ไม่ใช่ "รอรับเรื่อง" ตลอดไป
+  const { referrals } = useScopedData()
+  const roster = useMemo(() => (s ? [s] : []), [s])
+  const mineRefs = useMemo(() => referrals.filter((r) => r.childId === p.childId), [referrals, p.childId])
+  const now = useMemo(() => Date.now(), [log]) // eslint-disable-line react-hooks/exhaustive-deps
+  const childRefs = useRefCases(user, roster, mineRefs, log, now).filter((r) => r.childId === p.childId && r.bucket !== 'done')
+  const nav = useNavigate()
 
   return (
     <div className="fixed inset-0 z-[70] flex justify-end">
@@ -168,11 +177,25 @@ export function PlanCaseView({
                 onLog={() => setSheet('log')}
               />
 
-              {lastReferral?.referral && (
-                <p className="mt-3 rounded-xl border border-surface-border px-3.5 py-2.5 text-[13px] text-ink-muted">
-                  <span className="font-semibold text-ink">ส่งต่อแล้ว:</span> {lastReferral.referral.agencyName} ·{' '}
-                  {lastReferral.date} · <span style={{ color: RISK_COLOR.high }}>รอหน่วยงานรับเรื่อง</span>
-                </p>
+              {childRefs.length > 0 && (
+                <ul className="mt-3 space-y-1.5">
+                  {childRefs.map((r) => (
+                    <li key={r.id}>
+                      <button
+                        type="button"
+                        onClick={() => nav(`/referral?ref=${r.id}`)}
+                        className="flex w-full items-center gap-2 rounded-xl border border-surface-border px-3.5 py-2.5 text-left text-[13.5px]"
+                      >
+                        <span className="min-w-0 flex-1">
+                          <span className="font-semibold text-ink">ส่งต่อ {r.toName}</span>{' '}
+                          <BucketBadge b={r.bucket} />
+                          <span className="block text-ink-muted">{r.next.th}</span>
+                        </span>
+                        <IconArrowRight width={14} height={14} className="shrink-0 text-ink-faint" />
+                      </button>
+                    </li>
+                  ))}
+                </ul>
               )}
 
               {/* ── Milestone ─────────────────────────────── */}
@@ -393,15 +416,20 @@ export function PlanCaseView({
             />
           )}
 
-          {sheet === 'refer' && (
-            <ReferralSheet
-              c={c}
-              preset={referPreset}
-              onSend={(agency, reason, share) => {
-                add({ mode: 'note', note: `ส่งต่อ ${agency.th}`, referral: { agencyId: agency.id, agencyName: agency.th, reason, share } })
-              }}
-              onDone={() => setSheet(null)}
-            />
+          {sheet === 'refer' && s && (
+            <>
+              <h3 className="mb-1 text-[18px] font-bold text-ink">ส่งต่อหน่วยงาน</h3>
+              <p className="mb-3 text-[13.5px] text-ink-muted">ส่งจากเคสนี้ได้เลย — การส่งต่อจะไปอยู่ที่เมนูส่งต่อเคสให้ติดตามต่อ</p>
+              <CreateReferral
+                student={s}
+                log={log}
+                user={user}
+                preset={{ kinds: referPreset.kinds, reason: referPreset.reason ?? (c.current ? `ขอความช่วยเหลือเรื่อง "${c.current.titleTh}"` : undefined) }}
+                historyCount={log.entries.filter((e) => e.childId === p.childId).length + s.timeline.length}
+                onDone={() => setSheet(null)}
+                onOpen={(id) => nav(`/referral?ref=${id}`)}
+              />
+            </>
           )}
 
           {sheet === 'close' && (
@@ -710,146 +738,6 @@ function ObstacleSheet({
           </div>
         </>
       )}
-    </SheetBody>
-  )
-}
-
-function ReferralSheet({
-  c,
-  preset,
-  onSend,
-  onDone,
-}: {
-  c: PlanCase
-  preset: { kinds?: AgencyKind[]; reason?: string }
-  onSend: (agency: Agency, reason: string, share: string[]) => void
-  onDone: () => void
-}) {
-  const s = c.student
-  const options = useMemo(() => suggestAgencies(s, s?.provinceKey ?? '', preset.kinds), [s, preset.kinds])
-  const [step, setStep] = useState(1)
-  const [agency, setAgency] = useState<Agency | undefined>(options[0]?.agency)
-  const [reason, setReason] = useState(preset.reason ?? (c.current ? `ขอความช่วยเหลือเรื่อง "${c.current.titleTh}"` : ''))
-  const consent = s?.consent === 'granted'
-  const [share, setShare] = useState<string[]>(['basic'])
-  const [error, setError] = useState<string>()
-  const [sent, setSent] = useState(false)
-
-  if (sent && agency)
-    return (
-      <SheetBody title="ส่งต่อแล้ว" hint="">
-        <div className="rounded-2xl bg-green-50 p-4">
-          <p className="text-[16px] font-bold" style={{ color: RISK_COLOR.normal }}>✓ ส่งเรื่องถึง {agency.th} แล้ว</p>
-          <p className="mt-1 text-[14px] text-ink">สถานะ: <span className="font-semibold">รอหน่วยงานรับเรื่อง</span> · โดยปกติตอบรับภายใน {Math.round(agency.avgAcceptHours)} ชั่วโมง</p>
-          <p className="mt-1 text-[13px] text-ink-muted">ข้อมูลที่ส่ง: {share.map((k) => SHARE_OPTIONS.find((o) => o.key === k)?.th).join(' · ')}</p>
-        </div>
-        <PrimaryBtn onClick={onDone}>กลับไปที่เคส</PrimaryBtn>
-      </SheetBody>
-    )
-
-  return (
-    <SheetBody title="ส่งต่อหน่วยงาน" hint={`ขั้นที่ ${step} จาก 4 · ส่งจากเคสนี้ได้เลย ไม่ต้องไปเริ่มใหม่ที่เมนูส่งต่อ`}>
-      <div className="mb-3 flex gap-1">
-        {[1, 2, 3, 4].map((n) => (
-          <span key={n} className="h-1.5 flex-1 rounded-full" style={{ background: n <= step ? '#2f66f6' : '#e2e8f0' }} />
-        ))}
-      </div>
-
-      {step === 1 && (
-        <>
-          <Label>เลือกหน่วยงาน — เรียงตามสาเหตุของเด็กคนนี้</Label>
-          <div className="max-h-[46vh] space-y-1.5 overflow-y-auto pr-1">
-            {options.map(({ agency: a, why }) => (
-              <button
-                key={a.id}
-                type="button"
-                onClick={() => setAgency(a)}
-                className="w-full rounded-xl border px-3.5 py-3 text-left"
-                style={{ borderColor: agency?.id === a.id ? '#2f66f6' : '#e2e8f0', background: agency?.id === a.id ? '#eef3ff' : '#fff' }}
-              >
-                <p className="text-[14.5px] font-semibold text-ink">{a.th}</p>
-                {why && <p className="text-[12.5px] text-brand-700">แนะนำ · {why}</p>}
-              </button>
-            ))}
-          </div>
-        </>
-      )}
-
-      {step === 2 && (
-        <>
-          <Label>เหตุผลที่ส่งต่อ</Label>
-          <textarea
-            value={reason}
-            onChange={(e) => setReason(e.target.value)}
-            rows={4}
-            className="w-full rounded-xl border border-surface-border px-3.5 py-3 text-[15px] outline-none focus:border-brand-400 focus:ring-4 focus:ring-brand-100"
-          />
-        </>
-      )}
-
-      {step === 3 && (
-        <>
-          <Label>เลือกข้อมูลที่ส่งให้หน่วยงาน</Label>
-          {!consent && (
-            <p className="mb-2 rounded-xl bg-amber-50 px-3.5 py-2.5 text-[13.5px] text-ink">
-              ครอบครัวยังไม่ได้ให้ความยินยอม (PDPA) — ส่งได้เฉพาะข้อมูลพื้นฐาน ข้อมูลอื่นจะเปิดเมื่อบันทึกความยินยอมแล้ว
-            </p>
-          )}
-          <div className="space-y-1.5">
-            {SHARE_OPTIONS.map((o) => {
-              const locked = o.key === 'basic' || (o.needsConsent && !consent)
-              const on = share.includes(o.key)
-              return (
-                <label key={o.key} className={`flex items-center gap-3 rounded-xl border border-surface-border px-3.5 py-3 text-[14.5px] ${locked && o.key !== 'basic' ? 'text-ink-faint' : 'text-ink'}`}>
-                  <input
-                    type="checkbox"
-                    className="h-5 w-5"
-                    checked={on}
-                    disabled={locked}
-                    onChange={() => setShare((v) => (on ? v.filter((x) => x !== o.key) : [...v, o.key]))}
-                  />
-                  {o.th}
-                  {o.needsConsent && !consent && <span className="ml-auto text-[12px]">ต้องมีความยินยอม</span>}
-                </label>
-              )
-            })}
-          </div>
-        </>
-      )}
-
-      {step === 4 && agency && (
-        <>
-          <Label>ตรวจก่อนส่ง</Label>
-          <dl className="space-y-2 rounded-2xl border border-surface-border p-3.5 text-[14px]">
-            <Fact k="ส่งถึง" v={agency.th} wide />
-            <Fact k="เด็ก" v={c.plan.childName} wide />
-            <Fact k="เหตุผล" v={reason} wide />
-            <Fact k="ข้อมูลที่ส่ง" v={share.map((k) => SHARE_OPTIONS.find((o) => o.key === k)?.th).join(' · ')} wide />
-          </dl>
-        </>
-      )}
-
-      {error && <p className="mt-2 text-[13.5px] font-medium" style={{ color: RISK_COLOR.critical }}>{error}</p>}
-
-      <div className="mt-4 flex gap-2">
-        {step > 1 && (
-          <button type="button" onClick={() => { setError(undefined); setStep((v) => v - 1) }} className="rounded-xl border border-surface-border px-4 py-3 text-[14px] font-medium text-ink">
-            ย้อนกลับ
-          </button>
-        )}
-        <PrimaryBtn
-          onClick={() => {
-            if (step === 1 && !agency) return setError('เลือกหน่วยงานก่อน')
-            if (step === 2 && reason.trim().length < 6) return setError('ระบุเหตุผลให้หน่วยงานเข้าใจสักประโยค')
-            setError(undefined)
-            if (step < 4) return setStep((v) => v + 1)
-            onSend(agency!, reason.trim(), share)
-            setSent(true)
-          }}
-        >
-          {step < 4 ? 'ถัดไป' : 'ยืนยันส่งต่อ'}
-        </PrimaryBtn>
-      </div>
     </SheetBody>
   )
 }

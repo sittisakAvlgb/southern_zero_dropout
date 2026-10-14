@@ -6,6 +6,7 @@ import type { ConsentStatus, Referral, ReferralStatus } from '@/types'
 import { useI18n } from '@/i18n/LanguageContext'
 import { useScopedData } from '@/auth/scope'
 import { canAccess } from '@/auth/roles'
+import { TeacherReferralCenter } from '@/components/referrals/TeacherReferralCenter'
 import { PageHeader, Breadcrumb } from '@/components/ui/PageHeader'
 import { Card, CardHeader } from '@/components/ui/Card'
 import { Select } from '@/components/ui/Select'
@@ -71,7 +72,14 @@ function nextAction(r: Referral): 'accept' | 'start' | 'complete' | 'escalate' |
   return null
 }
 
+/** ครูได้ศูนย์ส่งต่อของตัวเอง (เคสไม่กี่รายการ เรียงตามความเร่งด่วน)
+ *  บทบาทอื่นยังเห็นหน้ากำกับดูแลเดิม */
 export default function Referrals() {
+  const { user } = useScopedData()
+  return user?.role === 'teacher' ? <TeacherReferralCenter /> : <OversightReferrals />
+}
+
+function OversightReferrals() {
   const { t, lang, pn, dn } = useI18n()
   const th = lang === 'th'
   const { referrals, user } = useScopedData()

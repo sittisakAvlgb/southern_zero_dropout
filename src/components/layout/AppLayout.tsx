@@ -13,9 +13,9 @@ export function AppLayout() {
   const { user } = useAuth()
   /** หน้าแรกของครูมีเลขา AI ฝังอยู่ในหน้าแล้ว (TeacherAssistant) ตัวลอยมุมจอ
    *  จึงเป็นตัวที่สอง — มาสคอตเดียวกัน ทักซ้ำ คำถามซ้ำ และเคยบอกเลขไม่ตรงกัน
-   *  ด้วย หน้าอื่นยังมีตัวลอยไว้ ครูจะได้ถามได้จากหน้าแฟ้มเด็กหรือหน้าส่งต่อ */
-  // เส้นทางโอกาสรายบุคคลของครูก็มีการ์ดผู้ช่วย AI และ AI ในหน้าเคสอยู่แล้ว
-  const assistantOnPage = user?.role === 'teacher' && (location.pathname === '/' || location.pathname === '/plan')
+   *  ด้วย หน้าอื่นยังมีตัวลอยไว้ ครูจะได้ถามได้จากหน้าแฟ้มเด็ก */
+  // เส้นทางโอกาสและศูนย์ส่งต่อของครูก็มีการ์ดผู้ช่วย AI ในหน้าอยู่แล้ว
+  const assistantOnPage = user?.role === 'teacher' && ['/', '/plan', '/referral'].includes(location.pathname)
 
   // Scroll to top on route change.
   useEffect(() => {

@@ -188,16 +188,21 @@ export function consentOf(
 
 // ── การส่งต่อหนึ่งรายการ ────────────────────────────────────
 
-export type Bucket = 'breach' | 'near' | 'consent' | 'awaiting' | 'needInfo' | 'inProgress' | 'done'
+export type Bucket = 'breach' | 'near' | 'returned' | 'review' | 'consent' | 'awaiting' | 'needInfo' | 'inProgress' | 'done'
 
+/** ลำดับตาม brief: เกิน SLA → ใกล้เกิน → รอรับเรื่อง → รอข้อมูล → กำลังทำ → เสร็จ
+ *  เพิ่มสองกลุ่มที่ลูกบอลกลับมาอยู่ที่ครู (ถูกส่งกลับ · ส่งผลกลับรอประเมิน) ไว้ต่อจาก SLA
+ *  เพราะถ้าครูไม่ทำอะไร เรื่องจะค้างโดยไม่มีนาฬิกาเตือน */
 export const BUCKET_META: Record<Bucket, { th: string; color: string; rank: number }> = {
   breach: { th: 'เกิน SLA', color: '#dc2626', rank: 0 },
   near: { th: 'ใกล้เกิน SLA', color: '#ea580c', rank: 1 },
-  consent: { th: 'รอความยินยอม', color: '#ca8a04', rank: 2 },
-  awaiting: { th: 'รอหน่วยงานรับเรื่อง', color: '#2f66f6', rank: 3 },
-  needInfo: { th: 'รอข้อมูลเพิ่มเติม', color: '#7c3aed', rank: 4 },
-  inProgress: { th: 'กำลังดำเนินการ', color: '#0891b2', rank: 5 },
-  done: { th: 'เสร็จแล้ว', color: '#16a34a', rank: 6 },
+  returned: { th: 'ถูกส่งกลับ', color: '#be123c', rank: 2 },
+  review: { th: 'ส่งผลกลับแล้ว รอคุณประเมิน', color: '#0d9488', rank: 3 },
+  consent: { th: 'รอความยินยอม', color: '#ca8a04', rank: 4 },
+  awaiting: { th: 'รอหน่วยงานรับเรื่อง', color: '#2f66f6', rank: 5 },
+  needInfo: { th: 'หน่วยงานขอข้อมูลเพิ่ม', color: '#7c3aed', rank: 6 },
+  inProgress: { th: 'กำลังดำเนินการ', color: '#0891b2', rank: 7 },
+  done: { th: 'เสร็จแล้ว', color: '#16a34a', rank: 8 },
 }
 
 export type QuickAction =
@@ -240,7 +245,7 @@ export interface RefCase {
   sentTs?: number
   acceptedTs?: number
   sla: Sla
-  /** 0 ปกติ · 1 เกิน 24 ชม. แจ้งเตือน · 2 เกิน 48 ชม. หัวหน้าหน่วยงาน · 3 เกิน 72 ชม. เปลี่ยนหน่วยงาน */
+  /** 0 ปกติ · 1 เกิน SLA แจ้งเตือน · 2 ค้างเกิน 48 ชม. หัวหน้าหน่วยงาน · 3 ค้างเกิน 72 ชม. เปลี่ยนหน่วยงาน */
   escalation: 0 | 1 | 2 | 3
   /** ยกระดับไปแล้วถึงระดับไหน */
   escalated: 0 | 1 | 2 | 3
@@ -320,9 +325,12 @@ export function buildRefCase(input: {
   // เหตุการณ์หลังการเปลี่ยนหน่วยงานเท่านั้นที่นับเป็นขั้นของปลายทางใหม่
   const live = reassign ? events.filter((e) => e.ts >= reassign.ts) : events
 
-  let stage: RefStage = s?.status === 'draft' && !l ? 'draft' : 'sent'
+  // ร่างที่ยังไม่ได้ส่ง: ข้อมูลตั้งต้นที่เป็น draft หรือการส่งต่อของครูที่รอความยินยอมอยู่
+  let stage: RefStage = (s?.status === 'draft' && !l) || (l && !events.some((e) => e.type === 'sent')) ? 'draft' : 'sent'
   for (const e of live) {
     const st = STAGE_OF[e.type]
+    // "ได้รับ/เปิดดู" เป็นสัญญาณช่วงต้นเท่านั้น มาช้ากว่าการรับเคสก็ไม่ดึงขั้นถอยหลัง
+    if ((st === 'received' || st === 'viewed') && !['sent', 'received'].includes(stage)) continue
     if (st) stage = st
   }
   const sentEv = reassign ?? live.find((e) => e.type === 'sent')
@@ -338,8 +346,10 @@ export function buildRefCase(input: {
   let escalation: RefCase['escalation'] = 0
   if (stage === 'sent' || stage === 'received' || stage === 'viewed') {
     const left = slaH - (now - (sentTs ?? now)) / H
-    const over = -left
-    escalation = over > 48 ? 3 : over > 24 ? 2 : over > 0 ? 1 : 0
+    // ยกระดับตามชั่วโมงนับจากส่ง (24 / 48 / 72) ตาม brief — เคสคุ้มครองเด็กที่ SLA 8 ชม.
+    // เริ่มระดับ 1 ทันทีที่เกิน SLA ไม่ต้องรอถึง 24
+    const sinceH = (now - (sentTs ?? now)) / H
+    escalation = left >= 0 ? 0 : sinceH > 72 ? 3 : sinceH > 48 ? 2 : 1
     sla = {
       clock: 'accept',
       hoursLeft: left,
@@ -375,36 +385,59 @@ export function buildRefCase(input: {
   let bucket: Bucket
   if (stage === 'draft') bucket = 'consent'
   else if (stage === 'needInfo') bucket = 'needInfo'
-  else if (['done', 'outcome', 'closed', 'returned'].includes(stage)) bucket = stage === 'returned' || stage === 'outcome' ? 'needInfo' : 'done'
+  else if (stage === 'returned') bucket = 'returned'
+  else if (stage === 'outcome') bucket = 'review'
+  else if (stage === 'done' || stage === 'closed') bucket = 'done'
   else if (sla.level === 'breach') bucket = 'breach'
   else if (sla.level === 'near') bucket = 'near'
   else bucket = sla.clock === 'accept' ? 'awaiting' : 'inProgress'
-  // ส่งผลกลับแล้วหรือปลายทางไม่รับ = ลูกบอลกลับมาที่ครู ต้องทำอะไรสักอย่าง
-  if (stage === 'outcome' || stage === 'returned') bucket = 'needInfo'
+  // ครูประเมินแล้วว่าผลยังไม่พอ ขอให้หน่วยงานเดิมทำต่อ — กลับไปเป็นงานที่กำลังดำเนินการ
+  const lastOutcomeIdx = live.map((e) => e.type).lastIndexOf('outcome')
+  const continued = stage === 'outcome' && live.slice(lastOutcomeIdx + 1).find((e) => e.type === 'followUp')
+  if (continued) bucket = 'inProgress'
 
   // ── ขั้นถัดไป และปุ่มที่เกี่ยวกับสถานะนี้เท่านั้น ──
   const next = ((): RefCase['next'] => {
+    if (stage === 'draft' && (input.consent.state === 'granted' || input.consent.state === 'expiring'))
+      return { th: 'ได้รับความยินยอมแล้ว — พร้อมส่งต่อ', whyTh: `ส่งถึง ${toName} ได้ทันที`, actions: [] }
     if (stage === 'draft') return { th: 'ขอความยินยอมจากผู้ปกครองก่อนส่งต่อ', whyTh: 'ส่งข้อมูลส่วนบุคคลข้ามหน่วยงานไม่ได้จนกว่าจะมีความยินยอม (PDPA)', actions: ['consent'] }
     if (stage === 'needInfo') {
       const ni = [...live].reverse().find((e) => e.type === 'needInfo')
-      return { th: `${toName}ขอข้อมูลเพิ่มเติม`, whyTh: ni?.note ?? 'หน่วยงานรอข้อมูลจากโรงเรียนก่อนดำเนินการต่อ', actions: ['sendInfo', 'contact'] }
+      return { th: `${toName} ขอข้อมูลเพิ่มเติม`, whyTh: ni?.note ?? 'หน่วยงานรอข้อมูลจากโรงเรียนก่อนดำเนินการต่อ', actions: ['sendInfo', 'contact'] }
     }
-    if (stage === 'returned') return { th: `${toName}ไม่รับเรื่อง`, whyTh: [...live].reverse().find((e) => e.type === 'returned')?.note ?? 'ส่งกลับมาที่โรงเรียน', actions: ['referMore', 'close'] }
+    if (stage === 'returned') return { th: `${toName} ไม่รับเรื่อง`, whyTh: [...live].reverse().find((e) => e.type === 'returned')?.note ?? 'ส่งกลับมาที่โรงเรียน', actions: ['referMore', 'close'] }
+    if (continued) return { th: `ติดตามผลกับ ${toName} ต่อ · นัดวันที่ ${continued.date ?? ''}`, whyTh: continued.note ?? 'ผลรอบแรกยังไม่พอ', actions: ['review', 'contact'] }
     if (stage === 'outcome') return { th: `หน่วยงานส่งผลกลับแล้ว: ${outcome?.th ?? ''}`, whyTh: 'ประเมินว่าการส่งต่อนี้ช่วยเด็กได้จริงหรือไม่ แล้วปิดหรือติดตามต่อ', actions: ['review'] }
-    if (stage === 'done') return { th: `${toName}ดำเนินการเสร็จแล้ว รอส่งผลกลับ`, whyTh: 'ทวงผลการดำเนินการได้ถ้ายังไม่ได้รับ', actions: ['contact'] }
+    if (stage === 'done') return { th: `${toName} ดำเนินการเสร็จแล้ว รอส่งผลกลับ`, whyTh: 'ทวงผลการดำเนินการได้ถ้ายังไม่ได้รับ', actions: ['contact'] }
     if (stage === 'closed') return { th: 'ปิดการส่งต่อแล้ว', whyTh: outcome ? `ผล: ${outcome.th}` : '', actions: [] }
     if (sla.clock === 'accept') {
-      if (escalation >= 3) return { th: 'เกิน SLA เกิน 72 ชั่วโมง — พิจารณาเปลี่ยนหน่วยงาน', whyTh: `${toName}ยังไม่รับเรื่อง ${sla.text}`, actions: ['reassign', 'escalate'] }
-      if (escalation === 2) return { th: 'เกิน SLA เกิน 48 ชั่วโมง — Escalate ไปหัวหน้าหน่วยงาน', whyTh: `${toName}ยังไม่รับเรื่อง ${sla.text}`, actions: ['escalate', 'contact'] }
+      // ทำไปแล้วถึงระดับไหน — การแจ้งเตือนหลังเกิน SLA นับเป็นระดับ 1
+      const breachTs = (sentTs ?? now) + slaH * H
+      const handled = Math.max(escalated, live.some((e) => e.type === 'reminded' && e.ts >= breachTs) ? 1 : 0)
+      if (escalation > 0 && handled >= escalation)
+        return {
+          th: handled === 1 ? `ส่งการแจ้งเตือนแล้ว — รอ ${toName} ตอบรับ` : `Escalate ระดับ ${handled} แล้ว — รอ ${toName} ตอบรับ`,
+          whyTh: `${sla.text} · ถ้ายังเงียบ ยกระดับต่อหรือเปลี่ยนหน่วยงานได้`,
+          actions: handled >= 2 ? ['contact', 'reassign'] : ['contact', 'escalate'],
+        }
+      if (escalation >= 3) return { th: 'ค้างเกิน 72 ชั่วโมงแล้ว — พิจารณาเปลี่ยนหน่วยงาน', whyTh: `${toName} ยังไม่รับเรื่อง · ${sla.text}`, actions: ['reassign', 'escalate'] }
+      if (escalation === 2) return { th: 'ค้างเกิน 48 ชั่วโมงแล้ว — Escalate ไปหัวหน้าหน่วยงาน', whyTh: `${toName} ยังไม่รับเรื่อง · ${sla.text}`, actions: ['escalate', 'contact'] }
       if (escalation === 1) return { th: 'เคสนี้เกิน SLA แล้ว — ส่งการแจ้งเตือนถึงหน่วยงาน', whyTh: `${sla.rule} · ${sla.text}`, actions: ['remind', 'contact'] }
       return {
-        th: `รอ${toName}รับเคสภายใน ${fmtHours(sla.hoursLeft)}`,
-        whyTh: sla.level === 'near' ? `ใกล้เกิน SLA — ${sla.text}` : `${sla.rule}`,
+        th: `รอ ${toName} รับเคสภายใน ${fmtHours(sla.hoursLeft)}`,
+        whyTh:
+          sla.level === 'near'
+            ? `ใกล้เกิน SLA — ${sla.text}`
+            : toAgency
+              ? `หน่วยงานนี้ตอบรับเฉลี่ย ${Math.round(toAgency.avgAcceptHours)} ชั่วโมง${toAgency.avgAcceptHours > slaH ? ' — ช้ากว่ากำหนด ควรโทรแจ้งล่วงหน้า' : ''}`
+              : sla.rule,
         actions: sla.level === 'near' ? ['remind', 'contact'] : ['contact', 'followUp'],
       }
     }
-    if (sla.level === 'breach') return { th: `${toName}เกินกำหนดดำเนินการ`, whyTh: sla.text, actions: ['escalate', 'contact'] }
-    return { th: `${toName}กำลังดำเนินการ${officer ? ` · ${officer}` : ''}`, whyTh: sla.text, actions: ['followUp', 'contact'] }
+    if (stage === 'accepted' && sla.level !== 'breach')
+      return { th: `${toName} รับเคสแล้ว${officer ? ` · ${officer}` : ''} — รอเริ่มดำเนินการ`, whyTh: sla.text, actions: ['followUp', 'contact'] }
+    if (sla.level === 'breach') return { th: `${toName} เกินกำหนดดำเนินการ`, whyTh: sla.text, actions: ['escalate', 'contact'] }
+    return { th: `${toName} กำลังดำเนินการ${officer ? ` · ${officer}` : ''}`, whyTh: sla.text, actions: ['followUp', 'contact'] }
   })()
 
   const caseOwner = input.caseOwner
@@ -509,13 +542,13 @@ export function readiness(input: {
 }
 
 /** ประเภทความต้องการจากสาเหตุของเด็ก — ใช้เดาเหตุผลการส่งต่อให้ครูตั้งต้น */
-export function needFromStudent(s: Student | undefined): { need: ReferralNeed; code?: number } {
+export function needFromStudent(s: Student | undefined): { need: ReferralNeed; code?: number; key?: Student['causeKeys'][number] } {
   const map: Record<string, ReferralNeed> = {
     poverty: 'financial', noDevice: 'financial', childLabour: 'skills', family: 'protection', health: 'physicalHealth',
     unrestAffected: 'mentalHealth', noDocuments: 'documents', stateless: 'documents', migration: 'documents',
     travel: 'transport', earlyMarriage: 'childcare',
   }
-  for (const k of s?.causeKeys ?? []) if (map[k]) return { need: map[k], code: reasonFor(k)?.id }
+  for (const k of s?.causeKeys ?? []) if (map[k]) return { need: map[k], code: reasonFor(k)?.id, key: k }
   return { need: 'financial' }
 }
 
@@ -556,7 +589,8 @@ export function crossTimeline(refs: RefCase[], entries: CaseLogEntry[], student:
   for (const r of refs)
     for (const e of r.events)
       out.push({ ts: e.ts, th: EV_TH[e.type](e, r), by: e.by, who: e.type === 'received' ? 'system' : SCHOOL_EVENTS.includes(e.type) ? 'school' : 'agency', refId: r.id })
-  for (const e of entries) if (!e.referral) out.push({ ts: Number(e.id.split('-')[1]) || new Date(e.date).getTime(), th: e.note, by: e.by, who: 'school' })
+  // บันทึกที่เป็นเงาของการส่งต่อ (refId / referral) มีเหตุการณ์ของตัวเองอยู่แล้วด้านบน
+  for (const e of entries) if (!e.referral && !e.refId) out.push({ ts: Number(e.id.split('-')[1]) || new Date(e.date).getTime(), th: e.note, by: e.by, who: 'school' })
   for (const ev of student?.timeline ?? []) {
     if (entries.some((e) => e.date === ev.date && e.note === ev.note)) continue
     out.push({ ts: new Date(ev.date).getTime() + 9 * H, th: ev.note, by: ev.by, who: 'school' })

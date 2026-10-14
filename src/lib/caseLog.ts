@@ -96,6 +96,9 @@ export interface CaseLogEntry {
   }
   /** ครอบครัวเห็นชอบแผนแล้ว */
   familyAgreed?: boolean
+  /** บันทึกนี้เกิดจากการส่งต่อใน refs — ให้งานของครูนับว่าช่วยแล้ว
+   *  แต่ timeline ข้ามหน่วยงานไม่แสดงซ้ำ */
+  refId?: string
 }
 
 // ── การส่งต่อ ────────────────────────────────────────────────
@@ -337,11 +340,24 @@ export function useCaseLog(userKey: string | undefined) {
     setState({ ...state, refEvents: { ...state.refEvents, [refId]: [...(state.refEvents[refId] ?? []), ev] } })
   }, [])
 
+  /** เดโมเท่านั้น: เลื่อนเวลาของการส่งต่อที่ครูสร้างย้อนหลัง เพื่อให้เห็น SLA ใกล้เกิน/เกิน
+   *  โดยไม่ต้องรอจริง — ข้อมูลตั้งต้นไม่ถูกแตะ */
+  const shiftRef = useCallback((refId: string, hours: number) => {
+    const ms = hours * 3600_000
+    const r = state.refs[refId]
+    if (!r) return
+    setState({
+      ...state,
+      refs: { ...state.refs, [refId]: { ...r, createdTs: r.createdTs - ms } },
+      refEvents: { ...state.refEvents, [refId]: (state.refEvents[refId] ?? []).map((e) => ({ ...e, ts: e.ts - ms })) },
+    })
+  }, [])
+
   const saveConsent = useCallback((childId: string, rec: ConsentRecord) => {
     setState({ ...state, consents: { ...state.consents, [childId]: rec } })
   }, [])
 
-  return { ...current, add, remove, setFollowUpDone, setOwner, clearChild, markStep, savePlan, addRef, addRefEvent, saveConsent }
+  return { ...current, add, remove, setFollowUpDone, setOwner, clearChild, markStep, savePlan, addRef, addRefEvent, shiftRef, saveConsent }
 }
 
 // ── reading the log back onto a child ────────────────────────
