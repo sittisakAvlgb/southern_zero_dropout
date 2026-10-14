@@ -67,6 +67,7 @@ export function TeacherStudentDesk() {
   const [logMode, setLogMode] = useState<'contact' | 'visit' | null>(null)
   const [picking, setPicking] = useState(false)
   const noteRef = useRef<HTMLInputElement>(null)
+  const wide = useMedia('(min-width: 1536px)')
 
   const pick = (sid: string) => {
     const next = new URLSearchParams(params)
@@ -131,6 +132,76 @@ export function TeacherStudentDesk() {
       </div>
     )
 
+  // แต่ละส่วนนิยามครั้งเดียว — สองเลย์เอาต์ต่างกันแค่การจัดวาง
+  const sec = {
+    summary: <Summary fc={fc} />,
+    close: <CloseBanner fc={fc} mayAct={mayAct} onAssess={() => setSheet({ sheet: 'close' })} onReopen={() => setSheet({ sheet: 'reopen' })} />,
+    observations: (
+      <Observations
+        key={`obs-${childId}`}
+        s={fc.s}
+        obs={obs}
+        mayAct={mayAct}
+        onAdd={(text) => {
+          log.addObservation(childId, text, by)
+          log.add({ childId, by, date: isoIn(0), mode: 'note', note: `ครูพบว่า: ${text}` })
+          push('บันทึกสิ่งที่พบแล้ว — AI จะใช้ประกอบคำแนะนำ')
+        }}
+        onEdit={(oid, text) => log.updateObservation(childId, oid, { text })}
+        onResolve={(o) => {
+          log.updateObservation(childId, o.id, { resolvedTs: Date.now() })
+          log.add({ childId, by, date: isoIn(0), mode: 'note', note: `คลี่คลายแล้ว: ${o.text}` })
+          push('ทำเครื่องหมายว่าคลี่คลายแล้ว')
+        }}
+      />
+    ),
+    next: (
+      <NextStep
+        fc={fc}
+        mayAct={mayAct}
+        onRun={() => run(fc.next.go)}
+        onAlt={() => document.getElementById('ai-options')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
+        onAsk={() => setSheet({ sheet: 'ask' })}
+      />
+    ),
+    ai: <AiOptions key={`ai-${childId}`} fc={fc} obs={obs} entries={entries} mayAct={mayAct} by={by} log={log} run={run} />,
+    appointments: (
+      <Appointments fc={fc} entries={entries} mayAct={mayAct} onAdd={() => setSheet({ sheet: 'schedule' })} onLog={() => setSheet({ sheet: 'outcome', mode: 'followUp' })} />
+    ),
+    outcome: <Outcome fc={fc} entries={entries} />,
+    goals: (
+      <Goals
+        key={`goal-${childId}`}
+        s={fc.s}
+        goal={log.goals[childId]}
+        mayAct={mayAct}
+        onSave={(items, days) => {
+          log.saveGoal(childId, { items, due: isoIn(days), ts: Date.now(), by })
+          push('บันทึกเป้าหมายแล้ว')
+        }}
+      />
+    ),
+    note: (
+      <section>
+        <SectionTitle>บันทึกสั้น</SectionTitle>
+        {mayAct && (
+          <QuickNote
+            inputRef={noteRef}
+            onSave={(text) => {
+              log.add({ childId, by, date: isoIn(0), mode: 'note', note: text })
+              push('บันทึกแล้ว — เพิ่มเข้าไทม์ไลน์ และ AI จะใช้ประกอบคำแนะนำครั้งถัดไป')
+            }}
+          />
+        )}
+      </section>
+    ),
+    timeline: <StudentTimeline fc={fc} entries={entries} log={log} mayAct={mayAct} onLogContact={() => setLogMode('contact')} />,
+    trend: <Trend fc={fc} />,
+    team: <Team fc={fc} entries={entries} me={by} />,
+    related: <Related fc={fc} entries={entries} mayAct={mayAct} onVisit={() => setLogMode('visit')} />,
+    more: <MoreInfo fc={fc} th={th} t={t} />,
+  }
+
   return (
     <div className="animate-page-rise pb-28 md:pb-6">
       <PageHeader
@@ -153,7 +224,7 @@ export function TeacherStudentDesk() {
           </div>
         </aside>
 
-        <div className="min-w-0 max-w-3xl space-y-4">
+        <div className="min-w-0 space-y-4">
           <button
             type="button"
             onClick={() => setPicking(true)}
@@ -163,59 +234,47 @@ export function TeacherStudentDesk() {
             <span aria-hidden>▾</span>
           </button>
 
-          <Summary fc={fc} />
-          <CloseBanner fc={fc} mayAct={mayAct} onAssess={() => setSheet({ sheet: 'close' })} onReopen={() => setSheet({ sheet: 'reopen' })} />
-
-          <Observations
-            key={`obs-${childId}`}
-            s={fc.s}
-            obs={obs}
-            mayAct={mayAct}
-            onAdd={(text) => {
-              log.addObservation(childId, text, by)
-              log.add({ childId, by, date: isoIn(0), mode: 'note', note: `ครูพบว่า: ${text}` })
-              push('บันทึกสิ่งที่พบแล้ว — AI จะใช้ประกอบคำแนะนำ')
-            }}
-            onEdit={(oid, text) => log.updateObservation(childId, oid, { text })}
-            onResolve={(o) => {
-              log.updateObservation(childId, o.id, { resolvedTs: Date.now() })
-              log.add({ childId, by, date: isoIn(0), mode: 'note', note: `คลี่คลายแล้ว: ${o.text}` })
-              push('ทำเครื่องหมายว่าคลี่คลายแล้ว')
-            }}
-          />
-
-          <NextStep fc={fc} mayAct={mayAct} onRun={() => run(fc.next.go)} onAlt={() => document.getElementById('ai-options')?.scrollIntoView({ behavior: 'smooth', block: 'start' })} onAsk={() => setSheet({ sheet: 'ask' })} />
-
-          <AiOptions key={`ai-${childId}`} fc={fc} obs={obs} entries={entries} mayAct={mayAct} by={by} log={log} run={run} />
-
-          <Appointments fc={fc} entries={entries} mayAct={mayAct} onAdd={() => setSheet({ sheet: 'schedule' })} onLog={() => setSheet({ sheet: 'outcome', mode: 'followUp' })} />
-
-          <Outcome fc={fc} entries={entries} />
-
-          <Goals key={`goal-${childId}`} s={fc.s} goal={log.goals[childId]} mayAct={mayAct} onSave={(items, days) => {
-            log.saveGoal(childId, { items, due: isoIn(days), ts: Date.now(), by })
-            push('บันทึกเป้าหมายแล้ว')
-          }} />
-
-          <section>
-            <SectionTitle>บันทึกสั้น</SectionTitle>
-            {mayAct && (
-              <QuickNote
-                inputRef={noteRef}
-                onSave={(text) => {
-                  log.add({ childId, by, date: isoIn(0), mode: 'note', note: text })
-                  push('บันทึกแล้ว — เพิ่มเข้าไทม์ไลน์ และ AI จะใช้ประกอบคำแนะนำครั้งถัดไป')
-                }}
-              />
-            )}
-          </section>
-
-          <StudentTimeline fc={fc} entries={entries} log={log} mayAct={mayAct} onLogContact={() => setLogMode('contact')} />
-
-          <Trend fc={fc} />
-          <Team fc={fc} entries={entries} me={by} />
-          <Related fc={fc} entries={entries} mayAct={mayAct} onVisit={() => setLogMode('visit')} />
-          <MoreInfo fc={fc} th={th} t={t} />
+          {/* จอกว้าง (≥1536px) แยกสองคอลัมน์ตั้งแต่บนสุด: งานหลักตรงกลาง ข้อมูลประกอบด้านขวา
+              จอเล็กกว่านั้นเรียงคอลัมน์เดียวตามลำดับของ brief (มือถือก่อน) */}
+          {wide ? (
+            <div className="grid grid-cols-[minmax(0,1fr)_380px] items-start gap-4">
+              <div className="min-w-0 space-y-4">
+                {sec.summary}
+                {sec.close}
+                {sec.observations}
+                {sec.next}
+                {sec.ai}
+                {sec.note}
+                {sec.timeline}
+              </div>
+              <div className="space-y-4">
+                {sec.appointments}
+                {sec.outcome}
+                {sec.goals}
+                {sec.trend}
+                {sec.team}
+                {sec.related}
+                {sec.more}
+              </div>
+            </div>
+          ) : (
+            <>
+              {sec.summary}
+              {sec.close}
+              {sec.observations}
+              {sec.next}
+              {sec.ai}
+              {sec.appointments}
+              {sec.outcome}
+              {sec.goals}
+              {sec.note}
+              {sec.timeline}
+              {sec.trend}
+              {sec.team}
+              {sec.related}
+              {sec.more}
+            </>
+          )}
         </div>
       </div>
 
@@ -252,6 +311,18 @@ export function TeacherStudentDesk() {
       )}
     </div>
   )
+}
+
+/** จอกว้างพอสำหรับคอลัมน์ขวาไหม — อ่านตอนเปิดและตามการปรับขนาดหน้าต่าง */
+function useMedia(q: string) {
+  const [on, setOn] = useState(() => typeof window !== 'undefined' && window.matchMedia(q).matches)
+  useEffect(() => {
+    const m = window.matchMedia(q)
+    const f = () => setOn(m.matches)
+    m.addEventListener('change', f)
+    return () => m.removeEventListener('change', f)
+  }, [q])
+  return on
 }
 
 // ── ชิ้นส่วน ─────────────────────────────────────────────────
@@ -777,7 +848,7 @@ function Outcome({ fc, entries }: { fc: FollowCase; entries: CaseLogEntry[] }) {
           ครั้งล่าสุด ({last.date}): <span className="font-semibold">{last.note}</span>
         </p>
       )}
-      <ul className="grid gap-1.5 sm:grid-cols-2">
+      <ul className="grid gap-1.5">
         {rows.map((r) => (
           <li key={r.th} className="flex items-start gap-2 text-[14.5px]">
             <span className={`mt-0.5 font-bold ${r.ok ? 'text-green-700' : 'text-ink-faint'}`} aria-hidden>
