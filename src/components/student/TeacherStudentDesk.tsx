@@ -146,7 +146,8 @@ export function TeacherStudentDesk() {
         mayAct={mayAct}
         onAdd={(text) => {
           log.addObservation(childId, text, by)
-          log.add({ childId, by, date: isoIn(0), mode: 'note', note: `ครูพบว่า: ${text}` })
+          // บันทึกลงไทม์ไลน์ แต่ไม่นับเป็นการอัปเดตเคส — ยืนยันสิ่งที่ระบบเสนอไม่ใช่การติดต่อเด็ก
+          log.add({ childId, by, date: isoIn(0), mode: 'note', note: `ครูพบว่า: ${text}`, choice: 'observe' })
           push('บันทึกสิ่งที่พบแล้ว — AI จะใช้ประกอบคำแนะนำ')
         }}
         onEdit={(oid, text) => log.updateObservation(childId, oid, { text })}
@@ -197,7 +198,7 @@ export function TeacherStudentDesk() {
         )}
       </section>
     ),
-    timeline: <StudentTimeline fc={fc} entries={entries} log={log} mayAct={mayAct} onLogContact={() => setLogMode('contact')} />,
+    timeline: <StudentTimeline fc={fc} entries={entries} log={log} mayAct={mayAct} onLogContact={() => setSheet({ sheet: 'outcome', mode: 'contact' })} />,
     trend: <Trend fc={fc} />,
     team: <Team fc={fc} entries={entries} me={by} />,
     related: <Related fc={fc} entries={entries} mayAct={mayAct} onVisit={() => setLogMode('visit')} />,
@@ -516,6 +517,9 @@ function Observations({
                   >
                     บันทึก
                   </button>
+                  <button type="button" onClick={() => setEditing(null)} className="shrink-0 rounded-xl border border-surface-border px-3 text-[14px] text-ink">
+                    ยกเลิก
+                  </button>
                 </div>
               ) : (
                 <>
@@ -675,10 +679,9 @@ function AiOptions({
   const shown = all ? live : live.slice(0, 3)
   const add = (note: string, choice: string) => log.add({ childId: fc.s.id, by, date: isoIn(0), mode: 'note', note, choice })
 
-  const choose = (o: CareOption) => {
-    add(`ครูเลือกแนวทาง: ${o.th}`, `pick:${o.key}`)
-    run(o.go)
-  }
+  // ไม่บันทึก "ครูเลือกแนวทาง" ตอนกด — ถ้าครูกดแล้วยกเลิกนัด ไทม์ไลน์จะมีรายการลอย ๆ
+  // สิ่งที่ครูทำจริง (นัด บันทึกผล ส่งต่อ) บันทึกตัวเองอยู่แล้ว
+  const choose = (o: CareOption) => run(o.go)
 
   return (
     <section id="ai-options" className="scroll-mt-4 rounded-3xl border border-surface-border bg-white p-4 sm:p-5">
@@ -862,7 +865,8 @@ function Appointments({ fc, entries, mayAct, onAdd, onLog }: { fc: FollowCase; e
 
 /** 13. ผลล่าสุด — ผลจริงของการช่วยเหลือ ไม่ใช่สถานะระบบ */
 function Outcome({ fc, entries }: { fc: FollowCase; entries: CaseLogEntry[] }) {
-  const rows = latestOutcome(fc, entries)
+  // การมาเรียนมีส่วนของตัวเองด้านล่าง ไม่ซ้ำที่นี่
+  const rows = latestOutcome(fc, entries).filter((r) => !r.th.startsWith('มาเรียน'))
   const last = entries.find((e) => e.result)
   return (
     <section className="rounded-3xl border border-surface-border bg-white p-4 sm:p-5">
@@ -893,11 +897,34 @@ function Goals({ s, goal, mayAct, onSave }: { s: FollowCase['s']; goal?: import(
   const [extra, setExtra] = useState('')
   const [manual, setManual] = useState<Record<number, boolean>>(() => Object.fromEntries((goal?.items ?? []).map((g, i) => [i, Boolean(g.done)])))
 
+  // ยังไม่มีเป้าหมาย: แสดงข้อเสนอเป็นรายการอ่านง่าย กดใช้ได้ทันที — ฟอร์มแก้ไขเปิดเมื่อครูต้องการเท่านั้น
+  if (!goal && !editing)
+    return (
+      <section className="rounded-3xl border border-surface-border bg-white p-4 sm:p-5">
+        <SectionTitle>เป้าหมายการช่วยเหลือ 30 วัน</SectionTitle>
+        <p className="mb-2 text-[13.5px] text-ink-muted">AI เสนอจากข้อมูลของเด็กคนนี้ — ครูตัดสินใจว่าจะใช้หรือปรับ</p>
+        <ul className="space-y-1 text-[15px] text-ink">
+          {items.map((it) => (
+            <li key={it}>• {it}</li>
+          ))}
+        </ul>
+        {mayAct && (
+          <div className="mt-3 flex flex-wrap gap-2">
+            <button type="button" onClick={() => onSave(items.map((text) => ({ text })), 30)} className="rounded-xl bg-brand-500 px-4 py-2.5 text-[14.5px] font-semibold text-white">
+              ใช้เป้าหมายนี้
+            </button>
+            <button type="button" onClick={() => setEditing(true)} className="rounded-xl border border-surface-border bg-white px-4 py-2.5 text-[14.5px] font-medium text-ink">
+              แก้ไขก่อนใช้
+            </button>
+          </div>
+        )}
+      </section>
+    )
   if (!goal || editing)
     return (
       <section className="rounded-3xl border border-surface-border bg-white p-4 sm:p-5">
         <SectionTitle>เป้าหมายการช่วยเหลือ 30 วัน</SectionTitle>
-        {!goal && <p className="mb-2 text-[13.5px] text-ink-muted">AI เสนอเป้าหมายจากข้อมูลของเด็กคนนี้ — แก้ ลบ หรือเพิ่มได้ แล้วกดยืนยัน</p>}
+        <p className="mb-2 text-[13.5px] text-ink-muted">แก้ ลบ หรือเพิ่มได้ แล้วกดยืนยัน</p>
         <ul className="space-y-1.5">
           {items.map((it, i) => (
             <li key={i} className="flex gap-2">
@@ -927,11 +954,9 @@ function Goals({ s, goal, mayAct, onSave }: { s: FollowCase['s']; goal?: import(
             >
               ยืนยันเป้าหมาย
             </button>
-            {goal && (
-              <button type="button" onClick={() => setEditing(false)} className="rounded-xl border border-surface-border px-4 py-2.5 text-[14.5px] text-ink">
-                ยกเลิก
-              </button>
-            )}
+            <button type="button" onClick={() => setEditing(false)} className="rounded-xl border border-surface-border px-4 py-2.5 text-[14.5px] text-ink">
+              ยกเลิก
+            </button>
           </div>
         )}
       </section>
@@ -1060,11 +1085,10 @@ function Team({ fc, entries, me }: { fc: FollowCase; entries: CaseLogEntry[]; me
 }
 
 /** 15. งานที่เกี่ยวข้อง — สถานะของงาน ไม่ใช่เมนูระบบ */
-function Related({ fc, entries, mayAct, onVisit }: { fc: FollowCase; entries: CaseLogEntry[]; mayAct: boolean; onVisit: () => void }) {
+function Related({ fc }: { fc: FollowCase; entries?: CaseLogEntry[]; mayAct?: boolean; onVisit?: () => void }) {
   const nav = useNavigate()
   const openRefs = fc.refs.filter((r) => r.bucket !== 'done')
-  const fus = entries.filter((e) => e.followUpDate && !e.followUpDone).length
-  const lastVisit = entries.find((e) => e.mode === 'visit')
+  // นัดหมายและการเยี่ยมบ้านมีส่วนของตัวเองบนหน้านี้แล้ว — ที่นี่เหลือเฉพาะงานที่อยู่หน้าอื่น
   const rows: { k: string; v: string; cta?: string; go?: () => void }[] = [
     { k: 'แผนช่วยเหลือ', v: fc.hasPlan ? 'มีแผนแล้ว' : 'ยังไม่มี', cta: fc.hasPlan ? 'ดูแผน' : 'สร้างแผน', go: () => nav(`/plan?child=${fc.s.id}`) },
     {
@@ -1073,17 +1097,10 @@ function Related({ fc, entries, mayAct, onVisit }: { fc: FollowCase; entries: Ca
       cta: openRefs.length ? 'ดูการส่งต่อ' : 'พิจารณาส่งต่อ',
       go: () => nav(openRefs[0] ? `/referral?ref=${openRefs[0].id}` : `/referral?child=${fc.s.id}`),
     },
-    { k: 'การติดตาม', v: fus ? `มี ${fus} นัดที่ต้องทำ` : fc.sla.text, cta: 'ดูงาน', go: () => nav(`/intervention?child=${fc.s.id}`) },
-    {
-      k: 'การเยี่ยมบ้าน',
-      v: lastVisit ? `เยี่ยมแล้ว ${lastVisit.date}` : fc.s.homeVisited ? 'เยี่ยมแล้ว (ในระบบเดิม)' : 'ยังไม่มีบันทึก',
-      cta: mayAct ? 'บันทึกการเยี่ยมบ้าน' : undefined,
-      go: onVisit,
-    },
   ]
   return (
     <section className="rounded-3xl border border-surface-border bg-white p-4 sm:p-5">
-      <SectionTitle>งานที่เกี่ยวข้อง</SectionTitle>
+      <SectionTitle>แผนและการส่งต่อ</SectionTitle>
       <ul className="divide-y divide-surface-border">
         {rows.map((r) => (
           <li key={r.k} className="flex flex-wrap items-center gap-2 py-2.5">

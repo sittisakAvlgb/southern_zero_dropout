@@ -195,7 +195,7 @@ export function careOptions(fc: FollowCase, obs: Observation[], entries: CaseLog
   if (needsAgency(s) && !fc.refs.some((r) => r.bucket !== 'done'))
     opts.push({
       key: 'refer',
-      th: `ส่งต่อ${agencyOwners(s).filter((o) => !/ครู|โรงเรียน/.test(o))[0] ?? 'หน่วยงาน'}`,
+      th: `ส่งต่อ ${agencyOwners(s).filter((o) => !/ครู|โรงเรียน/.test(o))[0] ?? 'หน่วยงาน'}`,
       why: 'สาเหตุบางข้ออยู่นอกอำนาจโรงเรียนตามกลุ่มรหัส สพฐ.',
       pros: 'หน่วยงานมีทรัพยากรที่โรงเรียนไม่มี',
       cons: 'ต้องได้ความยินยอมผู้ปกครองก่อน (PDPA)',
@@ -295,7 +295,9 @@ export function caseTeam(fc: FollowCase, entries: CaseLogEntry[], me: string): T
   const text = entries.map((e) => `${e.note} ${e.channel ?? ''} ${e.escalation ?? ''} ${e.followUpMethod ?? ''}`).join(' ')
   if (/แนะแนว|คุยกับนักเรียน/.test(text) && !/แนะแนว/.test(fc.s.caseOwner)) out.push({ role: 'ครูแนะแนว', name: 'ครูแนะแนวของโรงเรียน' })
   if (/ผอ\./.test(text)) out.push({ role: 'ผู้บริหาร', name: 'ผอ.โรงเรียน', note: 'ได้รับแจ้งแล้ว' })
-  if (/ผู้นำชุมชน|อสม|leader/.test(text) || fc.s.timeline.some((e) => /ผู้นำชุมชน/.test(e.note))) out.push({ role: 'ชุมชน', name: 'ผู้นำชุมชน / อสม.' })
+  // อ่านจากบันทึกของครูเท่านั้น — ไทม์ไลน์ตั้งต้นมีประโยค "ประสานผู้นำชุมชน" เหมือนกันทุกคน
+  // ถ้านับด้วย เด็กทุกคนจะมีผู้นำชุมชนในทีมทั้งที่ไม่มีใครประสานจริง
+  if (/ผู้นำชุมชน|อสม|leader/.test(text)) out.push({ role: 'ชุมชน', name: 'ผู้นำชุมชน / อสม.' })
   if (/ประชุมทีม/.test(text)) out.push({ role: 'ทีมช่วยเหลือ', name: 'ทีมช่วยเหลือนักเรียนของโรงเรียน' })
   for (const e of entries) if (e.followUpOwner && e.followUpOwner !== me && !out.some((m) => m.name === e.followUpOwner)) out.push({ role: 'ผู้รับผิดชอบนัด', name: e.followUpOwner })
   for (const r of fc.refs.filter((x) => x.bucket !== 'done' || x.outcome))

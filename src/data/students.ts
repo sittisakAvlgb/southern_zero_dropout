@@ -128,6 +128,26 @@ function attendance(rng: () => number, base: number, trend = -1): AttendancePoin
   return out
 }
 
+/** ให้อัตรามาเรียนรายสัปดาห์สอดคล้องกับจำนวนวันที่ขาดติดกัน
+ *
+ *  สองค่านี้เคยสุ่มแยกกัน หน้าข้อมูลเด็กจึงขึ้น "ขาดเรียนต่อเนื่อง 16 วัน" คู่กับ
+ *  "มาเรียนสัปดาห์นี้ 66%" ซึ่งเป็นไปไม่ได้ ครูเห็นแล้วจะไม่เชื่อตัวเลขอื่นทั้งหน้า
+ *  ขาดติดกัน N วันเรียน = N วันล่าสุดขาดทั้งหมด (สัปดาห์ละ 5 วัน) จึงเพดานอัตรา
+ *  ของสัปดาห์ที่ถูกครอบไว้ ไม่เรียก rng เพิ่ม ค่าสุ่มอื่นของเด็กจึงไม่เลื่อน */
+function capByStreak(points: AttendancePoint[], streak: number): AttendancePoint[] {
+  // ขาด 1–2 วันคือป่วยธรรมดา (เกณฑ์เดียวกับ closability) ไม่ใช่ "ขาดต่อเนื่อง"
+  // ถ้าเพดานตรงนี้ด้วย เด็กที่ดีขึ้นแล้วจะตกเกณฑ์มาเรียน 80% และปิดเคสไม่ได้
+  if (streak < 3) return points
+  let left = streak
+  const out = [...points]
+  for (let i = out.length - 1; i >= 0 && left > 0; i--) {
+    const absent = Math.min(5, left)
+    out[i] = { ...out[i], rate: Math.min(out[i].rate, Math.round(((5 - absent) / 5) * 100)) }
+    left -= absent
+  }
+  return out
+}
+
 /** คะแนนเสี่ยง 8 สัปดาห์ที่ "ลงเอย" ที่ค่าปัจจุบันพอดี
  *
  *  เดินถอยหลังจาก `now` แล้วกลับลำดับ เพื่อให้จุดสุดท้ายเท่ากับ `riskScore`
@@ -381,10 +401,13 @@ function buildStudent(idx: number): Student {
     vulnerableGroup: familyRisk > 58 || rng() > 0.66,
     causeKeys,
     attendanceRisk: attendanceRiskNow, academicRisk, behaviorRisk, familyRisk, wellbeingRisk, parentRisk,
-    attendance: attendance(
-      rng,
-      recovering ? Math.max(78, 100 - attendanceRiskNow * 0.5) : 100 - attendanceRisk * 0.5,
-      recovering ? 3 : -1,
+    attendance: capByStreak(
+      attendance(
+        rng,
+        recovering ? Math.max(78, 100 - attendanceRiskNow * 0.5) : 100 - attendanceRisk * 0.5,
+        recovering ? 3 : -1,
+      ),
+      absenceStreak,
     ),
     // ขาขึ้น = แย่ลง เด็กที่ยังไม่ได้รับการช่วยเหลือจึงไต่ขึ้น ส่วนเด็กที่
     // มีแผนแล้วเดินลง ซึ่งเป็นภาพของ "ช่วยแล้วได้ผล"
