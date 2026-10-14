@@ -26,6 +26,7 @@ import { SkeletonKpi, SkeletonCard } from '@/components/ui/Skeleton'
 import { useToast } from '@/components/ui/Toast'
 import { useSimulatedLoading } from '@/lib/useLoading'
 import { useI18n } from '@/i18n/LanguageContext'
+import { REASON_GROUP, isDropCause, reasonFor, type ReasonGroup } from '@/data/dropReasons'
 import { formatNumber, formatPct, makeRng, hashSeed } from '@/lib/format'
 import { RISK_COLOR } from '@/lib/risk'
 import type { CauseKey, CauseWeight, Province } from '@/types'
@@ -155,13 +156,43 @@ export default function CauseAnalysis() {
   // Ranking: all 12 causes desc
   const rankingData = useMemo(
     () =>
-      dist.map((c) => ({
-        key: c.key,
-        name: t(`cause.${c.key}`),
-        value: c.value,
-      })),
+      dist.map((c) => {
+        const r = reasonFor(c.key)
+        return {
+          key: c.key,
+          name: t(`cause.${c.key}`),
+          value: c.value,
+          // รหัสจริงจากตาราง สพฐ. ใช้ตอน export และตอนเทียบกับรายงานราชการ
+          code: r?.id,
+          official: r?.th,
+        }
+      }),
     [dist, t],
   )
+
+  /** สาเหตุรวมตามกลุ่มรหัส สพฐ. — คำถามเปลี่ยนจาก "สาเหตุไหนเยอะที่สุด"
+   *  เป็น "หน่วยงานไหนต้องรับไปแก้มากที่สุด" ซึ่งเป็นคำถามที่สั่งงานได้
+   *
+   *  รหัสหลักแรกในตาราง สพฐ. บอกเจ้าภาพอยู่แล้ว (3xx = พมจ./ท้องถิ่น ฯลฯ)
+   *  การรวมจึงไม่ใช่การตีความของเรา แต่เป็นโครงสร้างของตารางเอง */
+  const byOwner = useMemo(() => {
+    const sum = new Map<ReasonGroup, number>()
+    for (const c of dist) {
+      const r = reasonFor(c.key)
+      if (!r || !isDropCause(r)) continue
+      sum.set(r.group, (sum.get(r.group) ?? 0) + c.value)
+    }
+    const total = [...sum.values()].reduce((a, b) => a + b, 0) || 1
+    return [...sum.entries()]
+      .map(([group, value]) => ({
+        group,
+        value,
+        share: (value / total) * 100,
+        label: REASON_GROUP[group].th,
+        owner: REASON_GROUP[group].ownerTh,
+      }))
+      .sort((a, b) => b.value - a.value)
+  }, [dist])
 
   // Trend: top 3 causes over 6 months
   const topThree = dist.slice(0, 3)
@@ -495,6 +526,56 @@ export default function CauseAnalysis() {
               </BarChart>
             </ResponsiveContainer>
           </ChartCard>
+          </div>
+
+          {/* ใครต้องรับไปแก้ — รวมตามกลุ่มรหัส สพฐ. */}
+          <div className="lg:col-span-12">
+            <ChartCard
+              title={th ? 'ใครต้องรับไปแก้' : 'Who has to fix it'}
+              delay={0.12}
+              subtitle={
+                th
+                  ? 'รวมสาเหตุตามกลุ่มรหัส สพฐ. — หลักแรกของรหัสบอกหน่วยงานเจ้าภาพอยู่แล้ว'
+                  : 'Causes grouped by the official OBEC code families; the first digit names the responsible agency'
+              }
+            >
+              <div className="grid grid-cols-1 gap-2.5 p-1 sm:grid-cols-2 lg:grid-cols-3">
+                {byOwner.map((row, i) => (
+                  <motion.div
+                    key={row.group}
+                    initial={{ opacity: 0, y: 8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.05 * i, duration: 0.3 }}
+                    className="rounded-xl border border-surface-border p-3.5"
+                  >
+                    <div className="flex items-baseline justify-between gap-2">
+                      <p className="text-[14px] font-semibold text-ink">{row.label}</p>
+                      <p className="shrink-0 text-[20px] font-bold tabular text-ink">
+                        {row.share.toFixed(0)}%
+                      </p>
+                    </div>
+                    <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-surface-muted">
+                      <motion.div
+                        initial={{ width: 0 }}
+                        animate={{ width: `${row.share}%` }}
+                        transition={{ duration: 0.7, delay: 0.1 + 0.05 * i }}
+                        className="h-full rounded-full"
+                        style={{ background: intensityColor(row.share / (byOwner[0]?.share || 1)) }}
+                      />
+                    </div>
+                    <p className="mt-2 text-[12px] text-ink-muted">
+                      {th ? 'เจ้าภาพ: ' : 'Owner: '}
+                      <span className="font-medium text-ink">{row.owner}</span>
+                    </p>
+                  </motion.div>
+                ))}
+              </div>
+              <p className="px-1 pt-2 text-[11px] leading-snug text-ink-faint">
+                {th
+                  ? 'นับเฉพาะรหัส 1xx–5xx ซึ่งเป็นสาเหตุที่ทำให้เด็กออกจริง — 6xx–8xx เป็นสถานะผลการติดตาม (จบการศึกษา · อยู่ในทะเบียนบ้านกลาง · ไม่ตกหล่น) ไม่ใช่สาเหตุ'
+                  : 'Counts codes 1xx–5xx only — 6xx–8xx are follow-up outcomes (completed, central registry, not missing), not reasons for leaving.'}
+              </p>
+            </ChartCard>
           </div>
 
           {/* 3. Trend of top-3 causes */}

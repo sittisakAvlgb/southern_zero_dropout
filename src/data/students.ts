@@ -11,7 +11,13 @@ import type {
   StudentMaster,
   Student,
 } from '@/types'
-import { computeRiskScore, riskLevel } from '@/lib/risk'
+import {
+  computeRiskScore,
+  familyRiskFrom,
+  riskLevel,
+  travelPenalty,
+  wellbeingRiskFrom,
+} from '@/lib/risk'
 import { hashSeed, makeRng, pick, randInt } from '@/lib/format'
 import { DISTRICTS_GEO } from './geo'
 import { TAMBONS } from './places'
@@ -142,21 +148,24 @@ function grades(rng: () => number, base: number): GradePoint[] {
  *  ระบุความยากจนต้องมีรายได้ครัวเรือนต่ำจริง และเด็กที่ระบุว่าเดินทางลำบาก
  *  ต้องใช้เวลาเดินทางนานจริง ถ้าสุ่มแยก ทะเบียนกับสาเหตุจะขัดกันเอง และ
  *  หน้า "ทำไมเด็กคนนี้ถึงเสี่ยง" จะอ้างตัวเลขที่สวนทางกับคำอธิบายของตัวเอง */
-function buildMaster(
-  rng: () => number,
-  ctx: { familyRisk: number; causeKeys: CauseKey[]; provinceKey: string },
-): StudentMaster {
-  const poor = ctx.causeKeys.includes('poverty') || ctx.familyRisk >= 70
-  const farTravel = ctx.causeKeys.includes('travel')
-  const disadvantaged: string[] = []
-  if (poor) disadvantaged.push('เด็กยากจน')
-  if (ctx.causeKeys.includes('childLabour')) disadvantaged.push('เด็กที่ต้องทำงานหารายได้')
-  if (ctx.causeKeys.includes('migration')) disadvantaged.push('เด็กที่ย้ายถิ่นตามผู้ปกครอง')
+function buildMaster(rng: () => number, severity: number): StudentMaster {
+  // ครัวเรือนยากจนพบมากในกลุ่มที่สถานการณ์หนัก แต่ไม่ผูกตายตัว — ความยากจน
+  // ไม่ได้แปลว่าเด็กจะหลุด และเด็กที่หลุดก็ไม่ได้ยากจนทุกคน
+  const poor = severity > 0.45
+  const farTravel = rng() > 0.78
+  const moved = rng() > 0.82
+  const guardian = moved
+    ? pick(rng, ['ยาย', 'ย่า', 'ตา', 'ปู่', 'ผู้ปกครอง'])
+    : pick(rng, GUARDIAN_POOL)
 
-  const salary = poor
-    ? pick(rng, SALARY_POOL.filter((v) => v <= 6000))
-    : pick(rng, SALARY_POOL)
+  const salary = poor ? pick(rng, SALARY_POOL.filter((v) => v <= 6000)) : pick(rng, SALARY_POOL)
   const timeDt = farTravel ? pick(rng, [20, 25, 30, 30, 45]) : pick(rng, TIME_POOL)
+
+  const disadvantaged: string[] = []
+  if (salary <= 3000) disadvantaged.push('เด็กยากจนพิเศษ')
+  else if (salary <= 6000) disadvantaged.push('เด็กยากจน')
+  if (!['มารดา', 'บิดา'].includes(guardian)) disadvantaged.push('เด็กที่อยู่ในความดูแลของญาติ')
+  if (moved) disadvantaged.push('เด็กที่ย้ายถิ่นตามผู้ปกครอง')
 
   return {
     academicYear: '2569',
@@ -165,9 +174,7 @@ function buildMaster(
     schoolID: `10${randInt(rng, 11000000, 11999999)}`,
     areaID: `${randInt(rng, 11010000, 11039999)}`,
     parentSalary: salary,
-    parentRelationName: ctx.causeKeys.includes('migration')
-      ? pick(rng, ['ยาย', 'ย่า', 'ตา', 'ปู่', 'ผู้ปกครอง'])
-      : pick(rng, GUARDIAN_POOL),
+    parentRelationName: guardian,
     disadvantaged,
     disabilityName: rng() > 0.98 ? 'บกพร่องทางการเรียนรู้' : '',
     weight: randInt(rng, 18, 62),
@@ -179,7 +186,7 @@ function buildMaster(
     journeyTypeName: farTravel
       ? pick(rng, ['เดินเท้า', 'พาหนะเสียค่าโดยสาร'])
       : pick(rng, JOURNEY_POOL),
-    movedFromRegisteredAddress: ctx.causeKeys.includes('migration') || rng() > 0.88,
+    movedFromRegisteredAddress: moved,
   }
 }
 
@@ -196,12 +203,27 @@ function buildStudent(idx: number): Student {
 
   const severity = rng()
   const hi = severity > 0.5
-  const attendanceRisk = randInt(rng, hi ? 58 : 22, hi ? 98 : 70)
+
+  // ทะเบียนนักเรียนมาก่อนคะแนน ไม่ใช่ตามหลัง — ในโลกจริงข้อเท็จจริงของ
+  // ครัวเรือนมีอยู่ก่อน แล้วความเสี่ยงจึงตามมา เดิมโค้ดทำกลับทาง (สุ่มคะแนน
+  // แล้วค่อยแต่งทะเบียนให้เข้ากัน) ซึ่งแปลว่าคะแนนไม่ได้มาจากอะไรเลย
+  const master = buildMaster(rng, severity)
+
+  // คำนวณจากทะเบียนจริง — ดู familyRiskFrom / wellbeingRiskFrom / travelPenalty
+  const familyRisk = familyRiskFrom(master)
+  const wellbeingRisk = wellbeingRiskFrom(master, randInt(rng, 8, hi ? 84 : 52))
+  // การเดินทางลำบากโผล่เป็นการขาดเรียน จึงบวกเข้ากับด้านนี้ ไม่ใช่มิติใหม่
+  const attendanceRisk = Math.min(
+    100,
+    randInt(rng, hi ? 58 : 22, hi ? 96 : 68) + travelPenalty(master),
+  )
   const academicRisk = randInt(rng, hi ? 48 : 15, hi ? 95 : 66)
   const behaviorRisk = randInt(rng, 10, hi ? 86 : 58)
-  const familyRisk = randInt(rng, hi ? 45 : 12, hi ? 96 : 62)
-  const wellbeingRisk = randInt(rng, 8, hi ? 88 : 55)
-  const parentRisk = randInt(rng, 12, hi ? 94 : 62)
+  // ติดต่อผู้ปกครองยากขึ้นเมื่อคนดูแลไม่ใช่พ่อแม่ หรือพ่อแม่ย้ายถิ่นไปทำงาน
+  const parentRisk = Math.min(
+    100,
+    randInt(rng, 12, hi ? 90 : 60) + (master.movedFromRegisteredAddress ? 14 : 0),
+  )
 
   const riskScore = computeRiskScore({
     attendanceRisk, academicRisk, behaviorRisk, familyRisk, wellbeingRisk, parentRisk,
@@ -211,6 +233,12 @@ function buildStudent(idx: number): Student {
   // Cause draw, biased by where the child lives
   const weighted: CauseKey[] = [...CAUSE_POOL]
   weighted.push('poverty', 'absence', 'dualSchooling')
+  // สาเหตุที่ถูกบันทึกควรสะท้อนทะเบียน ไม่ใช่สุ่มขนานกันไป เด็กที่รายได้
+  // ครัวเรือน 3,000 บาทควรมีโอกาสถูกบันทึกว่า "ยากจน" มากกว่าเด็กที่ 20,000
+  if (master.parentSalary <= 5000) weighted.push('poverty', 'poverty', 'childLabour')
+  if (master.timeDt >= 20) weighted.push('travel', 'travel')
+  if (master.movedFromRegisteredAddress) weighted.push('migration', 'migration')
+  if (master.disabilityName) weighted.push('health')
   if (kind === 'border') weighted.push('migration', 'noDocuments', 'childLabour')
   if (kind === 'remote') weighted.push('travel', 'noDevice')
   if (kind === 'coastal') weighted.push('childLabour')
@@ -323,7 +351,7 @@ function buildStudent(idx: number): Student {
     // ขาขึ้น = แย่ลง เด็กที่ยังไม่ได้รับการช่วยเหลือจึงไต่ขึ้น ส่วนเด็กที่
     // มีแผนแล้วเดินลง ซึ่งเป็นภาพของ "ช่วยแล้วได้ผล"
     riskHistory: riskSeries(rng, riskScore, recovering ? -randInt(rng, 3, 7) : randInt(rng, 0, 4)),
-    master: buildMaster(rng, { familyRisk, causeKeys, provinceKey: tambon.provinceKey }),
+    master,
     grades: grades(rng, 3.6 - academicRisk / 45),
     parentContact,
     homeVisited: ['homeVisit', 'referred', 'planned', 'returned', 'resolved'].includes(stage),

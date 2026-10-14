@@ -20,6 +20,76 @@ export interface RiskInputs {
   parentRisk: number
 }
 
+// ── คะแนนย่อยที่คำนวณจากทะเบียนจริง ───────────────────────────
+// คะแนนย่อยหกด้านเคยเป็นตัวเลขที่สุ่มขึ้นมาเฉย ๆ ไม่มีใครตอบได้ว่า
+// "ครอบครัว 86/100" มาจากอะไร สามฟังก์ชันด้านล่างคำนวณจากฟิลด์ในทะเบียน
+// นักเรียน (DMC/สพฐ.) ทุกตัว ครูจึงย้อนตรวจได้ว่าคะแนนมาจากข้อเท็จจริงใด
+// และเมื่อต่อข้อมูลจริง ตัวเลขจะเปลี่ยนตามข้อมูลโดยไม่ต้องแก้สูตร
+//
+// เส้นแบ่งรายได้อิงเกณฑ์ที่ใช้จริงในการคัดกรองทุนเสมอภาค (ครัวเรือนยากจน
+// พิเศษประมาณ 1,250 บาท/คน/เดือน) ส่วนช่วงอื่นไล่ตามการกระจายในไฟล์
+// ตัวอย่างที่ได้รับ ซึ่งกองอยู่ที่ 3,000 และ 9,000 บาท
+
+/** ผู้ปกครองที่เป็นพ่อแม่จริง ที่เหลือคือญาติที่รับช่วงดูแลแทน ซึ่งในข้อมูล
+ *  จริงมักมาคู่กับพ่อแม่ที่ย้ายถิ่นไปทำงาน (สาเหตุรหัส 306) */
+const BIRTH_PARENT = ['มารดา', 'บิดา']
+
+export interface FamilyFacts {
+  parentSalary: number
+  parentRelationName: string
+  disadvantaged: string[]
+  movedFromRegisteredAddress: boolean
+}
+
+/** ความเสี่ยงด้านครอบครัว 0–100 จากรายได้ ผู้ดูแล และสถานะด้อยโอกาส */
+export function familyRiskFrom(m: FamilyFacts): number {
+  // รายได้เป็นตัวตั้ง เพราะเป็นตัวทำนายที่แรงที่สุดและเป็นฟิลด์ที่ครบที่สุด
+  let score =
+    m.parentSalary <= 2000 ? 90
+    : m.parentSalary <= 3000 ? 78
+    : m.parentSalary <= 5000 ? 64
+    : m.parentSalary <= 9000 ? 48
+    : m.parentSalary <= 15000 ? 30
+    : 16
+  if (!BIRTH_PARENT.includes(m.parentRelationName)) score += 10
+  if (m.movedFromRegisteredAddress) score += 6
+  score += Math.min(12, m.disadvantaged.length * 6)
+  return Math.max(0, Math.min(100, Math.round(score)))
+}
+
+/** ความเสี่ยงด้านสุขภาวะ 0–100 จากความพิการและภาวะโภชนาการ
+ *  BMI ต่ำกว่าเกณฑ์เป็นสัญญาณของครัวเรือนที่ขาดแคลนจริง ไม่ใช่แค่เรื่องสุขภาพ */
+export function wellbeingRiskFrom(m: { disabilityName: string; weight: number; height: number }, base: number): number {
+  let score = base
+  if (m.disabilityName) score += 25
+  const h = m.height / 100
+  const bmi = h > 0 ? m.weight / (h * h) : 0
+  if (bmi > 0 && bmi < 15) score += 18
+  else if (bmi > 0 && bmi < 17) score += 9
+  return Math.max(0, Math.min(100, Math.round(score)))
+}
+
+/** การเดินทางไม่ได้เป็นมิติของตัวเอง แต่ไปโผล่เป็น "ขาดเรียน" — เด็กที่ต้อง
+ *  เดินเท้า 30 นาทีบนทางลูกรังจะมาไม่ได้ในหน้าฝน นี่คือเส้นทางเหตุผลจริง
+ *  จึงบวกเข้ากับ attendanceRisk แทนการเพิ่มน้ำหนักใหม่ในโมเดล */
+export function travelPenalty(m: {
+  timeDt: number
+  rockDt: number
+  waterDt: number
+  journeyTypeName: string
+}): number {
+  let p = 0
+  if (m.timeDt >= 30) p += 14
+  else if (m.timeDt >= 20) p += 8
+  else if (m.timeDt >= 15) p += 4
+  // ทางลูกรังและทางน้ำคือเส้นทางที่ขาดได้จริงตามฤดูกาล ต่างจากทางลาดยาง
+  if (m.rockDt + m.waterDt >= 500) p += 8
+  else if (m.rockDt + m.waterDt > 0) p += 4
+  if (m.journeyTypeName === 'เดินเท้า') p += 6
+  else if (m.journeyTypeName === 'พาหนะเสียค่าโดยสาร') p += 4
+  return p
+}
+
 export function computeRiskScore(i: RiskInputs): number {
   const s =
     i.attendanceRisk * RISK_WEIGHTS.attendance +
