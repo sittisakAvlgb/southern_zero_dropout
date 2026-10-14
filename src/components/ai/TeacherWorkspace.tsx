@@ -12,7 +12,7 @@ import { formatNumber } from '@/lib/format'
 import { RISK_COLOR } from '@/lib/risk'
 import { GRADE_LABEL } from '@/lib/schoolOps'
 import { buildTeacherOps, matchesTask, type TaskFilter } from '@/lib/teacherOps'
-import { applyLog, applyPlans, openFollowUps, useCaseLog } from '@/lib/caseLog'
+import { applyLog, lastLoggedMap, applyPlans, openFollowUps, useCaseLog } from '@/lib/caseLog'
 import { buildSystemPrompt, localAnswer, streamAnswer } from '@/lib/ai'
 import { AnimatedCounter } from '@/components/ui/AnimatedCounter'
 import { IconArrowRight, IconClose } from '@/components/icons'
@@ -56,16 +56,7 @@ export function TeacherWorkspace() {
   const roster = useMemo(() => students.map((st) => applyLog(st, log)), [students, log])
 
   /** วันล่าสุดที่ครูบันทึกอะไรกับเด็กแต่ละคน — ใช้เริ่มนับกำหนดติดตามใหม่ */
-  const lastLogged = useMemo(() => {
-    const out: Record<string, string> = {}
-    const bump = (id: string, d: string) => {
-      if (!out[id] || d > out[id]) out[id] = d
-    }
-    for (const e of log.entries) bump(e.childId, e.date)
-    // ติ๊กขั้นในแผนเสร็จก็คือการลงมือกับเด็กคนนั้น — นับเริ่มกำหนดใหม่เหมือนกัน
-    for (const [stepId, m] of Object.entries(log.steps)) bump(stepId.replace(/-S\d+$/, ''), m.at)
-    return out
-  }, [log.entries, log.steps])
+  const lastLogged = useMemo(() => lastLoggedMap(log), [log])
 
   /** เด็กคนไหนมีแผนแล้ว — รวมแผนที่ครูสร้างเองในเครื่องนี้ด้วย */
   const planned = useMemo(() => new Set(applyPlans(plans, log).map((p) => p.childId)), [plans, log])

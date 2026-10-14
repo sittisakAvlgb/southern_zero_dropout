@@ -66,6 +66,13 @@ export interface CaseLogEntry {
   by: string
   /** the day the teacher committed to coming back to this child */
   followUpDate?: string
+  /** เวลานัด (HH:MM) และวิธีติดตาม เช่น โทรผู้ปกครอง · เยี่ยมบ้าน */
+  followUpTime?: string
+  followUpMethod?: string
+  /** ใครเป็นคนไปตามนัดนี้ ถ้าไม่ใช่ผู้บันทึก */
+  followUpOwner?: string
+  /** การยกระดับที่ครูกดเอง เช่น "แจ้ง ผอ." — ไม่มีการยกระดับอัตโนมัติ */
+  escalation?: string
   followUpDone?: boolean
   /** what this entry did to the child's own record */
   parentContact?: Student['parentContact']
@@ -429,6 +436,24 @@ export function openFollowUps(log: LogState, today = new Date()): FollowUp[] {
     })
     .sort((a, b) => a.daysAway - b.daysAway)
 }
+
+/** วันล่าสุดที่ครูลงมือกับเด็กแต่ละคน (YYYY-MM-DD) — ใช้เริ่มนับกำหนดติดตามใหม่
+ *
+ *  นับทั้งบันทึกและการติ๊กขั้นในแผน แต่ไม่นับการ "นัด" อย่างเดียว: นัดคือ
+ *  สัญญาว่าจะทำ ยังไม่ได้ทำ (Escalate ก็เช่นกัน) ถ้านับ ครูจะเคลียร์เคสเกิน SLA
+ *  ได้ด้วยการกดนัดไปเรื่อย ๆ โดยไม่เคยติดต่อเด็กเลย — หน้าครูและหน้าติดตามใช้นิยามเดียวนี้ */
+export function lastLoggedMap(log: Pick<LogState, 'entries' | 'steps'>): Record<string, string> {
+  const out: Record<string, string> = {}
+  const bump = (id: string, d: string) => {
+    if (!out[id] || d > out[id]) out[id] = d
+  }
+  for (const e of log.entries) if (!isScheduleOnly(e)) bump(e.childId, e.date)
+  for (const [stepId, m] of Object.entries(log.steps)) bump(stepId.replace(/-S\d+$/, ''), m.at)
+  return out
+}
+
+/** งานเอกสารที่ไม่ได้แตะตัวเด็ก: นัด หรือ Escalate — บันทึกใน Timeline แต่ไม่นับเป็นการอัปเดตเคส */
+export const isScheduleOnly = (e: CaseLogEntry) => (Boolean(e.followUpMethod) || Boolean(e.escalation)) && e.mode === 'note' && !e.result
 
 // ── แผนตามที่บัญชีนี้ทำงานไว้ ────────────────────────────────
 

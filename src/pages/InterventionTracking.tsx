@@ -14,6 +14,7 @@ import { STAGE_SEQUENCE, levelRank, pipelineCounts } from '@/data/cases'
 import { useToast } from '@/components/ui/Toast'
 import { useScopedData } from '@/auth/scope'
 import { canAccess, canWorkCases } from '@/auth/roles'
+import { TeacherFollowUpCenter } from '@/components/followup/TeacherFollowUpCenter'
 import { ScopeBanner } from '@/components/auth/ScopeBanner'
 import { DirectOnlyNotice } from '@/components/auth/DirectOnlyNotice'
 import type { CaseRecord, CaseStage, RiskLevel } from '@/types'
@@ -45,7 +46,13 @@ const RISK_LEVELS: RiskLevel[] = ['critical', 'high', 'watch', 'normal']
 const PAGE_SIZE = 10
 type Focus = 'none' | 'overdue' | 'urgent' | 'unassigned'
 
+/** ครูได้ศูนย์ติดตามงานของตัวเอง บทบาทอื่นยังเห็นหน้ากำกับดูแลเดิม */
 export default function InterventionTracking() {
+  const { user } = useScopedData()
+  return user?.role === 'teacher' ? <TeacherFollowUpCenter /> : <OversightTracking />
+}
+
+function OversightTracking() {
   const { t, pn, lang } = useI18n()
   const th = lang === 'th'
   const toast = useToast()
