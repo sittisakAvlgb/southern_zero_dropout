@@ -31,21 +31,22 @@ export type Sheet =
 
 export const SLA_TONE = { breach: '#dc2626', near: '#ea580c', ok: '#475569', done: '#16a34a' } as const
 
+/** คะแนนเป็นตัวเลขสีเดียวที่บอกระดับ ข้อความข้าง ๆ เป็นสีปกติ — ไม่ใช้ป้ายพื้นสี */
 export function RiskBadge({ c }: { c: FollowCase }) {
   return (
-    <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[12px] font-bold text-white" style={{ background: RISK_COLOR[c.s.riskLevel] }}>
-      เสี่ยง{LEVEL_TH[c.s.riskLevel]} {c.s.riskScore}
+    <span className="inline-flex items-center gap-1 whitespace-nowrap rounded-md bg-surface-muted px-2 py-0.5 text-[12.5px] font-semibold text-ink">
+      <span className="font-bold tabular" style={{ color: RISK_COLOR[c.s.riskLevel] }}>
+        {c.s.riskScore}
+      </span>
+      เสี่ยง{LEVEL_TH[c.s.riskLevel]}
     </span>
   )
 }
 
+/** สุขภาพเคสเป็นข้อความ — แดงเฉพาะ "ต้องดำเนินการทันที" ที่เหลือสีเทา */
 export function HealthBadge({ c }: { c: FollowCase }) {
   const m = HEALTH_META[c.health]
-  return (
-    <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[12px] font-bold" style={{ background: `${m.color}14`, color: m.color }}>
-      {m.icon} {m.th}
-    </span>
-  )
+  return <span className={`whitespace-nowrap text-[13px] font-semibold ${c.health === 'now' ? 'text-red-700' : 'text-ink-muted'}`}>{m.th}</span>
 }
 
 /**

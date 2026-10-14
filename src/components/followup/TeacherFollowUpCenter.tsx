@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { canWorkCases } from '@/auth/roles'
 import { useI18n } from '@/i18n/LanguageContext'
@@ -16,13 +16,12 @@ import { Skeleton } from '@/components/ui/Skeleton'
 import { PageHeader, Breadcrumb } from '@/components/ui/PageHeader'
 import { IconArrowRight, IconIntervention } from '@/components/icons'
 import { useFollowCases } from './useFollowCases'
-import { FollowCaseDetail, HealthBadge, RiskBadge, SLA_TONE, type Sheet } from './FollowCaseDetail'
+import { FollowCaseDetail, HealthBadge, RiskBadge, type Sheet } from './FollowCaseDetail'
 
 const MASCOT = assetUrl('ChatBot.png')
 type Group = Attn | 'relapse'
 const GROUP_TH: Record<Group, string> = { ...Object.fromEntries(Object.entries(ATTN_META).map(([k, v]) => [k, v.th])), relapse: 'ความเสี่ยงกลับมาหลังปิดเคส' } as Record<Group, string>
 const GROUP_ORDER: Group[] = ['critical', 'sla', 'relapse', 'rising', 'due', 'stale', 'agency', 'closing', 'normal']
-const GROUP_ICON: Record<Group, string> = { critical: '🔴', sla: '🔴', relapse: '🟠', rising: '🟠', due: '🟡', stale: '🟡', agency: '🔵', closing: '🟢', normal: '⚪' }
 const groupOf = (c: FollowCase): Group => (c.relapse ? 'relapse' : c.attn)
 
 /**
@@ -105,42 +104,37 @@ export function TeacherFollowUpCenter() {
       )}
 
       {/* ── วันนี้ (เด่นที่สุดของหน้า) ───────────────────── */}
-      <div className="mb-4 rounded-3xl border-2 border-brand-200 bg-gradient-to-b from-brand-50/80 to-white p-4 sm:p-5">
-        <div className="flex items-start gap-3">
-          <img src={MASCOT} alt="" className="h-12 w-12 shrink-0 rounded-2xl bg-white object-contain p-1 shadow-card" draggable={false} />
+      <div className="mb-4 flex flex-col gap-4 rounded-2xl border border-surface-border bg-white p-4 sm:p-5 md:flex-row md:items-center">
+        <div className="flex min-w-0 flex-1 items-start gap-3">
+          <img src={MASCOT} alt="" className="h-11 w-11 shrink-0 rounded-xl bg-surface-muted object-contain p-1" draggable={false} />
           <div className="min-w-0 flex-1">
-            <p className="text-[12px] font-semibold uppercase tracking-wide text-brand-600">สิ่งที่ต้องทำวันนี้</p>
             {loading ? (
-              <div className="mt-1.5 space-y-2">
+              <div className="space-y-2">
                 <Skeleton className="h-6 w-7/12" />
                 <Skeleton className="h-4 w-10/12" />
               </div>
             ) : 'error' in built ? null : (
               <>
-                <p className="mt-0.5 text-[20px] font-bold leading-snug text-ink">
+                <p className="text-[19px] font-bold leading-snug text-ink">
                   {today.length ? `วันนี้ต้องติดตาม ${today.length} เคส` : 'เยี่ยมมาก วันนี้ไม่มีเคสเร่งด่วน'}
+                  {doneToday.length > 0 && <span className="ml-2 text-[14px] font-semibold text-ink-muted">· ทำแล้ว {doneToday.length}</span>}
                 </p>
-                <p className="mt-1 text-[14.5px] leading-relaxed text-ink-muted">
-                  {today.length ? insightOf(today) : `ทำแล้ววันนี้ ${doneToday.length} เคส · เคสที่เหลืออยู่ในกำหนดทั้งหมด`}
+                <p className="mt-0.5 text-[14.5px] leading-relaxed text-ink-muted">
+                  {today.length ? insightOf(today) : 'เคสที่เหลืออยู่ในกำหนดทั้งหมด'}
                 </p>
-                {doneToday.length > 0 && today.length > 0 && (
-                  <p className="mt-1 text-[14px] font-semibold text-green-700">✓ ทำแล้ววันนี้ {doneToday.length} เคส</p>
-                )}
               </>
             )}
           </div>
         </div>
         {!loading && first && mayAct && (
-          <div className="mt-4 flex flex-col gap-2 sm:flex-row">
-            <button
-              type="button"
-              onClick={() => openCase(first.s.id)}
-              className="inline-flex items-center justify-center gap-2 rounded-xl bg-brand-500 px-5 py-3.5 text-[15px] font-semibold text-white shadow-card hover:bg-brand-600"
-            >
-              เริ่มติดตามเคสแรก · {first.s.name}
-              <IconArrowRight width={16} height={16} />
-            </button>
-          </div>
+          <button
+            type="button"
+            onClick={() => openCase(first.s.id)}
+            className="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl bg-brand-500 px-5 py-3 text-[15px] font-semibold text-white shadow-card hover:bg-brand-600"
+          >
+            เริ่มเคสแรก · {first.s.name}
+            <IconArrowRight width={16} height={16} />
+          </button>
         )}
       </div>
 
@@ -195,31 +189,21 @@ export function TeacherFollowUpCenter() {
           )}
           {groups.map(({ g, items }) => (
             <section key={g}>
-              <h2 className="mb-2 flex items-center gap-2 text-[15px] font-bold text-ink">
-                <span aria-hidden>{GROUP_ICON[g]}</span>
-                {GROUP_TH[g]}
-                <span className="font-medium text-ink-faint">· {items.length} เคส</span>
+              <h2 className={`mb-2 text-[15px] font-bold ${g === 'critical' || g === 'sla' ? 'text-red-700' : 'text-ink'}`}>
+                {GROUP_TH[g]} <span className="font-medium text-ink-faint">· {items.length} เคส</span>
               </h2>
-              <ul className="space-y-2">
-                {items.map((c) => (
-                  <CaseCard key={c.s.id} c={c} mayAct={mayAct} onOpen={() => openCase(c.s.id)} onCta={() => cta(c)} />
-                ))}
-              </ul>
+              <CaseList items={items} mayAct={mayAct} onOpen={(id) => openCase(id)} onCta={cta} />
             </section>
           ))}
 
           {filter === 'today' && doneToday.length > 0 && (
             <Fold title={`ทำแล้ววันนี้ · ${doneToday.length}`}>
-              {doneToday.map((c) => (
-                <CaseCard key={c.s.id} c={c} mayAct={false} onOpen={() => openCase(c.s.id)} onCta={() => cta(c)} />
-              ))}
+              <CaseList items={doneToday} mayAct={false} onOpen={(id) => openCase(id)} onCta={cta} />
             </Fold>
           )}
           {closed.length > 0 && (
             <Fold title={`ปิดเคสแล้ว · ${closed.length}`}>
-              {closed.map((c) => (
-                <CaseCard key={c.s.id} c={c} mayAct={false} onOpen={() => openCase(c.s.id)} onCta={() => cta(c)} />
-              ))}
+              <CaseList items={closed} mayAct={false} onOpen={(id) => openCase(id)} onCta={cta} />
             </Fold>
           )}
         </div>
@@ -253,46 +237,69 @@ function Fold({ title, children }: { title: string; children: React.ReactNode })
           {title}
         </span>
       </summary>
-      <ul className="mt-2 space-y-2">{children}</ul>
+      <div className="mt-2">{children}</div>
     </details>
   )
 }
 
-/** การ์ดเคส — ชื่อ · ความเสี่ยง · สุขภาพเคส · เหตุผล · อัปเดตล่าสุด · SLA · ขั้นถัดไป · ปุ่มหลักปุ่มเดียว */
-function CaseCard({ c, mayAct, onOpen, onCta }: { c: FollowCase; mayAct: boolean; onOpen: () => void; onCta: () => void }) {
+const COLS = 'xl:grid xl:grid-cols-[minmax(180px,1fr)_minmax(220px,1.3fr)_minmax(200px,1.2fr)_250px] xl:items-center xl:gap-x-6'
+
+/** รายการเคส — จอใหญ่เป็นแถวแบ่งคอลัมน์ (นักเรียน · ทำไมต้องดู · ถัดไป · ปุ่ม) ใช้ความกว้างจอ
+ *  มือถือเรียงลงเป็นการ์ด · เดิมการ์ดกว้างเต็มจอแต่เนื้อหาอยู่ซ้ายหนึ่งในสาม */
+function CaseList({ items, mayAct, onOpen, onCta }: { items: FollowCase[]; mayAct: boolean; onOpen: (id: string) => void; onCta: (c: FollowCase) => void }) {
   return (
-    <li className="overflow-hidden rounded-2xl border border-surface-border bg-white">
-      <div className="flex">
-        <div className="min-w-0 flex-1 px-4 py-3.5">
-          <button type="button" onClick={onOpen} className="block w-full text-left">
-            <div className="flex flex-wrap items-center gap-1.5">
-              <span className="mr-1 text-[16.5px] font-bold text-ink">{c.s.name}</span>
-              <RiskBadge c={c} />
-              <HealthBadge c={c} />
-            </div>
-            <p className="mt-1.5 text-[14.5px] font-medium leading-snug text-ink">{c.doneToday ? '✓ บันทึกแล้ววันนี้' : c.because}</p>
-            <p className="mt-0.5 text-[13px] text-ink-muted">
-              อัปเดตล่าสุด {c.updatedDaysAgo === 0 ? 'วันนี้' : `${c.updatedDaysAgo} วันก่อน`} ·{' '}
-              <span className="font-semibold" style={{ color: SLA_TONE[c.sla.level] }}>
-                {c.sla.level === 'breach' ? '⚠ ' : c.sla.level === 'near' ? '⏰ ' : ''}
-                {c.sla.text}
-              </span>
-            </p>
-            <p className="mt-1.5 text-[14.5px] leading-snug text-ink">
-              <span className="text-ink-muted">ถัดไป:</span> <span className="font-semibold">{c.next.th}</span>
-            </p>
+    <div className="overflow-hidden rounded-2xl border border-surface-border bg-white">
+      <div className={`hidden border-b border-surface-border bg-surface-muted/60 px-4 py-2 text-[12.5px] font-semibold text-ink-muted ${COLS}`}>
+        <span>นักเรียน</span>
+        <span>ทำไมต้องดู</span>
+        <span>ขั้นถัดไป</span>
+        <span />
+      </div>
+      <ul className="divide-y divide-surface-border">
+        {items.map((c) => (
+          <CaseRow key={c.s.id} c={c} mayAct={mayAct} onOpen={() => onOpen(c.s.id)} onCta={() => onCta(c)} />
+        ))}
+      </ul>
+    </div>
+  )
+}
+
+function CaseRow({ c, mayAct, onOpen, onCta }: { c: FollowCase; mayAct: boolean; onOpen: () => void; onCta: () => void }) {
+  const why = c.doneToday ? 'บันทึกแล้ววันนี้' : c.reasons[0] ?? c.sla.text
+  // เหตุผลแรกพูดเรื่อง SLA อยู่แล้วก็ไม่ต้องบอกซ้ำในบรรทัดเวลา
+  const slaInWhy = why.includes('SLA')
+  const updated = c.updatedDaysAgo === 0 ? 'อัปเดตวันนี้' : `อัปเดต ${c.updatedDaysAgo} วันก่อน`
+  return (
+    <li className={`px-4 py-3.5 ${COLS}`}>
+      <button type="button" onClick={onOpen} className="block min-w-0 text-left">
+        <span className="block text-[16px] font-bold leading-snug text-ink">{c.s.name}</span>
+        <span className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1">
+          <RiskBadge c={c} />
+          <HealthBadge c={c} />
+        </span>
+      </button>
+      <div className="mt-2 min-w-0 xl:mt-0">
+        <p className={`text-[14.5px] leading-snug ${slaInWhy ? 'font-semibold text-red-700' : 'text-ink'}`}>{why}</p>
+        {/* บรรทัดเวลาเฉพาะข้อมูลที่เหตุผลยังไม่ได้บอก */}
+        {(!why.includes('อัปเดต') || (!slaInWhy && c.sla.level !== 'ok')) && (
+          <p className="mt-0.5 text-[13px] text-ink-muted">
+            {[!why.includes('อัปเดต') ? updated : '', !slaInWhy && c.sla.level !== 'ok' ? c.sla.text : ''].filter(Boolean).join(' · ')}
+          </p>
+        )}
+      </div>
+      <p className="mt-2 min-w-0 text-[14.5px] leading-snug text-ink xl:mt-0">
+        <span className="text-ink-muted xl:hidden">ถัดไป: </span>
+        <span className="font-semibold">{c.next.th}</span>
+      </p>
+      <div className="mt-3 flex gap-2 xl:mt-0 xl:w-auto xl:justify-end">
+        {mayAct && (
+          <button type="button" onClick={onCta} className="flex-1 whitespace-nowrap rounded-xl bg-brand-500 px-4 py-2.5 text-[14.5px] font-semibold text-white sm:flex-none">
+            {c.next.cta}
           </button>
-          {mayAct && (
-            <div className="mt-3 flex gap-2">
-              <button type="button" onClick={onCta} className="flex-1 rounded-xl bg-brand-500 px-4 py-3 text-[15px] font-semibold text-white shadow-card sm:flex-none">
-                {c.next.cta}
-              </button>
-              <button type="button" onClick={onOpen} className="rounded-xl border border-surface-border bg-white px-4 py-3 text-[14.5px] font-medium text-ink">
-                ดูเคส
-              </button>
-            </div>
-          )}
-        </div>
+        )}
+        <button type="button" onClick={onOpen} className="whitespace-nowrap rounded-xl border border-surface-border bg-white px-4 py-2.5 text-[14.5px] font-medium text-ink">
+          ดูเคส
+        </button>
       </div>
     </li>
   )
