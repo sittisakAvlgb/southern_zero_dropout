@@ -16,7 +16,8 @@ import { IconAI, IconArrowRight, IconClose, IconDown } from '@/components/icons'
 import type { RiskLevel } from '@/types'
 
 function SectionLabel({ children }: { children: ReactNode }) {
-  return <p className="mb-2 text-[12px] font-semibold text-ink-muted">{children}</p>
+  // 13px ไม่ใช่ 12px — ครูบางท่านอายุมาก ทิศทางของหน้านี้คือเพิ่มขนาด ไม่ใช่ลด
+  return <p className="mb-2 text-[13px] font-semibold text-ink-muted">{children}</p>
 }
 
 /**
@@ -74,6 +75,113 @@ export function TeacherWorkspace() {
     [ops.rows, focus],
   )
   const focusLabel = ops.tasks.find((task) => task.filter === focus)
+
+  // ── วันนี้ต้องทำอะไร ──────────────────────────────────────
+  const alertsRef = useRef<HTMLDivElement>(null)
+  const followUpRef = useRef<HTMLDivElement>(null)
+  const listRef = useRef<HTMLDivElement>(null)
+  const reveal = (el: HTMLElement | null) =>
+    el?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+
+  /** นัดที่ถึงกำหนดแล้ว — ครูเป็นคนนัดเอง จึงเป็นงานที่ผูกกับเวลาจริงที่สุด
+   *  ในหน้านี้ และเป็นเหตุผลที่มันได้เป็นปุ่มหลักเมื่อมีค้างอยู่ */
+  const dueNow = useMemo(() => followUps.filter((f) => f.daysAway <= 0), [followUps])
+
+  /** การมาเรียนที่ลดลงคือ "แนวโน้มแย่ลง" อย่างเดียวที่พูดได้ตามข้อมูลจริง —
+   *  คะแนนเสี่ยงถูกเก็บเป็นค่าล่าสุดค่าเดียว ไม่มีประวัติให้เทียบก่อน/หลัง
+   *  ส่วนการมาเรียนมี 8 สัปดาห์ย้อนหลัง ครูจึงย้อนตรวจคำกล่าวอ้างนี้ได้ */
+  const falling = ops.alerts.filter((a) => a.delta < 0).length
+
+  /** INSIGHT — ตัวเลขด้านบนบอกว่ามีเท่าไร บรรทัดพวกนี้บอกว่าแปลว่าอะไร
+   *  คำนวณทั้งหมดจากข้อมูลในระบบ จึงทำงานได้แม้ไม่มี API key */
+  const todayLines = useMemo(() => {
+    const out: { key: string; text: string; tone: string; onClick: () => void }[] = []
+    if (dueNow.length)
+      out.push({
+        key: 'due',
+        text: th
+          ? `นัดติดตาม ${dueNow.length} รายการถึงกำหนดแล้ว`
+          : `${dueNow.length} follow-ups are due`,
+        tone: RISK_COLOR.critical,
+        onClick: () => reveal(followUpRef.current),
+      })
+    if (ops.overdue)
+      out.push({
+        key: 'overdue',
+        text: th
+          ? `${ops.overdue} เคสเลยกำหนดติดตามแล้ว`
+          : `${ops.overdue} cases are past their follow-up deadline`,
+        tone: RISK_COLOR.critical,
+        onClick: () => {
+          setFocus('overdue')
+          reveal(listRef.current)
+        },
+      })
+    if (falling)
+      out.push({
+        key: 'falling',
+        text: th
+          ? `นักเรียน ${falling} คนมีการมาเรียนลดลงต่อเนื่อง`
+          : `${falling} students keep missing more school`,
+        tone: RISK_COLOR.high,
+        onClick: () => reveal(alertsRef.current),
+      })
+    if (ops.needParent)
+      out.push({
+        key: 'parents',
+        text: th
+          ? `ยังติดต่อผู้ปกครองไม่ได้ ${ops.needParent} คน`
+          : `${ops.needParent} parents still not reached`,
+        tone: RISK_COLOR.high,
+        onClick: () => {
+          setFocus('parents')
+          reveal(listRef.current)
+        },
+      })
+    return out
+  }, [dueNow.length, ops.overdue, ops.needParent, falling, th])
+
+  /** ACTION — งานเดียวที่ควรเริ่มก่อน เลือกตามสิ่งที่ผูกเวลามากที่สุด
+   *  ครูที่มีเวลา 10 นาทีต่อวันไม่ควรต้องเลือกเองจากปุ่มที่หนักเท่ากันสี่ปุ่ม */
+  const primary = useMemo(() => {
+    if (dueNow.length)
+      return {
+        label: th
+          ? `ดูนัดที่ถึงกำหนด ${dueNow.length} รายการ`
+          : `Open ${dueNow.length} due follow-ups`,
+        run: () => reveal(followUpRef.current),
+      }
+    if (ops.overdue)
+      return {
+        label: th ? `เปิดเคสที่เลยกำหนด ${ops.overdue} เคส` : `Open ${ops.overdue} overdue cases`,
+        run: () => {
+          setFocus('overdue')
+          reveal(listRef.current)
+        },
+      }
+    if (ops.critical)
+      return {
+        label: th
+          ? `เปิดนักเรียนระดับวิกฤต ${ops.critical} คน`
+          : `Open ${ops.critical} critical students`,
+        run: () => {
+          setFocus('critical')
+          reveal(listRef.current)
+        },
+      }
+    const first = ops.rows[0]
+    return {
+      label: first
+        ? th
+          ? `เริ่มที่ ${first.student.name}`
+          : `Start with ${first.student.name}`
+        : th
+          ? 'ดูรายชื่อนักเรียนทั้งหมด'
+          : 'See the full caseload',
+      run: () => (first ? go(`/student?id=${first.student.id}`) : reveal(listRef.current)),
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dueNow.length, ops.overdue, ops.critical, ops.rows, th])
 
   // ── the narrated brief ────────────────────────────────────
   const [text, setText] = useState('')
@@ -238,47 +346,16 @@ export function TeacherWorkspace() {
         </span>
       </div>
 
-      {/* ── brief, with the standing numbers alongside it ──
-          The line and the figures share a row so neither is stranded beside
-          half a screen of white on a wide display. */}
-      <div className="flex flex-col gap-4 px-5 pt-4 lg:flex-row lg:items-start lg:justify-between">
-        <div className="min-w-0 flex-1">
-          {text ? (
-            <p className="max-w-2xl text-[17px] leading-relaxed text-ink">
-              {text.split('\n').map((line, i) => (
-                <span key={i} className={i === 0 ? 'block font-semibold' : 'block text-ink-muted'}>
-                  {line}
-                </span>
-              ))}
-            </p>
-          ) : (
-            <div className="max-w-2xl space-y-2" aria-live="polite">
-              <Skeleton className="h-5 w-9/12" />
-              <Skeleton className="h-5 w-6/12" />
-            </div>
-          )}
-        </div>
-
-        <dl className="grid shrink-0 grid-cols-2 gap-x-7 gap-y-2 sm:flex sm:flex-wrap lg:justify-end">
-          {CONTEXT.map((k) => (
-            <div key={k.label}>
-              <dt className="text-[11px] text-ink-faint">{k.label}</dt>
-              <dd
-                className="text-[20px] font-bold leading-tight tabular text-ink"
-                style={k.color ? { color: k.color } : undefined}
-              >
-                <AnimatedCounter value={k.value} />
-              </dd>
-            </div>
-          ))}
-        </dl>
-      </div>
-
-      {/* ── today's desk ──────────────────────────────────── */}
-      <div className="px-5 pt-5">
+      {/* ── ① NUMBER — งานบนโต๊ะวันนี้ ──────────────────────
+          ขึ้นก่อนทุกอย่างตามหลัก NUMBER → INSIGHT → ACTION → DETAIL
+          เดิมบรรทัดสรุปของ AI อยู่เหนือตัวเลข ครูจึงต้องอ่านความเห็น
+          ก่อนจะได้เห็นข้อเท็จจริง ตอนนี้สลับให้ข้อเท็จจริงมาก่อน */}
+      <div className="px-5 pt-4">
         <SectionLabel>{th ? 'วันนี้ต้องดำเนินการ · กดเพื่อกรองรายชื่อ' : 'On your desk today · tap to filter the list'}</SectionLabel>
         {ops.tasks.length ? (
-          <div className="grid grid-cols-2 gap-2 lg:grid-cols-4">
+          // คอลัมน์เดียวบนมือถือ — บีบเป็นสองคอลัมน์ที่ 375px แล้วป้ายอย่าง
+          // "นักเรียนระดับวิกฤต" ตัดเป็นสามบรรทัด อ่านยากและพื้นที่กดเตี้ยลง
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-4">
             {ops.tasks.map((task, i) => {
               const tone =
                 task.tone === 'critical'
@@ -298,19 +375,20 @@ export function TeacherWorkspace() {
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: 0.05 * i, duration: 0.3 }}
                   whileHover={{ y: -1 }}
-                  className="flex items-center gap-3 rounded-xl border px-3.5 py-2.5 text-left transition-shadow hover:shadow-card"
+                  // py-3 + ไอคอน 44px ทำให้พื้นที่กดสูงพอสำหรับนิ้วบนมือถือ
+                  className="flex items-center gap-3 rounded-xl border px-4 py-3 text-left transition-shadow hover:shadow-card"
                   style={{
                     borderColor: on ? tone : undefined,
                     background: on ? `${tone}0d` : undefined,
                   }}
                 >
                   <span
-                    className="grid h-9 w-9 shrink-0 place-items-center rounded-lg text-[15px] font-bold text-white"
+                    className="grid h-11 w-11 shrink-0 place-items-center rounded-lg text-[17px] font-bold text-white"
                     style={{ background: tone }}
                   >
                     <AnimatedCounter value={task.count} />
                   </span>
-                  <span className="min-w-0 flex-1 text-[12.5px] font-semibold leading-snug text-ink">
+                  <span className="min-w-0 flex-1 text-[13.5px] font-semibold leading-snug text-ink">
                     {th ? task.th : task.en}
                   </span>
                   <span className="sr-only">
@@ -327,15 +405,85 @@ export function TeacherWorkspace() {
             })}
           </div>
         ) : (
-          <p className="rounded-xl border border-surface-border px-3 py-4 text-[12px] text-ink-faint">
+          <p className="rounded-xl border border-surface-border px-3 py-4 text-[13px] text-ink-faint">
             {th ? 'ไม่มีงานค้างในวันนี้' : 'Nothing outstanding today'}
           </p>
         )}
       </div>
 
+      {/* ── ② INSIGHT แล้วจบด้วย ③ ACTION ────────────────────
+          ตัวเลขด้านบนตอบว่า "มีเท่าไร" บล็อกนี้ตอบว่า "แปลว่าอะไร" แล้วปิดท้าย
+          ด้วยปุ่มเดียวที่ตอบว่า "เริ่มตรงไหน" ทุกบรรทัดกดได้และพาไปยังส่วนที่
+          เกี่ยวข้องในหน้าเดียวกัน ไม่เด้งออกไปหน้าอื่น */}
+      <div className="px-5 pt-5">
+        <SectionLabel>{th ? 'สิ่งที่ต้องทำวันนี้' : 'What today needs'}</SectionLabel>
+        <div className="rounded-2xl border border-surface-border bg-surface-muted/60 p-4">
+          {todayLines.length ? (
+            <ul className="space-y-1">
+              {todayLines.map((line) => (
+                <li key={line.key}>
+                  <button
+                    type="button"
+                    onClick={line.onClick}
+                    className="group flex w-full items-center gap-2.5 rounded-lg px-1.5 py-2 text-left transition-colors hover:bg-white"
+                  >
+                    <span
+                      className="h-2.5 w-2.5 shrink-0 rounded-full"
+                      style={{ background: line.tone }}
+                    />
+                    <span className="min-w-0 flex-1 text-[15px] font-medium leading-snug text-ink">
+                      {line.text}
+                    </span>
+                    <IconArrowRight
+                      width={14}
+                      height={14}
+                      className="shrink-0 text-ink-faint transition-colors group-hover:text-brand-600"
+                    />
+                  </button>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="px-1.5 py-1 text-[15px] text-ink-muted">
+              {th
+                ? 'ไม่มีงานเร่งด่วนวันนี้ — ทุกเคสยังอยู่ในกำหนด'
+                : 'Nothing urgent today — every case is still within its deadline'}
+            </p>
+          )}
+
+          {/* บรรทัดสรุปของ AI อยู่ "หลัง" ข้อเท็จจริง ไม่ใช่ก่อน และถ้าไม่มี
+              API key จะ fallback เป็นข้อความที่คำนวณเอง หน้าจึงไม่เคยว่าง */}
+          <div className="mt-3 border-t border-surface-border pt-3">
+            {text ? (
+              <p className="text-[14px] leading-relaxed text-ink-muted">
+                {text.split('\n').map((line, i) => (
+                  <span key={i} className={i === 0 ? 'block font-semibold text-ink' : 'block'}>
+                    {line}
+                  </span>
+                ))}
+              </p>
+            ) : (
+              <div className="space-y-2" aria-live="polite">
+                <Skeleton className="h-4 w-9/12" />
+                <Skeleton className="h-4 w-6/12" />
+              </div>
+            )}
+          </div>
+
+          <button
+            type="button"
+            onClick={primary.run}
+            className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-brand-500 px-5 py-3.5 text-[15px] font-semibold text-white shadow-card transition-colors hover:bg-brand-600 sm:w-auto"
+          >
+            {primary.label}
+            <IconArrowRight width={16} height={16} />
+          </button>
+        </div>
+      </div>
+
       {/* ── why these children are slipping ───────────────── */}
       {ops.alerts.length > 0 && (
-        <div className="px-5 pt-5">
+        <div ref={alertsRef} className="scroll-mt-4 px-5 pt-5">
           <SectionLabel>
             {th
               ? `สัญญาณที่ต้องอ่านก่อน — ${ops.alerts.length} คน`
@@ -411,7 +559,7 @@ export function TeacherWorkspace() {
       )}
 
       {/* ── appointments the teacher committed to ─────────── */}
-      <div className="px-5 pt-5">
+      <div ref={followUpRef} className="scroll-mt-4 px-5 pt-5">
         <SectionLabel>
           {t('tw.followUps')}
           {followUps.length ? ` — ${followUps.length}` : ''}
@@ -465,7 +613,7 @@ export function TeacherWorkspace() {
       </div>
 
       {/* ── the caseload ──────────────────────────────────── */}
-      <div className="px-5 pt-5">
+      <div ref={listRef} className="scroll-mt-4 px-5 pt-5">
         <div className="mb-2 flex flex-wrap items-baseline gap-2">
           <p className="text-[12px] font-semibold text-ink-muted">
             {th ? 'นักเรียนที่ฉันรับผิดชอบ' : 'My students'}
@@ -605,6 +753,23 @@ export function TeacherWorkspace() {
         </div>
 
         <div>
+          {/* ตัวเลขประจำตัวเคสโหลด เป็น DETAIL ไม่ใช่ NUMBER ของวันนี้ จึงย้าย
+              ลงมาจากหัวหน้าจอ ไม่ให้แย่งความสนใจไปจากงานที่ต้องทำวันนี้ */}
+          <SectionLabel>{th ? 'ภาพรวมเคสของคุณ' : 'Your caseload at a glance'}</SectionLabel>
+          <dl className="mb-4 grid grid-cols-2 gap-x-6 gap-y-3 rounded-xl border border-surface-border p-4">
+            {CONTEXT.map((k) => (
+              <div key={k.label}>
+                <dt className="text-[12px] text-ink-faint">{k.label}</dt>
+                <dd
+                  className="text-[22px] font-bold leading-tight tabular text-ink"
+                  style={k.color ? { color: k.color } : undefined}
+                >
+                  <AnimatedCounter value={k.value} />
+                </dd>
+              </div>
+            ))}
+          </dl>
+
           <SectionLabel>{th ? 'ผลของเคสที่คุณดูแล' : 'How your cases end'}</SectionLabel>
           <div className="rounded-xl border border-surface-border p-4">
             <div className="flex items-baseline gap-2">
