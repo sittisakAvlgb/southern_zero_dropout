@@ -191,6 +191,8 @@ export interface OpportunityPlan {
   progress: number
   targetMonth: string // e.g. '2026-11'
   reviewedDaysAgo: number
+  /** แผนเริ่มเมื่อกี่วันก่อน — dueInDays ของแต่ละขั้นนับจากวันนี้ */
+  startedDaysAgo: number
   /** the child + guardian agreed to this plan */
   agreedByFamily: boolean
   ownerAgencyId: string

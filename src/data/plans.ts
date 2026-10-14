@@ -17,7 +17,7 @@ import type {
 import { hashSeed, makeRng, pick, randInt } from '@/lib/format'
 import { STUDENTS } from './students'
 import { OOSC } from './oosc'
-import { routeAgency, AGENCIES } from './agencies'
+import { routeAgency, AGENCIES, AGENCY_BY_ID } from './agencies'
 
 interface Candidate {
   childId: string
@@ -116,61 +116,79 @@ const CAUSE_TO_NEED: Record<string, ReferralNeed> = {
   dualSchooling: 'skills',
 }
 
+/** เจ้าภาพที่กำหนดตายตัวให้ขั้นนั้น — 'school' คือโรงเรียนของเด็กเอง (ครู
+ *  ผู้รับผิดชอบ) ที่เหลือคือ slug ของหน่วยงานใน agencies.ts */
+type OwnerSlug =
+  | 'school' | 'esa' | 'nfe' | 'voc' | 'pmj' | 'shelter'
+  | 'health' | 'pao' | 'labour' | 'islamic' | 'civil' | 'district'
+
 interface StepTpl {
   th: string
   en: string
   need: ReferralNeed | null
+  /** เจ้าภาพของขั้นนี้ ถ้าไม่ระบุจะส่งตาม need
+   *
+   *  เดิมขั้นที่ need เป็น null ถูกสุ่มหน่วยงานการศึกษาสักแห่งมาเป็นเจ้าภาพ
+   *  ขั้น "ติดตามร่วมกับ รพ.สต. ทุกเดือน" จึงตกไปอยู่กับอาชีวศึกษาจังหวัด และ
+   *  ขั้นที่เป็นงานของครูเองอย่าง "จัดสอนเสริม" ก็ไปอยู่กับหน่วยงานข้างนอก
+   *  ครูจึงบอกไม่ได้ว่าลูกบอลอยู่ในมือใคร */
+  owner?: OwnerSlug
 }
+
+/** เจ้าภาพที่เป็นโรงเรียนของเด็กเอง — ไม่ใช่หน่วยงานใน AGENCIES จึงมี id พิเศษ */
+export const SCHOOL_OWNER_ID = 'SCHOOL'
+export const SCHOOL_OWNER_TH = 'โรงเรียน · ครูผู้รับผิดชอบ'
+export const isSchoolStep = (s: Pick<PlanStep, 'ownerAgencyId'>) => s.ownerAgencyId === SCHOOL_OWNER_ID
 
 const STEPS_BY_PATHWAY: Record<Pathway, StepTpl[]> = {
   formalReturn: [
-    { th: 'เยี่ยมบ้านและยืนยันความสมัครใจของเด็กและผู้ปกครอง', en: 'Home visit; confirm child & guardian consent', need: null },
-    { th: 'ประสานโรงเรียนต้นสังกัดเพื่อคืนสิทธิ์และจัดชั้นเรียน', en: 'Coordinate re-enrolment and class placement', need: null },
+    { th: 'เยี่ยมบ้านและยืนยันความสมัครใจของเด็กและผู้ปกครอง', en: 'Home visit; confirm child & guardian consent', need: null, owner: 'school' },
+    { th: 'ประสานโรงเรียนต้นสังกัดเพื่อคืนสิทธิ์และจัดชั้นเรียน', en: 'Coordinate re-enrolment and class placement', need: null, owner: 'esa' },
     { th: 'ขอทุนปัจจัยพื้นฐาน / ค่าเดินทางรายเดือน', en: 'Secure basic-needs grant / monthly travel allowance', need: 'financial' },
-    { th: 'จัดสอนเสริมเพื่อลดช่องว่างการเรียนรู้ 8 สัปดาห์', en: 'Eight-week catch-up tutoring', need: null },
-    { th: 'ติดตามการมาเรียนรายสัปดาห์เป็นเวลา 1 ภาคเรียน', en: 'Weekly attendance follow-up for one term', need: null },
+    { th: 'จัดสอนเสริมเพื่อลดช่องว่างการเรียนรู้ 8 สัปดาห์', en: 'Eight-week catch-up tutoring', need: null, owner: 'school' },
+    { th: 'ติดตามการมาเรียนรายสัปดาห์เป็นเวลา 1 ภาคเรียน', en: 'Weekly attendance follow-up for one term', need: null, owner: 'school' },
   ],
   nfe: [
-    { th: 'ประเมินระดับความรู้เดิมเพื่อเทียบโอน', en: 'Assess prior learning for credit transfer', need: null },
-    { th: 'ลงทะเบียนเรียนกับ สกร. อำเภอ รูปแบบยืดหยุ่น', en: 'Enrol in flexible NFE at district level', need: null },
+    { th: 'ประเมินระดับความรู้เดิมเพื่อเทียบโอน', en: 'Assess prior learning for credit transfer', need: null, owner: 'nfe' },
+    { th: 'ลงทะเบียนเรียนกับ สกร. อำเภอ รูปแบบยืดหยุ่น', en: 'Enrol in flexible NFE at district level', need: null, owner: 'nfe' },
     { th: 'จัดหาอุปกรณ์/สัญญาณอินเทอร์เน็ตสำหรับเรียนที่บ้าน', en: 'Provide device / connectivity for home study', need: 'financial' },
-    { th: 'จับคู่ครูอาสาในตำบลเป็นพี่เลี้ยงประจำ', en: 'Match with a tambon volunteer mentor', need: null },
-    { th: 'ประเมินผลและวางแผนเรียนต่อ/ทำงาน', en: 'Review results, plan next step', need: null },
+    { th: 'จับคู่ครูอาสาในตำบลเป็นพี่เลี้ยงประจำ', en: 'Match with a tambon volunteer mentor', need: null, owner: 'nfe' },
+    { th: 'ประเมินผลและวางแผนเรียนต่อ/ทำงาน', en: 'Review results, plan next step', need: null, owner: 'nfe' },
   ],
   vocational: [
-    { th: 'พาเยี่ยมชมวิทยาลัยและเลือกสาขาที่สนใจ', en: 'College visit; choose a trade', need: null },
+    { th: 'พาเยี่ยมชมวิทยาลัยและเลือกสาขาที่สนใจ', en: 'College visit; choose a trade', need: null, owner: 'voc' },
     { th: 'สมัครเรียนพร้อมขอทุนเรียนฟรี/ค่าครองชีพ', en: 'Apply with fee waiver / living allowance', need: 'financial' },
     { th: 'จัดหาที่พักหรือค่าเดินทางหากอยู่ต่างอำเภอ', en: 'Arrange lodging or travel if out of district', need: 'transport' },
-    { th: 'ติดตามผลการเรียนภาคเรียนแรก', en: 'Track first-term performance', need: null },
+    { th: 'ติดตามผลการเรียนภาคเรียนแรก', en: 'Track first-term performance', need: null, owner: 'voc' },
   ],
   islamicSchool: [
-    { th: 'หารือกับผู้นำศาสนาและครอบครัวเรื่องการเรียนควบ', en: 'Discuss dual-track study with family & religious leader', need: null },
-    { th: 'ประสานโรงเรียนเอกชนสอนศาสนาที่เปิดสายสามัญ', en: 'Place in an Islamic private school with an academic track', need: null },
+    { th: 'หารือกับผู้นำศาสนาและครอบครัวเรื่องการเรียนควบ', en: 'Discuss dual-track study with family & religious leader', need: null, owner: 'islamic' },
+    { th: 'ประสานโรงเรียนเอกชนสอนศาสนาที่เปิดสายสามัญ', en: 'Place in an Islamic private school with an academic track', need: null, owner: 'islamic' },
     { th: 'ขอทุนค่าธรรมเนียมและอุปกรณ์การเรียน', en: 'Secure fees and learning-materials grant', need: 'financial' },
-    { th: 'ติดตามภาระเวลาเรียนไม่ให้ซ้ำซ้อนจนหลุดอีก', en: 'Monitor timetable load to prevent a second dropout', need: null },
+    { th: 'ติดตามภาระเวลาเรียนไม่ให้ซ้ำซ้อนจนหลุดอีก', en: 'Monitor timetable load to prevent a second dropout', need: null, owner: 'school' },
   ],
   apprentice: [
     { th: 'ประเมินทักษะและความสนใจด้านอาชีพ', en: 'Skills and interest assessment', need: 'skills' },
     { th: 'จับคู่สถานประกอบการในพื้นที่ที่รับผู้ฝึก', en: 'Match with a local host employer', need: 'jobPlacement' },
-    { th: 'ทำข้อตกลงฝึกอาชีพและค่าตอบแทนระหว่างฝึก', en: 'Sign training agreement incl. stipend', need: null },
-    { th: 'เก็บชั่วโมงฝึกและออกใบรับรองทักษะ', en: 'Log hours; issue skills certificate', need: null },
-    { th: 'เปิดช่องทางเรียนต่อ สกร. คู่ขนาน', en: 'Open a parallel NFE study route', need: null },
+    { th: 'ทำข้อตกลงฝึกอาชีพและค่าตอบแทนระหว่างฝึก', en: 'Sign training agreement incl. stipend', need: null, owner: 'labour' },
+    { th: 'เก็บชั่วโมงฝึกและออกใบรับรองทักษะ', en: 'Log hours; issue skills certificate', need: null, owner: 'labour' },
+    { th: 'เปิดช่องทางเรียนต่อ สกร. คู่ขนาน', en: 'Open a parallel NFE study route', need: null, owner: 'nfe' },
   ],
   employment: [
     { th: 'ตรวจสอบอายุและสิทธิตามกฎหมายคุ้มครองแรงงาน', en: 'Verify age and labour-protection entitlements', need: 'documents' },
     { th: 'อบรมทักษะระยะสั้นตามความต้องการนายจ้าง', en: 'Short skills course matched to employer demand', need: 'skills' },
     { th: 'จัดหางานในพื้นที่พร้อมสัญญาจ้างที่เป็นธรรม', en: 'Local job placement with a fair contract', need: 'jobPlacement' },
-    { th: 'ติดตามความมั่นคงของงาน 6 เดือน', en: 'Six-month job-retention follow-up', need: null },
+    { th: 'ติดตามความมั่นคงของงาน 6 เดือน', en: 'Six-month job-retention follow-up', need: null, owner: 'labour' },
   ],
   specialNeeds: [
     { th: 'ส่งประเมินโดยแพทย์/นักจิตวิทยาเฉพาะทาง', en: 'Specialist medical / psychological assessment', need: 'physicalHealth' },
-    { th: 'จัดทำแผนการจัดการศึกษาเฉพาะบุคคล (IEP)', en: 'Draft an Individual Education Plan (IEP)', need: null },
-    { th: 'จัดหาสื่อ/อุปกรณ์ช่วยการเรียนรู้', en: 'Provide assistive learning materials', need: 'financial' },
-    { th: 'ติดตามร่วมกับ รพ.สต. ทุกเดือน', en: 'Monthly joint follow-up with the health centre', need: null },
+    { th: 'จัดทำแผนการจัดการศึกษาเฉพาะบุคคล (IEP)', en: 'Draft an Individual Education Plan (IEP)', need: null, owner: 'school' },
+    { th: 'จัดหาสื่อ/อุปกรณ์ช่วยการเรียนรู้', en: 'Provide assistive learning materials', need: 'financial', owner: 'esa' },
+    { th: 'ติดตามร่วมกับ รพ.สต. ทุกเดือน', en: 'Monthly joint follow-up with the health centre', need: null, owner: 'health' },
   ],
   undecided: [
-    { th: 'ประเมินสถานการณ์เด็กและครอบครัวเชิงลึก', en: 'In-depth child and family assessment', need: null },
-    { th: 'นำเข้าที่ประชุมทีมสหวิชาชีพระดับอำเภอ', en: 'Table at the district multi-agency conference', need: null },
+    { th: 'ประเมินสถานการณ์เด็กและครอบครัวเชิงลึก', en: 'In-depth child and family assessment', need: null, owner: 'school' },
+    { th: 'นำเข้าที่ประชุมทีมสหวิชาชีพระดับอำเภอ', en: 'Table at the district multi-agency conference', need: null, owner: 'district' },
   ],
 }
 
@@ -194,15 +212,21 @@ function buildPlan(c: Candidate): OpportunityPlan {
     if (i < doneCount) status = 'done'
     else if (i === doneCount) status = rng() > 0.82 ? 'blocked' : 'active'
     else status = 'pending'
-    const agency = s.need
+    // ยังเรียก pick() เหมือนเดิมเพื่อให้ลำดับการสุ่มในแผนไม่เลื่อน (กำหนดวัน
+    // สถานะติดขัด เดือนเป้าหมาย ของทุกแผนจึงเหมือนก่อนแก้) แต่ไม่ใช้ผลนั้นแล้ว
+    const routed = s.need
       ? routeAgency(c.provinceKey, s.need, c.childId)
       : pick(rng, AGENCIES.filter((a) => a.provinceKey === c.provinceKey && a.kind === 'education'))
+    const explicit =
+      s.owner && s.owner !== 'school' ? AGENCY_BY_ID[`AG-${c.provinceKey}-${s.owner}`] : undefined
+    const ownerAgencyId = s.owner === 'school' ? SCHOOL_OWNER_ID : (explicit ?? routed).id
+    const ownerName = s.owner === 'school' ? SCHOOL_OWNER_TH : (explicit ?? routed).th
     return {
       id: `${c.childId}-S${i + 1}`,
       titleTh: s.th,
       titleEn: s.en,
-      ownerAgencyId: agency.id,
-      ownerName: agency.th,
+      ownerAgencyId,
+      ownerName,
       dueInDays: (i + 1) * randInt(rng, 5, 14),
       status,
     }
@@ -210,6 +234,20 @@ function buildPlan(c: Candidate): OpportunityPlan {
 
   const progress = Math.round((doneCount / tpl.length) * 100)
   const month = randInt(rng, 8, 12)
+
+  // วันเริ่มแผน — เดิมไม่มีเลย "กำหนด D+32" จึงตอบไม่ได้ว่าเลยแล้วหรือยัง
+  // ตั้งให้ขั้นที่กำลังทำอยู่ครบกำหนดภายในสองสัปดาห์ข้างหน้า และเลยมาแล้ว
+  // ไม่เกิน 4 วันสำหรับราวหนึ่งในห้าของแผน — รุ่นแรกเลยกำหนดถึง 56% ซึ่งทำให้
+  // คำว่า "เลยกำหนด" หมดความหมาย ขั้นที่ทำเสร็จแล้วจึงอยู่ในอดีตทั้งหมด สุ่มจาก stream แยก
+  // เพื่อไม่ให้ค่าอื่นในแผนเลื่อน
+  const srng = makeRng(hashSeed(`plan-start::${c.childId}`))
+  const current = steps[Math.min(doneCount, steps.length - 1)]
+  const startedDaysAgo = Math.max(
+    1,
+    doneCount >= steps.length
+      ? current.dueInDays + randInt(srng, 3, 20)
+      : current.dueInDays + randInt(srng, -14, 4),
+  )
 
   return {
     id: `PLAN-${c.childId}`,
@@ -222,7 +260,9 @@ function buildPlan(c: Candidate): OpportunityPlan {
     steps,
     progress,
     targetMonth: `2026-${String(month).padStart(2, '0')}`,
-    reviewedDaysAgo: randInt(rng, 1, 64),
+    // ทบทวนล่าสุดต้องไม่เก่ากว่าวันเริ่มแผน
+    reviewedDaysAgo: Math.min(randInt(rng, 1, 64), startedDaysAgo),
+    startedDaysAgo,
     agreedByFamily: rng() > 0.18,
     ownerAgencyId: steps[0]?.ownerAgencyId ?? AGENCIES[0].id,
   }
@@ -272,4 +312,20 @@ export const PLAN_STATS = {
     Math.round(
       (PLANS.reduce((s, p) => s + p.progress, 0) / Math.max(1, PLANS.length)) * 10,
     ) / 10,
+}
+
+/** กำหนดของขั้นหนึ่งเทียบกับวันนี้ — ค่าลบคือเลยกำหนดมาแล้วกี่วัน
+ *  ใช้แทน "D+32" ที่ครูอ่านแล้วไม่รู้ว่าเลยหรือยัง */
+export function stepDaysLeft(plan: Pick<OpportunityPlan, 'startedDaysAgo'>, step: Pick<PlanStep, 'dueInDays'>): number {
+  return step.dueInDays - plan.startedDaysAgo
+}
+
+export function stepDueDate(
+  plan: Pick<OpportunityPlan, 'startedDaysAgo'>,
+  step: Pick<PlanStep, 'dueInDays'>,
+  today = new Date(),
+): string {
+  const d = new Date(today)
+  d.setDate(d.getDate() + stepDaysLeft(plan, step))
+  return d.toISOString().slice(0, 10)
 }

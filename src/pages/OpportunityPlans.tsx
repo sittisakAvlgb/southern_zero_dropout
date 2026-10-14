@@ -12,7 +12,7 @@ import { Select } from '@/components/ui/Select'
 import { Button } from '@/components/ui/Button'
 import { AnimatedCounter } from '@/components/ui/AnimatedCounter'
 import { useToast } from '@/components/ui/Toast'
-import { PATHWAY_COLOR } from '@/data/plans'
+import { PATHWAY_COLOR, SCHOOL_OWNER_TH, stepDaysLeft, stepDueDate } from '@/data/plans'
 import { AGENCY_BY_ID, AGENCY_KIND_COLOR } from '@/data/agencies'
 import { formatNumber } from '@/lib/format'
 import {
@@ -782,7 +782,11 @@ function PlanRow({
               {' · '}
               <span className="text-ink-faint">{th ? 'ขั้นถัดไป' : 'next'}:</span>{' '}
               {th ? nextStep.titleTh : nextStep.titleEn}
-              {agency && <span className="text-ink-faint"> — {th ? agency.th : agency.en}</span>}
+              {nextStep && (
+                <span className="text-ink-faint">
+                  {' '}— {agency ? (th ? agency.th : agency.en) : th ? SCHOOL_OWNER_TH : 'School · case owner'}
+                </span>
+              )}
             </>
           )}
         </span>
@@ -885,7 +889,9 @@ function PlanDrawer({
   if (!p) return null
 
   return (
-    <div className="fixed inset-0 z-50 flex justify-end">
+    // z-[70] อยู่เหนือไอคอนผู้ช่วย AI (z-[60]) — เดิม z-50 ไอคอนบังปุ่ม "ปิด"
+    // ที่มุมล่างขวาของ drawer มิดทั้งปุ่ม
+    <div className="fixed inset-0 z-[70] flex justify-end">
       <motion.div
         className="absolute inset-0 bg-brand-950/35 backdrop-blur-[2px]"
         initial={{ opacity: 0 }}
@@ -1024,18 +1030,34 @@ function PlanDrawer({
                         {label}
                       </span>
                     </div>
-                    {agency && (
-                      <div className="mt-1 flex flex-wrap items-center gap-1.5">
-                        <span
-                          className="h-1.5 w-1.5 rounded-full"
-                          style={{ background: AGENCY_KIND_COLOR[agency.kind] }}
-                        />
-                        <span className="text-[11px] text-ink-muted">{th ? agency.th : agency.en}</span>
-                        <span className="text-[11px] text-ink-faint">
-                          · {t('plan.due')} D+{s.dueInDays}
-                        </span>
-                      </div>
-                    )}
+                    {/* เจ้าภาพแสดงเสมอ — ขั้นที่เป็นงานของโรงเรียนไม่อยู่ในรายการ
+                        หน่วยงาน เดิมจึงหายไปทั้งบรรทัดพร้อมกำหนดเวลา และกำหนดเป็น
+                        วันจริงเทียบกับวันนี้ ไม่ใช่ "D+32" ที่ไม่รู้ว่าเลยหรือยัง */}
+                    <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                      <span
+                        className="h-1.5 w-1.5 rounded-full"
+                        style={{ background: agency ? AGENCY_KIND_COLOR[agency.kind] : '#2f66f6' }}
+                      />
+                      <span className="text-[12px] text-ink-muted">
+                        {agency ? (th ? agency.th : agency.en) : th ? SCHOOL_OWNER_TH : 'School · case owner'}
+                      </span>
+                      {s.status !== 'done' && (() => {
+                        const left = stepDaysLeft(p, s)
+                        return (
+                          <span
+                            className="text-[12px] font-medium"
+                            style={{ color: left < 0 ? '#dc2626' : left <= 3 ? '#ea580c' : undefined }}
+                          >
+                            ·{' '}
+                            {left < 0
+                              ? th ? `เลยกำหนด ${-left} วัน` : `${-left} days overdue`
+                              : left === 0
+                                ? th ? 'ครบกำหนดวันนี้' : 'due today'
+                                : th ? `อีก ${left} วัน (${stepDueDate(p, s)})` : `in ${left} days (${stepDueDate(p, s)})`}
+                          </span>
+                        )
+                      })()}
+                    </div>
                     {mayAct && (s.status === 'active' || s.status === 'blocked') && (
                       <button
                         type="button"
