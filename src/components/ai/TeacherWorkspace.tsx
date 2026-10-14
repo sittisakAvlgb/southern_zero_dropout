@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import React, { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { useScopedData } from '@/auth/scope'
@@ -6,16 +6,16 @@ import { canAccess, canWorkCases } from '@/auth/roles'
 import { recommendSteps, type StepAction } from '@/lib/recommend'
 import { Sparkline } from '@/components/ui/Sparkline'
 import { useToast } from '@/components/ui/Toast'
+import { TeacherAssistant } from './TeacherAssistant'
 import { useI18n } from '@/i18n/LanguageContext'
 import { formatNumber } from '@/lib/format'
 import { RISK_COLOR } from '@/lib/risk'
 import { GRADE_LABEL } from '@/lib/schoolOps'
 import { buildTeacherOps, matchesTask, type TaskFilter } from '@/lib/teacherOps'
 import { applyLog, openFollowUps, useCaseLog } from '@/lib/caseLog'
-import { aiErrorMessage, buildSystemPrompt, localAnswer, streamAnswer } from '@/lib/ai'
+import { buildSystemPrompt, localAnswer, streamAnswer } from '@/lib/ai'
 import { AnimatedCounter } from '@/components/ui/AnimatedCounter'
-import { Skeleton } from '@/components/ui/Skeleton'
-import { IconAI, IconArrowRight, IconClose, IconDown } from '@/components/icons'
+import { IconArrowRight, IconClose } from '@/components/icons'
 import type { RiskLevel } from '@/types'
 
 function SectionLabel({ children }: { children: ReactNode }) {
@@ -83,8 +83,28 @@ export function TeacherWorkspace() {
   )
   const focusLabel = ops.tasks.find((task) => task.filter === focus)
 
+  /** รายชื่อทั้งหมดพับไว้โดยปริยาย และกางเองเมื่อครูกดชิปในบรรทัดภาพรวม */
+  const [listOpen, setListOpen] = useState(false)
+
+  /** คิวของเลขา — เด็กที่ควรตามวันนี้ ตามลำดับของ ops.rows (เลยกำหนดขึ้นก่อน
+   *  แล้วตามคะแนนเสี่ยง) เฉพาะคนที่มีอะไรต้องทำจริง เด็กที่สบายดีอยู่แล้วไม่
+   *  ต้องมาอยู่ในคิว ไม่งั้น "วันนี้มี 13 คน" จะฟังดูหนักเกินจริง */
+  const queue = useMemo(
+    () =>
+      ops.rows.filter(
+        (r) =>
+          r.stage !== 'returned' &&
+          r.stage !== 'resolved' &&
+          (r.overdue ||
+            r.riskDelta >= 5 ||
+            r.student.parentContact !== 'ok' ||
+            r.student.riskLevel === 'critical' ||
+            r.student.riskLevel === 'high'),
+      ),
+    [ops.rows],
+  )
+
   // ── วันนี้ต้องทำอะไร ──────────────────────────────────────
-  const alertsRef = useRef<HTMLDivElement>(null)
   const followUpRef = useRef<HTMLDivElement>(null)
   const listRef = useRef<HTMLDivElement>(null)
   const reveal = (el: HTMLElement | null) =>
@@ -94,10 +114,6 @@ export function TeacherWorkspace() {
    *  ในหน้านี้ และเป็นเหตุผลที่มันได้เป็นปุ่มหลักเมื่อมีค้างอยู่ */
   const dueNow = useMemo(() => followUps.filter((f) => f.daysAway <= 0), [followUps])
 
-  /** การมาเรียนที่ลดลงคือ "แนวโน้มแย่ลง" อย่างเดียวที่พูดได้ตามข้อมูลจริง —
-   *  คะแนนเสี่ยงถูกเก็บเป็นค่าล่าสุดค่าเดียว ไม่มีประวัติให้เทียบก่อน/หลัง
-   *  ส่วนการมาเรียนมี 8 สัปดาห์ย้อนหลัง ครูจึงย้อนตรวจคำกล่าวอ้างนี้ได้ */
-  const falling = ops.alerts.filter((a) => a.delta < 0).length
 
   /** งานวันนี้ — รายการเดียว ไม่แยกเป็น "ตัวเลข" กับ "ประโยค" สองชั้น
    *
@@ -258,110 +274,8 @@ export function TeacherWorkspace() {
     toast.push(th ? `บันทึกการติดต่อผู้ปกครองของ ${name} แล้ว` : `Guardian contact logged for ${name}`)
   }
 
-  /** ACTION — งานเดียวที่ควรเริ่มก่อน เลือกตามสิ่งที่ผูกเวลามากที่สุด
-   *  ครูที่มีเวลา 10 นาทีต่อวันไม่ควรต้องเลือกเองจากปุ่มที่หนักเท่ากันสี่ปุ่ม */
-  const primary = useMemo(() => {
-    if (dueNow.length)
-      return {
-        label: th
-          ? `ดูนัดที่ถึงกำหนด ${dueNow.length} รายการ`
-          : `Open ${dueNow.length} due follow-ups`,
-        run: () => reveal(followUpRef.current),
-      }
-    if (ops.overdue)
-      return {
-        label: th ? `เปิดเคสที่เลยกำหนด ${ops.overdue} เคส` : `Open ${ops.overdue} overdue cases`,
-        run: () => {
-          setFocus('overdue')
-          reveal(listRef.current)
-        },
-      }
-    if (ops.critical)
-      return {
-        label: th
-          ? `เปิดนักเรียนระดับวิกฤต ${ops.critical} คน`
-          : `Open ${ops.critical} critical students`,
-        run: () => {
-          setFocus('critical')
-          reveal(listRef.current)
-        },
-      }
-    const first = ops.rows[0]
-    return {
-      label: first
-        ? th
-          ? `เริ่มที่ ${first.student.name}`
-          : `Start with ${first.student.name}`
-        : th
-          ? 'ดูรายชื่อนักเรียนทั้งหมด'
-          : 'See the full caseload',
-      run: () => (first ? go(`/student?id=${first.student.id}`) : reveal(listRef.current)),
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dueNow.length, ops.overdue, ops.critical, ops.rows, th])
-
-  // ── the narrated brief ────────────────────────────────────
-  const [text, setText] = useState('')
-  const [mode, setMode] = useState<'streaming' | 'live' | 'local'>('streaming')
-  const ran = useRef(false)
-
-  /** Names the child to start with and why — the cards below already carry the
-   *  counts, and a summary that recites them is the thing that makes a panel
-   *  feel like it is talking about itself instead of doing something. */
-  const localText = useMemo(() => {
-    const worst = ops.rows[0]
-    if (!worst) return th ? 'ไม่มีงานค้างในเคสของคุณวันนี้' : 'Nothing outstanding in your caseload today'
-    const who = `${worst.student.name} (${GRADE_LABEL(worst.student.gradeKey, th)})`
-    const why = worst.overdue
-      ? th
-        ? `เกินกำหนดติดตามมา ${worst.updatedDaysAgo} วัน`
-        : `${worst.updatedDaysAgo} days past the follow-up deadline`
-      : th
-        ? `คะแนนเสี่ยงสูงสุดในเคสของคุณ ${worst.student.riskScore}`
-        : `the highest risk score in your caseload, ${worst.student.riskScore}`
-    return th
-      ? `เริ่มที่ ${who} — ${why}\n${worst.student.nextAction}`
-      : `Start with ${who} — ${why}\n${worst.student.nextAction}`
-  }, [ops, th])
-
-  const run = async () => {
-    setText('')
-    setMode('streaming')
-    const facts = `caseload ${ops.caseload} · critical ${ops.critical} · overdue ${ops.overdue} · parents to reach ${ops.needParent} · not yet visited ${ops.needVisit} · attendance ${ops.attendanceRate.toFixed(1)}%`
-    try {
-      let out = ''
-      for await (const chunk of streamAnswer({
-        system: buildSystemPrompt(user, lang),
-        history: [
-          {
-            role: 'user',
-            text: th
-              ? `คุณกำลังพูดกับครูผู้รับผิดชอบเคสนักเรียน บอก 2 บรรทัดสั้นว่าควรเริ่มที่เด็กคนไหนและเพราะอะไร ห้ามขึ้นต้นด้วยคำนำ ห้ามไล่ตัวเลขทุกตัวซ้ำเพราะหน้าจอแสดงอยู่แล้ว: ${facts}`
-              : `You are speaking to a teacher who case-manages students. Two short lines naming which child to start with and why. No preamble, and do not recite every figure — the screen already shows them: ${facts}`,
-          },
-        ],
-      })) {
-        out += chunk
-        setText(out)
-      }
-      setMode('live')
-    } catch (err) {
-      setText(localText)
-      setMode('local')
-      if ((err as { status?: number })?.status !== 503)
-        console.warn('[teacher] fell back to the computed brief:', aiErrorMessage(err, th))
-    }
-  }
-
-  useEffect(() => {
-    if (ran.current) return
-    ran.current = true
-    void run()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
 
   // ── ask ───────────────────────────────────────────────────
-  const [q, setQ] = useState('')
   const [asked, setAsked] = useState<{ text: string; to?: string; label?: string } | null>(null)
   const [asking, setAsking] = useState(false)
 
@@ -387,20 +301,6 @@ export function TeacherWorkspace() {
     }
   }
 
-  const suggestions = th
-    ? [
-        'นักเรียนคนไหนต้องติดตามวันนี้',
-        'ทำไมนักเรียนคนนี้มีความเสี่ยง',
-        'ควรช่วยเหลือนักเรียนอย่างไร',
-        'เคสไหนควรส่งต่อหน่วยงาน',
-      ]
-    : [
-        'Who needs following up today?',
-        'Why is this student at risk?',
-        'What support should I give?',
-        'Which case should be referred?',
-      ]
-
   const riskTone: Record<RiskLevel, string> = RISK_COLOR
   const openReferrals = referrals.filter((r) =>
     ['sent', 'accepted', 'inProgress', 'overdue'].includes(r.status),
@@ -421,301 +321,49 @@ export function TeacherWorkspace() {
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4 }}
-      className="mb-4 overflow-hidden rounded-2xl border border-surface-border bg-white shadow-card"
+      className="mb-4 space-y-3"
     >
-      {/* ── header ────────────────────────────────────────── */}
-      <div className="flex flex-wrap items-center gap-3 border-b border-surface-border px-5 py-3.5">
-        <span className="relative grid h-9 w-9 shrink-0 place-items-center">
-          {mode === 'streaming' && (
-            <motion.span
-              aria-hidden
-              className="absolute inset-0 rounded-xl bg-brand-500"
-              animate={{ scale: [1, 1.2, 1], opacity: [0.4, 0, 0.4] }}
-              transition={{ duration: 1.8, repeat: Infinity, ease: 'easeInOut' }}
-            />
-          )}
-          <span className="relative grid h-9 w-9 place-items-center rounded-xl bg-brand-50 text-brand-600">
-            <IconAI width={18} height={18} />
-          </span>
-        </span>
-        {/* ชื่อครูกับโรงเรียนย้ายไปอยู่หัวหน้าแล้ว เหลือไว้แต่จำนวนเคส
-            ซึ่งเป็นตัวเลขที่ใช้อ่านทุกตัวเลขอื่นในแผงนี้ */}
-        <div className="min-w-0 flex-1">
-          <h2 className="truncate text-[15px] font-bold text-ink">
-            {th
-              ? `เคสที่คุณรับผิดชอบ ${formatNumber(ops.caseload, lang)} คน`
-              : `${formatNumber(ops.caseload, lang)} children in your care`}
-          </h2>
-        </div>
-        <span className="shrink-0 text-[11px] text-ink-faint">
-          {mode === 'streaming'
-            ? th
-              ? 'กำลังวิเคราะห์…'
-              : 'Analysing…'
-            : mode === 'local'
-              ? th
-                ? 'คำนวณจากข้อมูลในระบบ'
-                : 'Computed'
-              : th
-                ? 'วิเคราะห์ด้วย AI'
-                : 'AI'}
-        </span>
-      </div>
+      {/* ── เลขาส่วนตัว — ตัวเอกของหน้า ───────────────────
+          แทนที่หัวแผง · สามแถว "วันนี้ต้องทำอะไร" · กล่อง "เริ่มที่" · การ์ด
+          สัญญาณสามใบ · และช่องถามตอบล่างสุด ทั้งห้าอย่างเป็นงานของ AI ที่เคย
+          กระจายอยู่ห้าที่จนครูบอกไม่ได้ว่า AI ช่วยตรงไหน ตอนนี้รวมเป็นที่เดียว */}
+      <TeacherAssistant
+        queue={queue}
+        name={(user?.ownerName ?? user?.name ?? '').replace(/^ครู(แนะแนว)?\s*/, '')}
+        th={th}
+        mayAct={mayAct}
+        onAct={applyStep}
+        onOpen={(id) => go(`/student?id=${id}`)}
+        onAsk={(question) => void ask(question)}
+        asked={asked}
+        asking={asking}
+      />
 
-      {/* ── งานวันนี้ — ชั้นเดียว ไม่ซ้ำ ────────────────────
-          สามแถวแรกคือสิ่งที่ต้องโฟกัส ตัวเลขกับความหมายอยู่บรรทัดเดียวกัน
-          เรื่องที่เหลือหดเป็นชิปด้านล่าง ยังกดกรองได้เหมือนเดิมแต่ไม่แย่ง
-          สายตาจากสามอันดับแรก */}
-      <div className="px-5 pt-4">
-        <SectionLabel>{th ? 'วันนี้ต้องทำอะไร' : 'What today needs'}</SectionLabel>
-
-        {jobs.top.length ? (
-          <ul className="overflow-hidden rounded-2xl border border-surface-border">
-            {jobs.top.map((job, i) => {
-              const on = job.filter ? focus === job.filter : false
-              return (
-                <motion.li
-                  key={job.key}
-                  initial={{ opacity: 0, y: 6 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.05 * i, duration: 0.3 }}
-                  className="border-b border-surface-border last:border-0"
-                >
-                  <button
-                    type="button"
-                    onClick={job.onClick}
-                    aria-pressed={on}
-                    className="group flex w-full items-center gap-3.5 px-4 py-3.5 text-left transition-colors hover:bg-surface-muted/70"
-                    style={on ? { background: `${job.tone}0d` } : undefined}
-                  >
-                    <span
-                      className="grid h-12 w-12 shrink-0 place-items-center rounded-xl text-[19px] font-bold text-white"
-                      style={{ background: job.tone }}
-                    >
-                      <AnimatedCounter value={job.count} />
-                    </span>
-                    <span className="min-w-0 flex-1 text-[16px] font-semibold leading-snug text-ink">
-                      {job.text}
-                    </span>
-                    <IconArrowRight
-                      width={16}
-                      height={16}
-                      className="shrink-0 text-ink-faint transition-colors group-hover:text-brand-600"
-                    />
-                  </button>
-                </motion.li>
-              )
-            })}
-          </ul>
-        ) : (
-          <p className="rounded-2xl border border-surface-border px-4 py-5 text-[15px] text-ink-muted">
-            {th
-              ? 'ไม่มีงานเร่งด่วนวันนี้ — ทุกเคสยังอยู่ในกำหนด'
-              : 'Nothing urgent today — every case is still within its deadline'}
-          </p>
-        )}
-
-        {jobs.rest.length > 0 && (
-          <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
-            <span className="text-[12px] text-ink-faint">{th ? 'ดูเพิ่ม:' : 'Also:'}</span>
-            {jobs.rest.map((job) => {
-              const on = job.filter ? focus === job.filter : false
-              return (
-                <button
-                  key={job.key}
-                  type="button"
-                  onClick={job.onClick}
-                  aria-pressed={on}
-                  className="inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-[12.5px] font-medium transition-colors"
-                  style={{
-                    borderColor: on ? job.tone : undefined,
-                    background: on ? `${job.tone}14` : undefined,
-                    color: job.tone,
-                  }}
-                >
-                  <span className="font-bold tabular">{job.count}</span>
-                  <span className="text-ink-muted">{job.short}</span>
-                </button>
-              )
-            })}
-          </div>
-        )}
-      </div>
-
-      {/* ── เริ่มตรงไหน — บรรทัดเดียวจาก AI แล้วปุ่มเดียว ──── */}
-      <div className="px-5 pt-4">
-        <div className="rounded-2xl border border-surface-border bg-surface-muted/60 p-4">
-          {text ? (
-            <p className="text-[15px] leading-relaxed text-ink-muted">
-              {text.split('\n').map((line, i) => (
-                <span key={i} className={i === 0 ? 'block font-semibold text-ink' : 'block'}>
-                  {line}
-                </span>
-              ))}
-            </p>
-          ) : (
-            <div className="space-y-2" aria-live="polite">
-              <Skeleton className="h-4 w-9/12" />
-              <Skeleton className="h-4 w-6/12" />
-            </div>
-          )}
-          <button
-            type="button"
-            onClick={primary.run}
-            className="mt-3.5 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-brand-500 px-5 py-3.5 text-[15px] font-semibold text-white shadow-card transition-colors hover:bg-brand-600 sm:w-auto"
-          >
-            {primary.label}
-            <IconArrowRight width={16} height={16} />
-          </button>
-        </div>
-      </div>
-
-      {/* ── why these children are slipping ───────────────── */}
-      {ops.alerts.length > 0 && (
-        <div ref={alertsRef} className="scroll-mt-4 px-5 pt-5">
-          <SectionLabel>
-            {th
-              ? `สัญญาณที่ต้องอ่านก่อน — ${ops.alerts.length} คน`
-              : `Read these signals first — ${ops.alerts.length} students`}
-          </SectionLabel>
-          <div className="grid grid-cols-1 gap-2 lg:grid-cols-3">
-            {ops.alerts.map((a, i) => (
-              <motion.div
-                key={a.student.id}
-                initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.06 * i, duration: 0.3 }}
-                className="flex flex-col rounded-xl border border-surface-border p-3.5"
-              >
-                <div className="flex items-start gap-2">
-                  <span
-                    className="mt-0.5 shrink-0 rounded-md px-1.5 py-0.5 text-[12px] font-bold tabular text-white"
-                    style={{ background: riskTone[a.student.riskLevel] }}
-                  >
-                    {a.student.riskScore}
-                  </span>
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate text-[13.5px] font-semibold text-ink">
-                      {a.student.name}
-                    </span>
-                    <span className="block text-[11.5px] text-ink-faint">
-                      {GRADE_LABEL(a.student.gradeKey, th)} · {t(`risk.${a.student.riskLevel}`)}
-                    </span>
-                  </span>
-                  {/* รู้ก่อน — 85 เฉย ๆ บอกไม่ได้ว่าเด็กกำลังแย่ลงหรือกำลังดีขึ้น
-                      เส้นนี้คือ riskHistory 8 สัปดาห์ จุดท้ายคือคะแนนที่แสดงอยู่ */}
-                  {(() => {
-                    const hist = a.student.riskHistory
-                    if (hist.length < 2) return null
-                    const d = a.student.riskScore - hist[0].score
-                    const worse = d > 0
-                    return (
-                      <span className="shrink-0 text-right">
-                        <Sparkline
-                          data={hist.map((p) => p.score)}
-                          color={worse ? RISK_COLOR.critical : RISK_COLOR.normal}
-                          width={56}
-                          height={20}
-                        />
-                        <span
-                          className="block text-[11px] font-bold tabular"
-                          style={{ color: worse ? RISK_COLOR.critical : RISK_COLOR.normal }}
-                        >
-                          {worse ? '▲' : '▼'} {Math.abs(d)}
-                        </span>
-                      </span>
-                    )
-                  })()}
-                </div>
-
-                {/* the reasons are fields off this child's record, each with the
-                    figure beside it so the teacher can check the claim */}
-                <ul className="mt-2.5 space-y-1">
-                  {a.signals.map((sig) => (
-                    <li key={sig.th} className="flex items-baseline gap-1.5 text-[11px]">
-                      <IconDown
-                        width={10}
-                        height={10}
-                        className="shrink-0 translate-y-0.5"
-                        style={{ color: RISK_COLOR.high }}
-                      />
-                      <span className="text-ink-muted">{th ? sig.th : sig.en}</span>
-                      <span className="ml-auto shrink-0 font-bold tabular text-ink">{sig.value}</span>
-                    </li>
-                  ))}
-                </ul>
-
-                {/* AI ช่วยแนะนำ → ลงมือช่วย
-                    `student.nextAction` เป็นเทมเพลตสามแบบตามระดับความเสี่ยง
-                    เด็กที่ยากจนกับเด็กที่ถูกให้แต่งงานเร็วจึงเคยได้ประโยค
-                    เดียวกัน ที่นี่อ่าน causeKeys ของเด็กคนนี้จริง และทุกข้อ
-                    มี "เพราะอะไร" ที่ครูย้อนตรวจได้ */}
-                {(() => {
-                  const steps = recommendSteps(a.student, th).slice(0, 2)
-                  return (
-                    <div className="mt-3 rounded-lg bg-surface-muted/70 p-2.5">
-                      <p className="mb-1.5 text-[11.5px] font-semibold text-ink-muted">
-                        {th ? 'ควรเริ่มช่วยอย่างไร' : 'Where to start'}
-                      </p>
-                      <ul className="space-y-2">
-                        {steps.map((step) => (
-                          <li key={step.key}>
-                            <p className="text-[12.5px] font-medium leading-snug text-ink">
-                              {th ? step.th : step.en}
-                            </p>
-                            <p className="mt-0.5 text-[11px] leading-snug text-ink-faint">
-                              {th ? step.whyTh : step.whyEn}
-                            </p>
-                            {step.action && mayAct && (
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  applyStep(a.student.id, a.student.name, step.action!)
-                                }
-                                className="mt-1.5 rounded-lg border border-brand-300 bg-white px-2.5 py-1.5 text-[11.5px] font-semibold text-brand-700 transition-colors hover:border-brand-500 hover:bg-brand-50"
-                              >
-                                {step.action === 'followUp'
-                                  ? th
-                                    ? 'ตั้งนัดติดตาม'
-                                    : 'Set the follow-up'
-                                  : step.action === 'visit'
-                                    ? th
-                                      ? 'บันทึกว่าเยี่ยมบ้านแล้ว'
-                                      : 'Log the home visit'
-                                    : th
-                                      ? 'บันทึกว่าติดต่อแล้ว'
-                                      : 'Log the contact'}
-                              </button>
-                            )}
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  )
-                })()}
-
-                <div className="mt-3 flex gap-1.5">
-                  <button
-                    type="button"
-                    onClick={() => go(`/student?id=${a.student.id}`)}
-                    className="flex-1 rounded-lg bg-brand-500 px-2.5 py-2 text-[12.5px] font-medium text-white transition-colors hover:bg-brand-600"
-                  >
-                    {th ? 'เปิดแฟ้มเด็ก' : 'Open the file'}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => go('/referral')}
-                    className="rounded-lg border border-surface-border px-2.5 py-2 text-[12.5px] font-medium text-ink-muted transition-colors hover:border-brand-400 hover:text-brand-600"
-                  >
-                    {th ? 'ขอความช่วยเหลือ' : 'Ask for support'}
-                  </button>
-                </div>
-              </motion.div>
-            ))}
-          </div>
+      {/* ภาพรวมเหลือบรรทัดเดียว — กดแล้วกางรายชื่อที่กรองไว้ด้านล่าง */}
+      {(jobs.top.length > 0 || jobs.rest.length > 0) && (
+        <div className="flex flex-wrap items-center gap-1.5 px-1">
+          <span className="text-[13px] text-ink-faint">{th ? 'ภาพรวม:' : 'Overview:'}</span>
+          {[...jobs.top, ...jobs.rest].map((job) => (
+            <button
+              key={job.key}
+              type="button"
+              onClick={() => {
+                setListOpen(true)
+                job.onClick()
+              }}
+              className="inline-flex items-center gap-1.5 rounded-full border border-surface-border bg-white px-3 py-1.5 text-[13px] transition-colors hover:border-brand-400"
+            >
+              <span className="font-bold tabular" style={{ color: job.tone }}>
+                {job.count}
+              </span>
+              <span className="text-ink-muted">{job.short}</span>
+            </button>
+          ))}
         </div>
       )}
 
+      {/* ── ดูเพิ่ม — พับไว้ทั้งหมด ไม่แย่งสายตาจากเลขา ──── */}
+      <div className="overflow-hidden rounded-2xl border border-surface-border bg-white pb-5 shadow-card">
       {/* ── appointments the teacher committed to ─────────── */}
       <div ref={followUpRef} className="scroll-mt-4 px-5 pt-5">
         <SectionLabel>
@@ -731,7 +379,7 @@ export function TeacherWorkspace() {
               return (
                 <li key={entry.id} className="flex items-center gap-3 px-3.5 py-2.5">
                   <span
-                    className="shrink-0 rounded-md px-2 py-1 text-[11px] font-bold text-white"
+                    className="shrink-0 rounded-md px-2 py-1 text-[12.5px] font-bold text-white"
                     style={{ background: tone }}
                   >
                     {late
@@ -748,14 +396,14 @@ export function TeacherWorkspace() {
                     <span className="block truncate text-[13px] font-semibold text-ink">
                       {nameOf(entry.childId)}
                     </span>
-                    <span className="block truncate text-[11px] text-ink-faint">
+                    <span className="block truncate text-[12.5px] text-ink-faint">
                       {entry.followUpDate} · {entry.note}
                     </span>
                   </button>
                   <button
                     type="button"
                     onClick={() => log.setFollowUpDone(entry.id, true)}
-                    className="shrink-0 rounded-lg border border-surface-border px-2.5 py-1 text-[11px] font-semibold text-ink-muted transition-colors hover:border-brand-400 hover:text-brand-600"
+                    className="shrink-0 rounded-lg border border-surface-border px-2.5 py-1 text-[12.5px] font-semibold text-ink-muted transition-colors hover:border-brand-400 hover:text-brand-600"
                   >
                     {t('st.markDone')}
                   </button>
@@ -770,13 +418,25 @@ export function TeacherWorkspace() {
         )}
       </div>
 
-      {/* ── the caseload ──────────────────────────────────── */}
-      <div ref={listRef} className="scroll-mt-4 px-5 pt-5">
+      {/* ── the caseload — พับไว้ กางเองเมื่อกดชิปในบรรทัดภาพรวม ── */}
+      <details
+        ref={listRef as unknown as React.RefObject<HTMLDetailsElement>}
+        open={listOpen}
+        onToggle={(e) => setListOpen((e.currentTarget as HTMLDetailsElement).open)}
+        className="group scroll-mt-4 px-5 pt-5"
+      >
+        <summary className="cursor-pointer list-none text-[15px] font-semibold text-ink marker:hidden">
+          <span className="inline-flex items-center gap-1.5">
+            <IconArrowRight width={14} height={14} className="transition-transform group-open:rotate-90" />
+            {th ? `รายชื่อทั้งหมด ${ops.caseload} คน` : `All ${ops.caseload} children`}
+          </span>
+        </summary>
+      <div className="mt-3">
         <div className="mb-2 flex flex-wrap items-baseline gap-2">
           <p className="text-[12px] font-semibold text-ink-muted">
             {th ? 'นักเรียนที่ฉันรับผิดชอบ' : 'My students'}
           </p>
-          <span className="text-[11px] text-ink-faint">
+          <span className="text-[12.5px] text-ink-faint">
             {th
               ? `แสดง ${rows.length} จาก ${ops.caseload} คน · เรียงเคสเกินกำหนดขึ้นก่อน แล้วตามคะแนนเสี่ยง`
               : `${rows.length} of ${ops.caseload} · overdue first, then by risk score`}
@@ -785,7 +445,7 @@ export function TeacherWorkspace() {
             <button
               type="button"
               onClick={() => setFocus(null)}
-              className="inline-flex items-center gap-1 rounded-full bg-brand-50 px-2.5 py-1 text-[11px] font-semibold text-brand-700 transition-colors hover:bg-brand-100"
+              className="inline-flex items-center gap-1 rounded-full bg-brand-50 px-2.5 py-1 text-[12.5px] font-semibold text-brand-700 transition-colors hover:bg-brand-100"
             >
               {th ? focusLabel.th : focusLabel.en}
               <IconClose width={11} height={11} />
@@ -796,7 +456,7 @@ export function TeacherWorkspace() {
         <div className="overflow-x-auto rounded-xl border border-surface-border">
           <table className="w-full min-w-[640px] text-left">
             <thead>
-              <tr className="border-b border-surface-border text-[11px] text-ink-faint">
+              <tr className="border-b border-surface-border text-[12.5px] text-ink-faint">
                 <th className="px-3 py-2 font-medium">{th ? 'นักเรียน' : 'Student'}</th>
                 <th className="px-3 py-2 font-medium">{th ? 'ชั้น' : 'Grade'}</th>
                 <th className="px-3 py-2 text-right font-medium">{th ? 'คะแนนเสี่ยง' : 'Risk'}</th>
@@ -820,14 +480,14 @@ export function TeacherWorkspace() {
                       {r.student.name}
                       {r.urgent && (
                         <span
-                          className="rounded px-1 py-px text-[10px] font-bold text-white"
+                          className="rounded px-1 py-px text-[12px] font-bold text-white"
                           style={{ background: RISK_COLOR.critical }}
                         >
                           {th ? 'ด่วน' : 'urgent'}
                         </span>
                       )}
                     </p>
-                    <p className="truncate text-[11px] text-ink-faint">{r.student.id}</p>
+                    <p className="truncate text-[12.5px] text-ink-faint">{r.student.id}</p>
                   </td>
                   <td className="px-3 py-2.5 text-[12px] text-ink-muted">
                     {GRADE_LABEL(r.student.gradeKey, th)}
@@ -840,10 +500,10 @@ export function TeacherWorkspace() {
                       {r.student.riskScore}
                     </span>
                   </td>
-                  <td className="px-3 py-2.5 text-[11px] text-ink-muted">
+                  <td className="px-3 py-2.5 text-[12.5px] text-ink-muted">
                     {r.problem ? t(`cause.${r.problem}`) : '—'}
                   </td>
-                  <td className="px-3 py-2.5 text-[11px]">
+                  <td className="px-3 py-2.5 text-[12.5px]">
                     {r.updatedDaysAgo === undefined ? (
                       <span className="text-ink-faint">—</span>
                     ) : (
@@ -856,7 +516,7 @@ export function TeacherWorkspace() {
                       </span>
                     )}
                   </td>
-                  <td className="px-3 py-2.5 text-[11px] text-ink-muted">{t(`stage.${r.stage}`)}</td>
+                  <td className="px-3 py-2.5 text-[12.5px] text-ink-muted">{t(`stage.${r.stage}`)}</td>
                 </motion.tr>
               ))}
               {rows.length === 0 && (
@@ -870,9 +530,17 @@ export function TeacherWorkspace() {
           </table>
         </div>
       </div>
+      </details>
 
-      {/* ── what has already happened ─────────────────────── */}
-      <div className="grid grid-cols-1 gap-4 px-5 pb-5 pt-5 lg:grid-cols-3">
+      {/* ── what has already happened — พับไว้ ──────────────── */}
+      <details className="group px-5 pt-5">
+        <summary className="cursor-pointer list-none text-[15px] font-semibold text-ink marker:hidden">
+          <span className="inline-flex items-center gap-1.5">
+            <IconArrowRight width={14} height={14} className="transition-transform group-open:rotate-90" />
+            {th ? 'ประวัติและผลของเคส' : 'History and outcomes'}
+          </span>
+        </summary>
+      <div className="mt-3 grid grid-cols-1 gap-4 lg:grid-cols-3">
         <div className="lg:col-span-2">
           <SectionLabel>
             {th ? 'ประวัติการดำเนินการ (ตามวันที่บันทึก)' : 'Intervention log (by recorded date)'}
@@ -892,11 +560,11 @@ export function TeacherWorkspace() {
                 >
                   <span className="flex flex-wrap items-baseline gap-x-2">
                     <span className="text-[12px] font-semibold text-ink">{student.name}</span>
-                    <span className="text-[11px] text-ink-faint">
+                    <span className="text-[12.5px] text-ink-faint">
                       {event.date} · {t(`stage.${event.stageKey}`)}
                     </span>
                   </span>
-                  <span className="mt-0.5 block text-[11px] leading-snug text-ink-muted">
+                  <span className="mt-0.5 block text-[12.5px] leading-snug text-ink-muted">
                     {event.note}
                   </span>
                 </button>
@@ -949,7 +617,7 @@ export function TeacherWorkspace() {
                 const pct = ops.caseload ? (n / ops.caseload) * 100 : 0
                 return (
                   <div key={lvl}>
-                    <div className="mb-1 flex items-baseline justify-between text-[11px]">
+                    <div className="mb-1 flex items-baseline justify-between text-[12.5px]">
                       <span className="flex items-center gap-1.5 text-ink">
                         <span
                           className="h-2 w-2 rounded-full"
@@ -972,76 +640,16 @@ export function TeacherWorkspace() {
                 )
               })}
             </div>
-            <p className="mt-2.5 text-[11px] leading-snug text-ink-faint">
+            <p className="mt-2.5 text-[12.5px] leading-snug text-ink-faint">
               {th
-                ? 'ระบบเก็บคะแนนเสี่ยงล่าสุดค่าเดียว จึงเทียบ "ก่อน/หลัง" รายคนไม่ได้ — ตัวเลขนี้คือสัดส่วนเคสที่ปิดสำเร็จจริง'
-                : 'The record holds one current risk score, not a history, so there is no per-student before/after — this is the share of cases actually closed.'}
+                ? 'สัดส่วนเคสที่ปิดสำเร็จจริง — ดูความเสี่ยงก่อน/หลังรายคนได้จากเส้นแนวโน้ม 8 สัปดาห์ในแฟ้มเด็ก'
+                : 'The share of cases actually closed — each child’s before/after is on the 8-week trend in their file.'}
             </p>
           </div>
         </div>
       </div>
 
-      {/* ── ask ───────────────────────────────────────────── */}
-      <div className="border-t border-surface-border bg-surface-muted px-5 py-3.5">
-        <form
-          onSubmit={(e) => {
-            e.preventDefault()
-            void ask(q)
-          }}
-          className="flex gap-2"
-        >
-          <input
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-            placeholder={th ? 'ถามเกี่ยวกับนักเรียนที่คุณดูแล…' : 'Ask about your students…'}
-            className="min-w-0 flex-1 rounded-xl border border-surface-border bg-white px-3.5 py-2 text-sm outline-none transition-colors focus:border-brand-400 focus:ring-4 focus:ring-brand-100"
-          />
-          <button
-            type="submit"
-            disabled={asking || !q.trim()}
-            className="shrink-0 rounded-xl bg-brand-500 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-brand-600 disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            {asking ? (th ? 'กำลังคิด…' : 'Thinking…') : th ? 'ถาม' : 'Ask'}
-          </button>
-        </form>
-
-        <div className="mt-2 flex flex-wrap gap-1.5">
-          {suggestions.map((s) => (
-            <button
-              key={s}
-              type="button"
-              onClick={() => {
-                setQ(s)
-                void ask(s)
-              }}
-              className="rounded-full border border-surface-border bg-white px-2.5 py-1 text-[11px] text-ink-muted transition-colors hover:border-brand-400 hover:text-brand-600"
-            >
-              {s}
-            </button>
-          ))}
-        </div>
-
-        {asked && (
-          <motion.div
-            initial={{ opacity: 0, y: 4 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="mt-2.5 rounded-xl border border-surface-border bg-white p-3"
-          >
-            <p className="whitespace-pre-wrap text-[13px] leading-relaxed text-ink-muted">
-              {asked.text}
-            </p>
-            {asked.to && (
-              <button
-                type="button"
-                onClick={() => go(asked.to!)}
-                className="mt-2 inline-flex items-center gap-1 text-[12px] font-semibold text-brand-600 hover:underline"
-              >
-                {asked.label}
-                <IconArrowRight width={12} height={12} />
-              </button>
-            )}
-          </motion.div>
-        )}
+      </details>
       </div>
     </motion.section>
   )
