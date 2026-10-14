@@ -355,6 +355,43 @@ export interface RiskPoint {
   score: number // 0–100
 }
 
+/** ทะเบียนนักเรียนตามรูปร่างจริงที่ ผอ. ส่งตัวอย่างมา (DMC/สพฐ. · ปี 2569)
+ *
+ *  คะแนนเสี่ยงหกด้านใน `RiskInputs` เป็นตัวเลขที่โปรเจกต์ตั้งขึ้นเอง ไม่มีที่มา
+ *  ว่าคำนวณจากอะไร ฟิลด์ชุดนี้คือ *วัตถุดิบ* ที่ระบบจริงจะได้รับ และเป็นสิ่งที่
+ *  โมเดลทำนายต้องกินเข้าไป ไม่ใช่คะแนนสำเร็จรูป การเก็บไว้ที่นี่ทำให้
+ *  "ทำไมเด็กคนนี้ถึงเสี่ยง" ตอบด้วยข้อเท็จจริงที่ย้อนไปที่ทะเบียนได้
+ *
+ *  ชื่อฟิลด์คงตามต้นทางโดยตั้งใจ จะได้แมปกับข้อมูลจริงโดยไม่ต้องแปลชื่อ */
+export interface StudentMaster {
+  /** ปีการศึกษา พ.ศ. เช่น '2569' */
+  academicYear: string
+  term: string
+  schoolID: string
+  areaID: string
+  /** รายได้ต่อเดือนของผู้ปกครอง (บาท) — ตัวทำนายที่แรงที่สุดตัวหนึ่ง */
+  parentSalary: number
+  /** ความสัมพันธ์ของผู้ปกครองกับเด็ก เช่น มารดา · ยาย · ผู้ปกครอง
+   *  เด็กที่อยู่กับปู่ย่าตายายมักมาพร้อมพ่อแม่ที่ย้ายถิ่นไปทำงาน */
+  parentRelationName: string
+  /** กลุ่มด้อยโอกาสตามนิยาม สพฐ. เช่น 'เด็กยากจน' */
+  disadvantaged: string[]
+  /** ความพิการตามนิยาม สพฐ. ว่างคือไม่มี */
+  disabilityName: string
+  weight: number
+  height: number
+  /** ระยะทางจากบ้านถึงโรงเรียน แยกตามสภาพเส้นทาง (เมตร) */
+  rockDt: number
+  rubberDt: number
+  waterDt: number
+  /** เวลาเดินทางถึงโรงเรียน (นาที) */
+  timeDt: number
+  /** เช่น เดินเท้า · พาหนะไม่เสียค่าโดยสาร · พาหนะเสียค่าโดยสาร */
+  journeyTypeName: string
+  /** ที่อยู่ตามทะเบียนบ้านต่างจากที่อยู่ปัจจุบัน = สัญญาณการย้ายถิ่น */
+  movedFromRegisteredAddress: boolean
+}
+
 export interface GradePoint {
   term: string
   gpa: number // 0–4
@@ -402,6 +439,8 @@ export interface Student {
   /** 8 สัปดาห์ย้อนหลัง จุดสุดท้ายคือ `riskScore` */
   riskHistory: RiskPoint[]
   grades: GradePoint[]
+  /** ทะเบียนนักเรียนตามโครงสร้างจริงของ DMC/สพฐ. — ดู `StudentMaster` */
+  master: StudentMaster
   parentContact: 'ok' | 'delayed' | 'unreachable'
   homeVisited: boolean
   guidanceNote: string

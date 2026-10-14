@@ -13,6 +13,7 @@
 // ข้อความ ไม่ใช่สิ่งที่ถูกแทนที่
 // ─────────────────────────────────────────────────────────────
 import type { CaseStage, CauseKey, Student } from '@/types'
+import { REASON_BY_ID, ownerOfCause } from '@/data/dropReasons'
 
 /** สิ่งที่ครูกดแล้วเกิดขึ้นจริงกับระเบียนเด็ก ไม่ใช่แค่พาไปอีกหน้า
  *  ทั้งสามค่าแมปตรงกับสิ่งที่ `useCaseLog()` เขียนได้อยู่แล้ว */
@@ -30,6 +31,9 @@ export interface RecommendedStep {
 }
 
 const CLOSED: CaseStage[] = ['returned', 'resolved']
+
+/** ผู้ปกครองที่เป็นพ่อแม่จริง ที่เหลือคือญาติที่รับช่วงดูแลแทน */
+const PARENT = ['มารดา', 'บิดา']
 
 /** สาเหตุที่ต้องพาหน่วยงานนอกการศึกษาเข้ามา ไม่ใช่เรื่องที่ครูแก้เองได้ */
 const NEEDS_AGENCY: CauseKey[] = [
@@ -80,18 +84,22 @@ export function recommendSteps(s: Student, th: boolean): RecommendedStep[] {
     })
 
   // ③ แก้ตามสาเหตุ — เฉพาะสาเหตุที่เด็กคนนี้มีจริง
-  if (has('poverty') || has('childLabour'))
+  if (has('poverty') || has('childLabour')) {
+    // อ้างรายได้จริงจากทะเบียน ไม่ใช่คำว่า "ยากจน" ลอย ๆ — ครูต้องใช้ตัวเลขนี้
+    // กรอกแบบขอทุนอยู่แล้ว และผู้อนุมัติก็ดูตัวเลขนี้เหมือนกัน
+    const salary = s.master.parentSalary.toLocaleString('th-TH')
     push({
       key: 'welfare',
       th: 'ประเมินสถานะทางเศรษฐกิจของครอบครัว และยื่นขอทุน/เงินอุดหนุน',
       en: "Assess the family's finances and apply for a grant or allowance",
       whyTh: has('childLabour')
-        ? 'ระเบียนระบุทั้งความยากจนและการทำงานหารายได้ — เด็กกำลังแลกเวลาเรียนกับรายได้'
-        : 'ระเบียนระบุปัญหาเศรษฐกิจเป็นสาเหตุหนึ่ง',
+        ? `รายได้ผู้ปกครอง ${salary} บาท/เดือน และระเบียนระบุว่าเด็กต้องทำงานหารายได้ (รหัส 303)`
+        : `รายได้ผู้ปกครอง ${salary} บาท/เดือน · ${REASON_BY_ID.get(302)?.shortTh} (รหัส 302)`,
       whyEn: has('childLabour')
-        ? 'The record shows both poverty and paid work — school time is being traded for income'
-        : 'Poverty is recorded as one of the causes',
+        ? `Household income ฿${salary}/month and the record shows the child is working for income`
+        : `Household income ฿${salary}/month, recorded as a cost barrier to schooling`,
     })
+  }
 
   if (has('health') || s.wellbeingRisk >= 70)
     push({
@@ -100,6 +108,18 @@ export function recommendSteps(s: Student, th: boolean): RecommendedStep[] {
       en: 'Involve the school counsellor or the local health station',
       whyTh: `คะแนนด้านสุขภาวะ ${s.wellbeingRisk}/100${has('health') ? ' และมีปัญหาสุขภาพในระเบียน' : ''}`,
       whyEn: `Wellbeing sub-score ${s.wellbeingRisk}/100${has('health') ? ', with a health problem on the record' : ''}`,
+    })
+
+  // ผู้ปกครองที่ไม่ใช่พ่อแม่ + ที่อยู่ปัจจุบันต่างจากทะเบียนบ้าน คือรูปร่างของ
+  // รหัส 306 (ย้ายถิ่นตามผู้ปกครอง) ในข้อมูลจริง ครูที่เห็นสองฟิลด์นี้พร้อมกัน
+  // จะรู้ทันทีว่าต้องคุยกับใคร ไม่ใช่โทรหาพ่อแม่ที่ไม่ได้อยู่ในพื้นที่
+  if (has('migration') || (s.master.movedFromRegisteredAddress && !PARENT.includes(s.master.parentRelationName)))
+    push({
+      key: 'guardian',
+      th: `คุยกับ${s.master.parentRelationName}ซึ่งเป็นผู้ดูแลจริง ไม่ใช่พ่อแม่ที่ย้ายถิ่น`,
+      en: `Work with the ${s.master.parentRelationName}, who actually cares for the child`,
+      whyTh: `ทะเบียนระบุผู้ปกครองเป็น "${s.master.parentRelationName}"${s.master.movedFromRegisteredAddress ? ' และที่อยู่ปัจจุบันต่างจากทะเบียนบ้าน' : ''} (รหัส 306)`,
+      whyEn: `The register names the ${s.master.parentRelationName} as guardian${s.master.movedFromRegisteredAddress ? ', and the current address differs from the registered one' : ''}`,
     })
 
   if (has('earlyMarriage'))
@@ -120,16 +140,25 @@ export function recommendSteps(s: Student, th: boolean): RecommendedStep[] {
       whyEn: 'Without identity documents every education and welfare entitlement stalls',
     })
 
-  if (has('travel') || has('noDevice'))
+  if (has('travel') || has('noDevice')) {
+    const m = s.master
+    // ระยะทางในทะเบียนแยกตามสภาพเส้นทาง — ทางลูกรังกับทางน้ำคือสาเหตุที่
+    // เด็กมาไม่ได้ในหน้าฝน ซึ่งต่างจาก "บ้านไกล" เฉย ๆ และแก้คนละวิธี
+    const rough = m.rockDt + m.waterDt
     push({
       key: 'access',
       th: has('travel')
         ? 'จัดการเรื่องการเดินทางมาโรงเรียน'
         : 'จัดหาอุปกรณ์หรือจุดเรียนที่เด็กเข้าถึงได้',
       en: has('travel') ? 'Sort out the journey to school' : 'Find a device or a place to study',
-      whyTh: has('travel') ? 'ระยะทางเป็นสาเหตุหนึ่งในระเบียน' : 'ไม่มีอุปกรณ์สำหรับเรียน',
-      whyEn: has('travel') ? 'Distance is a recorded cause' : 'No device to study with',
+      whyTh: has('travel')
+        ? `เดินทาง ${m.timeDt} นาที · ${m.journeyTypeName}${rough > 0 ? ` · เส้นทางลูกรัง/ทางน้ำ ${rough.toLocaleString('th-TH')} ม.` : ''} (รหัส 503)`
+        : 'ไม่มีอุปกรณ์สำหรับเรียน',
+      whyEn: has('travel')
+        ? `${m.timeDt} minutes each way · ${m.journeyTypeName}${rough > 0 ? ` · ${rough} m of unpaved or water crossing` : ''}`
+        : 'No device to study with',
     })
+  }
 
   if (has('grades') || has('failing') || has('noExam'))
     push({
@@ -163,6 +192,13 @@ export function recommendSteps(s: Student, th: boolean): RecommendedStep[] {
  *  โรงเรียนตั้งแต่ต้น ไม่ใช่ให้ครูลองเองจนหมดแรงแล้วค่อยส่งต่อ */
 export function needsAgency(s: Student): boolean {
   return s.causeKeys.some((k) => NEEDS_AGENCY.includes(k))
+}
+
+/** เจ้าภาพของแต่ละสาเหตุ ตามกลุ่มรหัสในตาราง สพฐ. (1xx ครู · 2xx สาธารณสุข ·
+ *  3xx พมจ./ท้องถิ่น · 4xx ชุมชน · 5xx โรงเรียน/เขต) — ตอบคำถาม "ส่งต่อใคร"
+ *  จากตารางราชการ ไม่ใช่จากการเดาของเรา */
+export function agencyOwners(s: Student): string[] {
+  return [...new Set(s.causeKeys.map(ownerOfCause).filter((x): x is string => Boolean(x) && x !== '—'))]
 }
 
 // ── "เคสไหนปิดได้" ───────────────────────────────────────────

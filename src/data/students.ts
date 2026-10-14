@@ -8,6 +8,7 @@ import type {
   GradePoint,
   InterventionEvent,
   RiskPoint,
+  StudentMaster,
   Student,
 } from '@/types'
 import { computeRiskScore, riskLevel } from '@/lib/risk'
@@ -43,6 +44,36 @@ const OWNERS = [
 ]
 
 const GRADES: GradeLevel[] = ['p5', 'p6', 'm1', 'm2', 'm3', 'm4', 'm5']
+
+// ── ทะเบียนนักเรียนตามรูปร่างจริง (DMC/สพฐ.) ─────────────────
+// สัดส่วนทุกชุดด้านล่างลอกมาจากไฟล์ตัวอย่างจริงที่ ผอ. ส่งมา (124 ระเบียน
+// หนึ่งโรงเรียน ปีการศึกษา 2569 เทอม 2) ไม่ได้ตั้งขึ้นเอง ตัวเลขจึงกระจาย
+// แบบเดียวกับของจริง เช่น รายได้ผู้ปกครองกองอยู่ที่ 9,000 และ 3,000 บาท
+// ไม่ใช่กระจายเท่า ๆ กันแบบที่ข้อมูลสังเคราะห์มักเป็น
+const SALARY_POOL = [
+  ...Array(42).fill(9000), ...Array(24).fill(3000), ...Array(15).fill(5000),
+  ...Array(8).fill(6000), ...Array(5).fill(15000), ...Array(4).fill(8000),
+  ...Array(3).fill(12000), ...Array(3).fill(4000), ...Array(2).fill(20000),
+  ...Array(2).fill(2000), 1500, 30000,
+]
+
+// เด็กที่อยู่กับปู่ย่าตายายมักมาพร้อมพ่อแม่ที่ย้ายถิ่นไปทำงาน ซึ่งเป็นสาเหตุ
+// รหัส 306 ในตาราง สพฐ. — ฟิลด์นี้จึงไม่ใช่แค่ข้อมูลทะเบียน
+const GUARDIAN_POOL = [
+  ...Array(64).fill('มารดา'), ...Array(26).fill('บิดา'), ...Array(13).fill('ยาย'),
+  ...Array(10).fill('ย่า'), ...Array(4).fill('ผู้ปกครอง'), ...Array(3).fill('น้า'),
+  'ตา', 'ปู่', 'พี่สาว', 'ลุง',
+]
+
+const ROCK_POOL = [...Array(82).fill(0), ...Array(19).fill(100), ...Array(10).fill(200), ...Array(5).fill(300), ...Array(4).fill(500), 700]
+const RUBBER_POOL = [...Array(21).fill(100), ...Array(19).fill(1000), ...Array(13).fill(200), ...Array(11).fill(5), ...Array(9).fill(500), ...Array(7).fill(1500), ...Array(5).fill(2000), ...Array(4).fill(3000), 50, 300]
+const WATER_POOL = [...Array(72).fill(0), ...Array(14).fill(500), ...Array(13).fill(100), ...Array(7).fill(1000), ...Array(4).fill(300), ...Array(4).fill(200)]
+const TIME_POOL = [...Array(50).fill(10), ...Array(36).fill(5), ...Array(16).fill(15), ...Array(8).fill(20), ...Array(6).fill(30), 25]
+const JOURNEY_POOL = [
+  ...Array(91).fill('พาหนะไม่เสียค่าโดยสาร'),
+  ...Array(19).fill('พาหนะเสียค่าโดยสาร'),
+  ...Array(14).fill('เดินเท้า'),
+]
 
 const STAGES: CaseStage[] = [
   'alerted', 'accepted', 'inProgress', 'homeVisit', 'referred', 'planned',
@@ -102,6 +133,54 @@ function grades(rng: () => number, base: number): GradePoint[] {
     v = Math.max(0.8, Math.min(4, v - rng() * 0.5))
     return { term: t, gpa: Math.round(v * 100) / 100 }
   })
+}
+
+
+/** ทะเบียนนักเรียนของเด็กคนนี้ ตามรูปร่างจริงของ DMC/สพฐ.
+ *
+ *  ผูกกับสาเหตุที่เด็กคนนี้มีอยู่แล้ว ไม่ได้สุ่มแยกจากกัน — เด็กที่ระเบียน
+ *  ระบุความยากจนต้องมีรายได้ครัวเรือนต่ำจริง และเด็กที่ระบุว่าเดินทางลำบาก
+ *  ต้องใช้เวลาเดินทางนานจริง ถ้าสุ่มแยก ทะเบียนกับสาเหตุจะขัดกันเอง และ
+ *  หน้า "ทำไมเด็กคนนี้ถึงเสี่ยง" จะอ้างตัวเลขที่สวนทางกับคำอธิบายของตัวเอง */
+function buildMaster(
+  rng: () => number,
+  ctx: { familyRisk: number; causeKeys: CauseKey[]; provinceKey: string },
+): StudentMaster {
+  const poor = ctx.causeKeys.includes('poverty') || ctx.familyRisk >= 70
+  const farTravel = ctx.causeKeys.includes('travel')
+  const disadvantaged: string[] = []
+  if (poor) disadvantaged.push('เด็กยากจน')
+  if (ctx.causeKeys.includes('childLabour')) disadvantaged.push('เด็กที่ต้องทำงานหารายได้')
+  if (ctx.causeKeys.includes('migration')) disadvantaged.push('เด็กที่ย้ายถิ่นตามผู้ปกครอง')
+
+  const salary = poor
+    ? pick(rng, SALARY_POOL.filter((v) => v <= 6000))
+    : pick(rng, SALARY_POOL)
+  const timeDt = farTravel ? pick(rng, [20, 25, 30, 30, 45]) : pick(rng, TIME_POOL)
+
+  return {
+    academicYear: '2569',
+    term: '2',
+    // รูปแบบรหัสตามต้นทาง: 10 หลักสำหรับโรงเรียน, 8 หลักสำหรับเขต
+    schoolID: `10${randInt(rng, 11000000, 11999999)}`,
+    areaID: `${randInt(rng, 11010000, 11039999)}`,
+    parentSalary: salary,
+    parentRelationName: ctx.causeKeys.includes('migration')
+      ? pick(rng, ['ยาย', 'ย่า', 'ตา', 'ปู่', 'ผู้ปกครอง'])
+      : pick(rng, GUARDIAN_POOL),
+    disadvantaged,
+    disabilityName: rng() > 0.98 ? 'บกพร่องทางการเรียนรู้' : '',
+    weight: randInt(rng, 18, 62),
+    height: randInt(rng, 108, 172),
+    rockDt: farTravel ? pick(rng, [200, 300, 500, 700]) : pick(rng, ROCK_POOL),
+    rubberDt: pick(rng, RUBBER_POOL),
+    waterDt: pick(rng, WATER_POOL),
+    timeDt,
+    journeyTypeName: farTravel
+      ? pick(rng, ['เดินเท้า', 'พาหนะเสียค่าโดยสาร'])
+      : pick(rng, JOURNEY_POOL),
+    movedFromRegisteredAddress: ctx.causeKeys.includes('migration') || rng() > 0.88,
+  }
 }
 
 function buildStudent(idx: number): Student {
@@ -244,6 +323,7 @@ function buildStudent(idx: number): Student {
     // ขาขึ้น = แย่ลง เด็กที่ยังไม่ได้รับการช่วยเหลือจึงไต่ขึ้น ส่วนเด็กที่
     // มีแผนแล้วเดินลง ซึ่งเป็นภาพของ "ช่วยแล้วได้ผล"
     riskHistory: riskSeries(rng, riskScore, recovering ? -randInt(rng, 3, 7) : randInt(rng, 0, 4)),
+    master: buildMaster(rng, { familyRisk, causeKeys, provinceKey: tambon.provinceKey }),
     grades: grades(rng, 3.6 - academicRisk / 45),
     parentContact,
     homeVisited: ['homeVisit', 'referred', 'planned', 'returned', 'resolved'].includes(stage),
