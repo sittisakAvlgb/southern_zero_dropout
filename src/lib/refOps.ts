@@ -1,0 +1,584 @@
+// ─────────────────────────────────────────────────────────────
+// การส่งต่อหนึ่งรายการ — ตอนนี้อยู่ที่ไหน ใครรับผิดชอบ เกินกำหนดไหม ต้องทำอะไรต่อ
+//
+// "การส่งต่อไม่ใช่การโยนเคส แต่คือการส่งมอบความรับผิดชอบแบบติดตามได้"
+//
+// ข้อมูลตั้งต้นมีแค่สถานะหยาบ ๆ (sent/accepted/inProgress/...) กับจำนวนวันที่
+// เปิดมา ที่นี่ขยายเป็นลำดับเหตุการณ์พร้อมเวลา (ส่ง → ได้รับ → เปิดดู → รับเคส
+// → ดำเนินการ → เสร็จ → ส่งผลกลับ → ปิด) แบบ deterministic จาก id แล้วต่อด้วย
+// เหตุการณ์ที่ครูบันทึกจริงใน caseLog หน้าจอทุกหน้าอ่านจากที่นี่ที่เดียว
+// ─────────────────────────────────────────────────────────────
+import type { Agency, Referral, ReferralNeed, Student } from '@/types'
+import { AGENCY_BY_ID } from '@/data/agencies'
+import { NEED_LABEL, NEED_SLA } from '@/data/referrals'
+import { reasonFor } from '@/data/dropReasons'
+import { hashSeed, makeRng, pick } from './format'
+import type {
+  CaseLogEntry,
+  ConsentRecord,
+  HandoffType,
+  LocalReferral,
+  OutcomeKey,
+  RefEvent,
+  RefEventType,
+} from './caseLog'
+
+const H = 3600_000
+const D = 24 * H
+
+// ── ขั้น ─────────────────────────────────────────────────────
+
+export type RefStage =
+  | 'draft' | 'sent' | 'received' | 'viewed' | 'accepted' | 'inProgress'
+  | 'needInfo' | 'done' | 'outcome' | 'closed' | 'returned'
+
+/** ลำดับที่แสดงบนแถบการรับเรื่อง — needInfo/returned เป็นทางแยก ไม่อยู่ในแถบ */
+export const ACK_STEPS: { stage: RefStage; th: string; ev: RefEventType }[] = [
+  { stage: 'sent', th: 'ส่งต่อ', ev: 'sent' },
+  { stage: 'received', th: 'ปลายทางได้รับเรื่อง', ev: 'received' },
+  { stage: 'viewed', th: 'เจ้าหน้าที่เปิดดู', ev: 'viewed' },
+  { stage: 'accepted', th: 'รับเคสแล้ว', ev: 'accepted' },
+  { stage: 'inProgress', th: 'กำลังดำเนินการ', ev: 'started' },
+  { stage: 'done', th: 'ดำเนินการเสร็จ', ev: 'done' },
+  { stage: 'outcome', th: 'ส่งผลกลับ', ev: 'outcome' },
+  { stage: 'closed', th: 'ปิดการส่งต่อ', ev: 'closed' },
+]
+
+export const STAGE_TH: Record<RefStage, string> = {
+  draft: 'รอความยินยอม',
+  sent: 'ส่งแล้ว',
+  received: 'ปลายทางได้รับเรื่อง',
+  viewed: 'เจ้าหน้าที่เปิดดูแล้ว',
+  accepted: 'รับเคสแล้ว',
+  inProgress: 'กำลังดำเนินการ',
+  needInfo: 'รอข้อมูลเพิ่มเติม',
+  done: 'ดำเนินการเสร็จแล้ว',
+  outcome: 'ส่งผลกลับแล้ว',
+  closed: 'ปิดการส่งต่อแล้ว',
+  returned: 'ปลายทางไม่รับเรื่อง',
+}
+
+const STAGE_OF: Partial<Record<RefEventType, RefStage>> = {
+  sent: 'sent', received: 'received', viewed: 'viewed', accepted: 'accepted',
+  started: 'inProgress', needInfo: 'needInfo', infoSent: 'inProgress',
+  done: 'done', outcome: 'outcome', closed: 'closed', returned: 'returned',
+  reassigned: 'sent',
+}
+
+export const OUTCOME: Record<OutcomeKey, { th: string; ok: 'ok' | 'warn' | 'no' }> = {
+  granted: { th: 'ได้รับทุน/เงินสงเคราะห์แล้ว', ok: 'ok' },
+  treated: { th: 'เข้ารับการรักษาแล้ว', ok: 'ok' },
+  visited: { th: 'เยี่ยมบ้านแล้ว', ok: 'ok' },
+  documented: { th: 'เอกสารเรียบร้อยแล้ว', ok: 'ok' },
+  followUp: { th: 'ดำเนินการบางส่วน ต้องติดตามต่อ', ok: 'warn' },
+  failed: { th: 'ไม่สามารถดำเนินการได้', ok: 'no' },
+}
+
+const NEED_OUTCOME: Record<ReferralNeed, OutcomeKey> = {
+  financial: 'granted', mentalHealth: 'treated', physicalHealth: 'treated', protection: 'visited',
+  housing: 'visited', transport: 'granted', documents: 'documented', skills: 'followUp',
+  jobPlacement: 'followUp', childcare: 'visited',
+}
+
+const OFFICERS = ['คุณอามีนะห์ ส.', 'คุณรุสลัน ด.', 'คุณซูไฮลา ม.', 'คุณสมศักดิ์ ท.', 'คุณนูรีดา ย.', 'คุณอับดุลเลาะ ก.']
+
+// ── SLA ─────────────────────────────────────────────────────
+
+/** ปลายทางต้องรับเคสภายในกี่ชั่วโมง — คุ้มครองเด็กหรือเคสเร่งด่วนเร็วกว่า */
+export const acceptSlaHours = (need: ReferralNeed, urgent: boolean) =>
+  need === 'protection' ? 8 : urgent ? 12 : 24
+
+export type SlaLevel = 'breach' | 'near' | 'ok' | 'done' | 'paused'
+
+export interface Sla {
+  clock: 'accept' | 'service' | 'none'
+  /** ชั่วโมงที่เหลือ ติดลบ = เกินมาแล้ว */
+  hoursLeft: number
+  level: SlaLevel
+  /** ข้อความประกอบเสมอ — ห้ามใช้สีอย่างเดียว */
+  text: string
+  /** กติกา เช่น "ต้องรับเคสภายใน 24 ชั่วโมง" */
+  rule: string
+}
+
+const fmtHours = (h: number) => {
+  const a = Math.abs(Math.round(h))
+  if (a < 48) return `${a} ชั่วโมง`
+  const d = Math.floor(a / 24)
+  const r = a % 24
+  return r ? `${d} วัน ${r} ชม.` : `${d} วัน`
+}
+
+export const fmtTs = (ts: number) => {
+  const d = new Date(ts)
+  const m = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'][d.getMonth()]
+  return `${d.getDate()} ${m} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
+}
+
+// ── ความยินยอม ─────────────────────────────────────────────
+
+export type ConsentState = 'granted' | 'expiring' | 'pending' | 'none'
+
+export const CONSENT_META: Record<ConsentState, { icon: string; th: string; color: string }> = {
+  granted: { icon: '✓', th: 'ยินยอมแล้ว', color: '#16a34a' },
+  expiring: { icon: '⏳', th: 'ใกล้หมดอายุ', color: '#ea580c' },
+  pending: { icon: '⚠', th: 'กำลังรอ', color: '#ca8a04' },
+  none: { icon: '✕', th: 'ยังไม่ได้ยินยอม', color: '#dc2626' },
+}
+
+export const SCOPE_OPTIONS = [
+  { key: 'basic', th: 'ข้อมูลพื้นฐานนักเรียน (ชื่อ ชั้น โรงเรียน)' },
+  { key: 'summary', th: 'สรุปปัญหาและเหตุผลที่ส่งต่อ' },
+  { key: 'history', th: 'ประวัติการช่วยเหลือ' },
+  { key: 'family', th: 'ข้อมูลครอบครัวและรายได้' },
+  { key: 'health', th: 'ข้อมูลสุขภาพ' },
+] as const
+
+export interface ConsentView {
+  state: ConsentState
+  record?: ConsentRecord
+  daysLeft?: number
+}
+
+const isoAdd = (iso: string, days: number) => {
+  const d = new Date(iso)
+  d.setDate(d.getDate() + days)
+  return d.toISOString().slice(0, 10)
+}
+
+/** ความยินยอมของเด็กคนหนึ่ง — บันทึกของครูก่อน ไม่มีค่อยใช้ข้อมูลตั้งต้น
+ *  ข้อมูลตั้งต้นมีแค่สถานะ จึงขยายเป็นบันทึกเต็มแบบ deterministic */
+export function consentOf(
+  childId: string,
+  seeded: Referral['consent'] | undefined,
+  student: Student | undefined,
+  logged: ConsentRecord | undefined,
+  now = Date.now(),
+): ConsentView {
+  const rec: ConsentRecord | undefined =
+    logged ??
+    (seeded === 'granted'
+      ? (() => {
+          const rng = makeRng(hashSeed(`consent::${childId}`))
+          const signedDaysAgo = Math.floor(rng() * 340) + 5
+          const date = new Date(now - signedDaysAgo * D).toISOString().slice(0, 10)
+          return {
+            status: 'granted',
+            method: pick(rng, ['ลงนามในแบบฟอร์มยินยอม', 'ลงนามในแบบฟอร์มยินยอม', 'ยินยอมด้วยวาจาต่อหน้าพยาน (มีบันทึก)']),
+            date,
+            giver: student?.master.parentRelationName ? `${student.master.parentRelationName}ของเด็ก` : 'ผู้ปกครอง',
+            relation: student?.master.parentRelationName ?? 'ผู้ปกครอง',
+            scope: SCOPE_OPTIONS.map((o) => o.key),
+            agencies: 'any',
+            purpose: 'เพื่อการช่วยเหลือให้เด็กได้เรียนต่อ',
+            expires: isoAdd(date, 365),
+            evidence: 'แบบฟอร์มเก็บที่ห้องแนะแนว',
+            ts: now - signedDaysAgo * D,
+          } as ConsentRecord
+        })()
+      : seeded === 'pending'
+        ? undefined
+        : undefined)
+  if (!rec || rec.status === 'declined') return { state: seeded === 'pending' && !logged ? 'pending' : 'none', record: rec }
+  if (rec.status === 'pending') return { state: 'pending', record: rec }
+  const daysLeft = Math.round((new Date(rec.expires).getTime() - now) / D)
+  if (daysLeft < 0) return { state: 'none', record: rec, daysLeft }
+  return { state: daysLeft <= 30 ? 'expiring' : 'granted', record: rec, daysLeft }
+}
+
+// ── การส่งต่อหนึ่งรายการ ────────────────────────────────────
+
+export type Bucket = 'breach' | 'near' | 'consent' | 'awaiting' | 'needInfo' | 'inProgress' | 'done'
+
+export const BUCKET_META: Record<Bucket, { th: string; color: string; rank: number }> = {
+  breach: { th: 'เกิน SLA', color: '#dc2626', rank: 0 },
+  near: { th: 'ใกล้เกิน SLA', color: '#ea580c', rank: 1 },
+  consent: { th: 'รอความยินยอม', color: '#ca8a04', rank: 2 },
+  awaiting: { th: 'รอหน่วยงานรับเรื่อง', color: '#2f66f6', rank: 3 },
+  needInfo: { th: 'รอข้อมูลเพิ่มเติม', color: '#7c3aed', rank: 4 },
+  inProgress: { th: 'กำลังดำเนินการ', color: '#0891b2', rank: 5 },
+  done: { th: 'เสร็จแล้ว', color: '#16a34a', rank: 6 },
+}
+
+export type QuickAction =
+  | 'consent' | 'remind' | 'contact' | 'escalate' | 'reassign' | 'followUp'
+  | 'sendInfo' | 'review' | 'close' | 'referMore'
+
+export const ACTION_TH: Record<QuickAction, string> = {
+  consent: 'บันทึกความยินยอม',
+  remind: 'ส่งการแจ้งเตือน',
+  contact: 'ติดต่อเจ้าหน้าที่',
+  escalate: 'Escalate',
+  reassign: 'เปลี่ยนหน่วยงาน',
+  followUp: 'นัดติดตาม',
+  sendInfo: 'ส่งข้อมูลเพิ่มเติม',
+  review: 'ประเมินผล',
+  close: 'ปิดการส่งต่อ',
+  referMore: 'ส่งต่อหน่วยงานอื่น',
+}
+
+export interface RefCase {
+  id: string
+  childId: string
+  childName: string
+  provinceKey: string
+  need: ReferralNeed
+  needTh: string
+  reason: string
+  reasonCode?: number
+  fromName: string
+  toAgencyId: string
+  toName: string
+  toAgency?: Agency
+  handoff: HandoffType
+  caseOwner: string
+  referralOwner: string
+  officer?: string
+  urgent: boolean
+  events: RefEvent[]
+  stage: RefStage
+  sentTs?: number
+  acceptedTs?: number
+  sla: Sla
+  /** 0 ปกติ · 1 เกิน 24 ชม. แจ้งเตือน · 2 เกิน 48 ชม. หัวหน้าหน่วยงาน · 3 เกิน 72 ชม. เปลี่ยนหน่วยงาน */
+  escalation: 0 | 1 | 2 | 3
+  /** ยกระดับไปแล้วถึงระดับไหน */
+  escalated: 0 | 1 | 2 | 3
+  bucket: Bucket
+  next: { th: string; whyTh: string; actions: QuickAction[] }
+  outcome?: { key: OutcomeKey; th: string; ok: 'ok' | 'warn' | 'no'; note?: string; reviewed: boolean }
+  consent: ConsentView
+  share: string[]
+  local: boolean
+}
+
+/** ขยายสถานะหยาบของข้อมูลตั้งต้นเป็นลำดับเหตุการณ์พร้อมเวลา */
+function seededEvents(r: Referral, now: number): RefEvent[] {
+  if (r.status === 'draft') return []
+  const rng = makeRng(hashSeed(`refev::${r.id}`))
+  const sentTs = now - r.openedDaysAgo * D - Math.floor(rng() * 20) * H - Math.floor(rng() * 50) * 60_000
+  const agency = AGENCY_BY_ID[r.toAgencyId]?.th ?? 'หน่วยงานปลายทาง'
+  const out: RefEvent[] = [
+    { type: 'sent', ts: sentTs, by: r.fromName },
+    { type: 'received', ts: sentTs + (1 + Math.floor(rng() * 4)) * 60_000, by: 'ระบบ' },
+  ]
+  // overdue ในข้อมูลตั้งต้นทับสถานะเดิมไป — กู้คืนว่าค้างตอนรอรับเรื่องหรือตอนดำเนินการ
+  const underlying = r.status === 'overdue' ? (rng() > 0.5 ? 'sent' : 'inProgress') : r.status
+  const sla = acceptSlaHours(r.need, r.urgent)
+  const elapsedH = (now - sentTs) / H
+  const viewTs = sentTs + Math.min(elapsedH * 0.4, 2 + rng() * 10) * H
+  if (underlying === 'sent') {
+    if (elapsedH > 3 && rng() > 0.35) out.push({ type: 'viewed', ts: viewTs, by: agency })
+    return out
+  }
+  if (underlying === 'rejected') {
+    out.push({ type: 'viewed', ts: viewTs, by: agency })
+    out.push({ type: 'returned', ts: viewTs + (1 + rng() * 20) * H, by: agency, note: 'ไม่อยู่ในอำนาจหน้าที่ของหน่วยงาน แนะนำให้ส่งต่อหน่วยงานอื่น' })
+    return out
+  }
+  const officer = pick(rng, OFFICERS)
+  const acceptTs = Math.min(viewTs + (0.5 + rng() * sla * 0.6) * H, now - 60_000)
+  out.push({ type: 'viewed', ts: viewTs, by: agency })
+  out.push({ type: 'accepted', ts: acceptTs, by: agency, officer })
+  if (underlying === 'accepted') return out
+  const startTs = Math.min(acceptTs + (4 + rng() * 30) * H, now - 60_000)
+  out.push({ type: 'started', ts: startTs, by: officer })
+  if (underlying === 'inProgress') {
+    if (rng() > 0.8) out.push({ type: 'needInfo', ts: Math.min(startTs + 20 * H, now - 60_000), by: officer, note: 'ขอสำเนาทะเบียนบ้านและข้อมูลติดต่อผู้ปกครองล่าสุด' })
+    return out
+  }
+  // completed
+  const doneTs = Math.min(startTs + (1 + rng() * NEED_SLA[r.need] * 0.8) * D, now - 2 * H)
+  const key = rng() > 0.85 ? (rng() > 0.5 ? 'followUp' : 'failed') : NEED_OUTCOME[r.need]
+  out.push({ type: 'done', ts: doneTs, by: officer })
+  out.push({ type: 'outcome', ts: doneTs + 30 * 60_000, by: officer, outcome: key, note: OUTCOME[key].th })
+  return out
+}
+
+export function buildRefCase(input: {
+  seeded?: Referral
+  local?: LocalReferral
+  logEvents: RefEvent[]
+  student?: Student
+  consent: ConsentView
+  caseOwner: string
+  now?: number
+}): RefCase {
+  const now = input.now ?? Date.now()
+  const s = input.seeded
+  const l = input.local
+  const need = (l?.need ?? s!.need) as ReferralNeed
+  const urgent = Boolean(s?.urgent || need === 'protection' || input.student?.riskLevel === 'critical')
+  const base = s ? seededEvents(s, now) : []
+  const events = [...base, ...input.logEvents].sort((a, b) => a.ts - b.ts)
+
+  // ปลายทางปัจจุบัน — เปลี่ยนได้ถ้าครูเปลี่ยนหน่วยงาน
+  const reassign = [...events].reverse().find((e) => e.type === 'reassigned')
+  const toAgencyId = reassign?.toAgencyId ?? l?.toAgencyId ?? s!.toAgencyId
+  const toAgency = AGENCY_BY_ID[toAgencyId]
+  const toName = reassign?.toAgencyName ?? toAgency?.th ?? l?.toAgencyName ?? 'หน่วยงานปลายทาง'
+  // เหตุการณ์หลังการเปลี่ยนหน่วยงานเท่านั้นที่นับเป็นขั้นของปลายทางใหม่
+  const live = reassign ? events.filter((e) => e.ts >= reassign.ts) : events
+
+  let stage: RefStage = s?.status === 'draft' && !l ? 'draft' : 'sent'
+  for (const e of live) {
+    const st = STAGE_OF[e.type]
+    if (st) stage = st
+  }
+  const sentEv = reassign ?? live.find((e) => e.type === 'sent')
+  const sentTs = sentEv?.ts
+  const acc = live.find((e) => e.type === 'accepted')
+  const officer = acc?.officer
+  const escalated = Math.max(0, ...live.filter((e) => e.type === 'escalated').map((e) => e.level ?? 1)) as 0 | 1 | 2 | 3
+
+  // ── SLA ──
+  const slaH = acceptSlaHours(need, urgent)
+  const svcDays = NEED_SLA[need]
+  let sla: Sla
+  let escalation: RefCase['escalation'] = 0
+  if (stage === 'sent' || stage === 'received' || stage === 'viewed') {
+    const left = slaH - (now - (sentTs ?? now)) / H
+    const over = -left
+    escalation = over > 48 ? 3 : over > 24 ? 2 : over > 0 ? 1 : 0
+    sla = {
+      clock: 'accept',
+      hoursLeft: left,
+      level: left < 0 ? 'breach' : left <= slaH * 0.25 ? 'near' : 'ok',
+      text: left < 0 ? `เกิน SLA ${fmtHours(left)}` : `เหลือเวลา ${fmtHours(left)}`,
+      rule: `ต้องรับเคสภายใน ${slaH} ชั่วโมง`,
+    }
+  } else if (stage === 'accepted' || stage === 'inProgress') {
+    const left = (svcDays * D - (now - (acc?.ts ?? now))) / H
+    escalation = left < -48 ? 2 : left < 0 ? 1 : 0
+    sla = {
+      clock: 'service',
+      hoursLeft: left,
+      level: left < 0 ? 'breach' : left <= 48 ? 'near' : 'ok',
+      text: left < 0 ? `เกินกำหนดดำเนินการ ${fmtHours(left)}` : `ต้องเสร็จภายใน ${fmtHours(left)}`,
+      rule: `ต้องดำเนินการให้เสร็จภายใน ${svcDays} วันหลังรับเคส`,
+    }
+  } else if (stage === 'needInfo') {
+    sla = { clock: 'none', hoursLeft: 0, level: 'paused', text: 'นาฬิกาหยุดรอข้อมูลจากโรงเรียน', rule: 'หน่วยงานรอข้อมูลเพิ่มเติม' }
+  } else if (stage === 'draft') {
+    sla = { clock: 'none', hoursLeft: 0, level: 'paused', text: 'ยังไม่ได้ส่ง — รอความยินยอม', rule: 'ส่งข้อมูลข้ามหน่วยงานไม่ได้จนกว่าจะมีความยินยอม' }
+  } else {
+    sla = { clock: 'none', hoursLeft: 0, level: 'done', text: STAGE_TH[stage], rule: '' }
+  }
+
+  // ── ผลลัพธ์ ──
+  const oe = [...live].reverse().find((e) => e.type === 'outcome')
+  const outcome = oe?.outcome
+    ? { key: oe.outcome, th: OUTCOME[oe.outcome].th, ok: OUTCOME[oe.outcome].ok, note: oe.note, reviewed: stage === 'closed' }
+    : undefined
+
+  // ── ถังความเร่งด่วน ──
+  let bucket: Bucket
+  if (stage === 'draft') bucket = 'consent'
+  else if (stage === 'needInfo') bucket = 'needInfo'
+  else if (['done', 'outcome', 'closed', 'returned'].includes(stage)) bucket = stage === 'returned' || stage === 'outcome' ? 'needInfo' : 'done'
+  else if (sla.level === 'breach') bucket = 'breach'
+  else if (sla.level === 'near') bucket = 'near'
+  else bucket = sla.clock === 'accept' ? 'awaiting' : 'inProgress'
+  // ส่งผลกลับแล้วหรือปลายทางไม่รับ = ลูกบอลกลับมาที่ครู ต้องทำอะไรสักอย่าง
+  if (stage === 'outcome' || stage === 'returned') bucket = 'needInfo'
+
+  // ── ขั้นถัดไป และปุ่มที่เกี่ยวกับสถานะนี้เท่านั้น ──
+  const next = ((): RefCase['next'] => {
+    if (stage === 'draft') return { th: 'ขอความยินยอมจากผู้ปกครองก่อนส่งต่อ', whyTh: 'ส่งข้อมูลส่วนบุคคลข้ามหน่วยงานไม่ได้จนกว่าจะมีความยินยอม (PDPA)', actions: ['consent'] }
+    if (stage === 'needInfo') {
+      const ni = [...live].reverse().find((e) => e.type === 'needInfo')
+      return { th: `${toName}ขอข้อมูลเพิ่มเติม`, whyTh: ni?.note ?? 'หน่วยงานรอข้อมูลจากโรงเรียนก่อนดำเนินการต่อ', actions: ['sendInfo', 'contact'] }
+    }
+    if (stage === 'returned') return { th: `${toName}ไม่รับเรื่อง`, whyTh: [...live].reverse().find((e) => e.type === 'returned')?.note ?? 'ส่งกลับมาที่โรงเรียน', actions: ['referMore', 'close'] }
+    if (stage === 'outcome') return { th: `หน่วยงานส่งผลกลับแล้ว: ${outcome?.th ?? ''}`, whyTh: 'ประเมินว่าการส่งต่อนี้ช่วยเด็กได้จริงหรือไม่ แล้วปิดหรือติดตามต่อ', actions: ['review'] }
+    if (stage === 'done') return { th: `${toName}ดำเนินการเสร็จแล้ว รอส่งผลกลับ`, whyTh: 'ทวงผลการดำเนินการได้ถ้ายังไม่ได้รับ', actions: ['contact'] }
+    if (stage === 'closed') return { th: 'ปิดการส่งต่อแล้ว', whyTh: outcome ? `ผล: ${outcome.th}` : '', actions: [] }
+    if (sla.clock === 'accept') {
+      if (escalation >= 3) return { th: 'เกิน SLA เกิน 72 ชั่วโมง — พิจารณาเปลี่ยนหน่วยงาน', whyTh: `${toName}ยังไม่รับเรื่อง ${sla.text}`, actions: ['reassign', 'escalate'] }
+      if (escalation === 2) return { th: 'เกิน SLA เกิน 48 ชั่วโมง — Escalate ไปหัวหน้าหน่วยงาน', whyTh: `${toName}ยังไม่รับเรื่อง ${sla.text}`, actions: ['escalate', 'contact'] }
+      if (escalation === 1) return { th: 'เคสนี้เกิน SLA แล้ว — ส่งการแจ้งเตือนถึงหน่วยงาน', whyTh: `${sla.rule} · ${sla.text}`, actions: ['remind', 'contact'] }
+      return {
+        th: `รอ${toName}รับเคสภายใน ${fmtHours(sla.hoursLeft)}`,
+        whyTh: sla.level === 'near' ? `ใกล้เกิน SLA — ${sla.text}` : `${sla.rule}`,
+        actions: sla.level === 'near' ? ['remind', 'contact'] : ['contact', 'followUp'],
+      }
+    }
+    if (sla.level === 'breach') return { th: `${toName}เกินกำหนดดำเนินการ`, whyTh: sla.text, actions: ['escalate', 'contact'] }
+    return { th: `${toName}กำลังดำเนินการ${officer ? ` · ${officer}` : ''}`, whyTh: sla.text, actions: ['followUp', 'contact'] }
+  })()
+
+  const caseOwner = input.caseOwner
+  return {
+    id: l?.id ?? s!.id,
+    childId: l?.childId ?? s!.childId,
+    childName: l?.childName ?? s!.childName,
+    provinceKey: l?.provinceKey ?? s!.provinceKey,
+    need,
+    needTh: NEED_LABEL[need].th,
+    reason: l?.reason ?? s!.note,
+    reasonCode: l?.reasonCode,
+    fromName: l?.fromName ?? s!.fromName,
+    toAgencyId,
+    toName,
+    toAgency,
+    handoff: l?.handoff ?? (need === 'protection' ? 'transfer' : 'joint'),
+    caseOwner,
+    referralOwner: l?.referralOwner ?? caseOwner,
+    officer,
+    urgent,
+    events: live === events ? events : events,
+    stage,
+    sentTs,
+    acceptedTs: acc?.ts,
+    sla,
+    escalation,
+    escalated,
+    bucket,
+    next,
+    outcome,
+    consent: input.consent,
+    share: l?.share ?? (input.consent.state === 'granted' || input.consent.state === 'expiring' ? ['basic', 'summary', 'history'] : ['basic']),
+    local: Boolean(l),
+  }
+}
+
+export const sortRefs = (rs: RefCase[]) =>
+  [...rs].sort(
+    (a, b) =>
+      BUCKET_META[a.bucket].rank - BUCKET_META[b.bucket].rank ||
+      a.sla.hoursLeft - b.sla.hoursLeft ||
+      Number(b.urgent) - Number(a.urgent),
+  )
+
+// ── ความพร้อมก่อนส่ง ─────────────────────────────────────────
+
+export interface ReadyItem {
+  key: string
+  th: string
+  state: 'ok' | 'warn' | 'no' | 'optional'
+  detail: string
+  /** ต้องทำอะไรต่อถ้ายังไม่ผ่าน */
+  fix?: string
+}
+
+export function readiness(input: {
+  reason: string
+  student?: Student
+  consent: ConsentView
+  historyCount: number
+}): { items: ReadyItem[]; ready: boolean } {
+  const s = input.student
+  const items: ReadyItem[] = [
+    {
+      key: 'summary',
+      th: 'สรุปปัญหาเรียบร้อย',
+      state: input.reason.trim().length >= 12 ? 'ok' : 'no',
+      detail: input.reason.trim().length >= 12 ? 'มีเหตุผลที่หน่วยงานอ่านแล้วเข้าใจ' : 'เหตุผลสั้นเกินไป',
+      fix: 'เขียนสรุปปัญหาให้หน่วยงานเข้าใจสักประโยค',
+    },
+    {
+      key: 'parent',
+      th: 'มีข้อมูลติดต่อผู้ปกครอง',
+      state: !s ? 'warn' : s.parentContact === 'ok' ? 'ok' : 'warn',
+      detail: !s ? 'ไม่มีระเบียนนักเรียน' : s.parentContact === 'ok' ? `ติดต่อ${s.master.parentRelationName}ได้ตามปกติ` : 'ยังติดต่อผู้ปกครองไม่ได้ตามปกติ',
+      fix: 'ส่งได้ แต่หน่วยงานอาจติดต่อครอบครัวไม่ได้ — บันทึกการติดต่อก่อนจะดีกว่า',
+    },
+    {
+      key: 'history',
+      th: 'มีประวัติการช่วยเหลือที่ผ่านมา',
+      state: input.historyCount > 0 ? 'ok' : 'warn',
+      detail: input.historyCount > 0 ? `${input.historyCount} รายการ` : 'ยังไม่มีบันทึกการช่วยเหลือ',
+      fix: 'หน่วยงานจะต้องเริ่มประเมินใหม่ทั้งหมด',
+    },
+    {
+      key: 'data',
+      th: 'มีข้อมูลที่จำเป็นสำหรับหน่วยงานผู้รับ',
+      state: s ? 'ok' : 'warn',
+      detail: s ? `ทะเบียนนักเรียน ปีการศึกษา ${s.master.academicYear} ครบ` : 'ไม่มีทะเบียนนักเรียน',
+    },
+    {
+      key: 'consent',
+      th: 'มีความยินยอมในการเปิดเผยข้อมูล',
+      state: input.consent.state === 'granted' || input.consent.state === 'expiring' ? 'ok' : 'no',
+      detail: CONSENT_META[input.consent.state].th + (input.consent.state === 'expiring' ? ` (เหลือ ${input.consent.daysLeft} วัน)` : ''),
+      fix: 'ขอความยินยอมจากผู้ปกครองและบันทึกในขั้นถัดไป',
+    },
+    { key: 'docs', th: 'เอกสารประกอบ', state: 'optional', detail: 'ยังไม่มีเอกสารแนบ — ไม่บังคับ' },
+  ]
+  return { items, ready: !items.some((i) => i.state === 'no') }
+}
+
+/** ประเภทความต้องการจากสาเหตุของเด็ก — ใช้เดาเหตุผลการส่งต่อให้ครูตั้งต้น */
+export function needFromStudent(s: Student | undefined): { need: ReferralNeed; code?: number } {
+  const map: Record<string, ReferralNeed> = {
+    poverty: 'financial', noDevice: 'financial', childLabour: 'skills', family: 'protection', health: 'physicalHealth',
+    unrestAffected: 'mentalHealth', noDocuments: 'documents', stateless: 'documents', migration: 'documents',
+    travel: 'transport', earlyMarriage: 'childcare',
+  }
+  for (const k of s?.causeKeys ?? []) if (map[k]) return { need: map[k], code: reasonFor(k)?.id }
+  return { need: 'financial' }
+}
+
+// ── Timeline ข้ามหน่วยงาน ────────────────────────────────────
+
+export interface XItem {
+  ts: number
+  th: string
+  by: string
+  who: 'school' | 'agency' | 'system'
+  refId?: string
+}
+
+const EV_TH: Record<RefEventType, (e: RefEvent, r: RefCase) => string> = {
+  sent: (_e, r) => `ส่งต่อไป ${r.toName} — ${r.needTh}`,
+  received: (_e, r) => `${r.toName} ได้รับเรื่อง`,
+  viewed: (_e, r) => `${r.toName} เปิดดูเรื่องแล้ว`,
+  accepted: (e, r) => `${r.toName} รับเคส${e.officer ? ` · ผู้รับผิดชอบ ${e.officer}` : ''}`,
+  started: (_e, r) => `${r.toName} เริ่มดำเนินการ`,
+  needInfo: (e, r) => `${r.toName} ขอข้อมูลเพิ่ม: ${e.note ?? ''}`,
+  infoSent: (e) => `โรงเรียนส่งข้อมูลเพิ่มเติม${e.note ? `: ${e.note}` : ''}`,
+  done: (_e, r) => `${r.toName} ดำเนินการเสร็จ`,
+  outcome: (e, r) => `${r.toName} ส่งผลกลับ: ${e.note ?? ''}`,
+  closed: (e) => `ปิดการส่งต่อ${e.note ? ` — ${e.note}` : ''}`,
+  returned: (e, r) => `${r.toName} ไม่รับเรื่อง${e.note ? ` — ${e.note}` : ''}`,
+  reminded: (_e, r) => `ส่งการแจ้งเตือนถึง ${r.toName}`,
+  contacted: (e, r) => `ติดต่อ ${r.toName}${e.note ? ` — ${e.note}` : ''}`,
+  escalated: (e) => `Escalate ระดับ ${e.level ?? 1}${e.note ? ` — ${e.note}` : ''}`,
+  reassigned: (e) => `เปลี่ยนหน่วยงานเป็น ${e.toAgencyName ?? ''}`,
+  followUp: (e) => `นัดติดตามวันที่ ${e.date ?? ''}`,
+}
+
+const SCHOOL_EVENTS: RefEventType[] = ['sent', 'infoSent', 'closed', 'reminded', 'contacted', 'escalated', 'reassigned', 'followUp']
+
+/** เหตุการณ์ของเด็กคนหนึ่งจากทุกหน่วยงานในเส้นเดียว — "ที่ผ่านมาเกิดอะไรขึ้น" */
+export function crossTimeline(refs: RefCase[], entries: CaseLogEntry[], student: Student | undefined): XItem[] {
+  const out: XItem[] = []
+  for (const r of refs)
+    for (const e of r.events)
+      out.push({ ts: e.ts, th: EV_TH[e.type](e, r), by: e.by, who: e.type === 'received' ? 'system' : SCHOOL_EVENTS.includes(e.type) ? 'school' : 'agency', refId: r.id })
+  for (const e of entries) if (!e.referral) out.push({ ts: Number(e.id.split('-')[1]) || new Date(e.date).getTime(), th: e.note, by: e.by, who: 'school' })
+  for (const ev of student?.timeline ?? []) {
+    if (entries.some((e) => e.date === ev.date && e.note === ev.note)) continue
+    out.push({ ts: new Date(ev.date).getTime() + 9 * H, th: ev.note, by: ev.by, who: 'school' })
+  }
+  return out.sort((a, b) => b.ts - a.ts)
+}
+
+/** ข้อมูลที่จะถูกส่งจริง — แสดงให้ครูเห็นก่อนยืนยัน ไม่ใช่แค่ชื่อหมวด */
+export function sharePreview(s: Student | undefined, key: string, reason: string, historyCount: number): string {
+  if (!s) return key === 'basic' ? 'ชื่อและรหัส' : '—'
+  switch (key) {
+    case 'basic':
+      return `${s.name} · ${s.id} · ${s.gradeKey.toUpperCase()}`
+    case 'summary':
+      return reason
+    case 'history':
+      return `${historyCount} รายการ เช่น ${s.timeline[s.timeline.length - 1]?.note ?? '—'}`
+    case 'family':
+      return `ผู้ดูแล: ${s.master.parentRelationName} · รายได้ ${s.master.parentSalary.toLocaleString('th-TH')} บาท/เดือน`
+    case 'health':
+      return `ด้านสุขภาวะ ${s.wellbeingRisk}/100${s.master.disabilityName ? ` · ${s.master.disabilityName}` : ''}`
+    default:
+      return ''
+  }
+}

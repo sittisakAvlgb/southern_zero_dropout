@@ -13,7 +13,7 @@
 // optimistic cache. Nothing else about the shape would change.
 // ─────────────────────────────────────────────────────────────
 import { useCallback, useSyncExternalStore } from 'react'
-import type { CaseStage, CauseKey, InterventionEvent, OpportunityPlan, PlanStepStatus, Student } from '@/types'
+import type { CaseStage, CauseKey, InterventionEvent, OpportunityPlan, PlanStepStatus, ReferralNeed, Student } from '@/types'
 
 export type LogMode = 'contact' | 'visit' | 'talk' | 'note'
 
@@ -98,6 +98,86 @@ export interface CaseLogEntry {
   familyAgreed?: boolean
 }
 
+// ── การส่งต่อ ────────────────────────────────────────────────
+
+/** ขั้นของการส่งต่อ — แยกละเอียดตาม brief ไม่ใช่แค่ "ส่งแล้ว" ทุกขั้นมีเวลา */
+export type RefEventType =
+  | 'sent' // ครูส่ง
+  | 'received' // ระบบปลายทางได้รับ
+  | 'viewed' // เจ้าหน้าที่เปิดดู
+  | 'accepted' // รับเคสแล้ว (ระบุเจ้าหน้าที่)
+  | 'started' // เริ่มดำเนินการ
+  | 'needInfo' // ปลายทางขอข้อมูลเพิ่ม
+  | 'infoSent' // ครูส่งข้อมูลเพิ่มแล้ว
+  | 'done' // ปลายทางดำเนินการเสร็จ
+  | 'outcome' // ส่งผลกลับ
+  | 'closed' // ครูปิดการส่งต่อ
+  | 'returned' // ปลายทางไม่รับ / ส่งกลับ
+  | 'reminded' // ครูส่งการแจ้งเตือน
+  | 'contacted' // ครูติดต่อหน่วยงาน
+  | 'escalated' // ยกระดับ
+  | 'reassigned' // เปลี่ยนหน่วยงาน
+  | 'followUp' // ครูนัดติดตาม
+
+export type OutcomeKey = 'granted' | 'treated' | 'visited' | 'documented' | 'followUp' | 'failed'
+export type HandoffType = 'joint' | 'transfer'
+
+export interface RefEvent {
+  type: RefEventType
+  /** เวลาเครื่อง (ms) */
+  ts: number
+  by: string
+  note?: string
+  /** เจ้าหน้าที่ปลายทางที่รับเคส */
+  officer?: string
+  /** ระดับการยกระดับ 1 แจ้งเตือน · 2 หัวหน้าหน่วยงาน · 3 ระดับสูงขึ้น */
+  level?: 1 | 2 | 3
+  outcome?: OutcomeKey
+  toAgencyId?: string
+  toAgencyName?: string
+  /** นัดติดตามวันที่ (YYYY-MM-DD) */
+  date?: string
+}
+
+/** การส่งต่อที่ครูสร้างจากในแอป */
+export interface LocalReferral {
+  id: string
+  childId: string
+  childName: string
+  provinceKey: string
+  need: ReferralNeed
+  reason: string
+  /** รหัสสาเหตุ สพฐ. ที่เป็นเหตุให้ส่งต่อ */
+  reasonCode?: number
+  toAgencyId: string
+  toAgencyName: string
+  fromName: string
+  /** ข้อมูลที่ส่ง — ตรวจกับความยินยอมแล้วตอนสร้าง */
+  share: string[]
+  handoff: HandoffType
+  /** ผู้รับผิดชอบการส่งต่อฝั่งโรงเรียน */
+  referralOwner: string
+  createdTs: number
+}
+
+/** ความยินยอม PDPA — เป็นขั้นตอนจริง ไม่ใช่ช่องติ๊ก ต้องตอบได้ว่าแชร์อะไร
+ *  กับใคร เพื่ออะไร และถึงเมื่อไร */
+export interface ConsentRecord {
+  status: 'granted' | 'pending' | 'declined'
+  /** ลงนามในแบบฟอร์ม · ยินยอมด้วยวาจาต่อหน้าพยาน · ผ่านไลน์/โทรศัพท์ (มีบันทึก) */
+  method: string
+  date: string
+  giver: string
+  relation: string
+  scope: string[]
+  /** 'any' = ทุกหน่วยงานในแผน หรือระบุ id */
+  agencies: 'any' | string[]
+  purpose: string
+  expires: string
+  evidence?: string
+  ts: number
+}
+
 /** สถานะขั้นในแผนที่ครูเปลี่ยน — ทับข้อมูลตั้งต้นของแผน */
 export interface PlanStepMark {
   status: PlanStepStatus
@@ -122,9 +202,15 @@ interface LogState {
   steps: Record<string, PlanStepMark>
   /** แผนที่ครูสร้างเอง childId → plan */
   plans: Record<string, OpportunityPlan>
+  /** การส่งต่อที่ครูสร้าง refId → referral */
+  refs: Record<string, LocalReferral>
+  /** เหตุการณ์ของการส่งต่อทุกตัว ทั้งที่มาจากข้อมูลตั้งต้นและที่ครูสร้าง */
+  refEvents: Record<string, RefEvent[]>
+  /** ความยินยอมที่ครูบันทึก childId → record */
+  consents: Record<string, ConsentRecord>
 }
 
-const EMPTY: LogState = { entries: [], owners: {}, steps: {}, plans: {} }
+const EMPTY: LogState = { entries: [], owners: {}, steps: {}, plans: {}, refs: {}, refEvents: {}, consents: {} }
 
 // ── the store ────────────────────────────────────────────────
 let scope = 'anon'
@@ -146,6 +232,9 @@ function read(who: string): LogState {
       // บันทึกรุ่นก่อนไม่มีสองช่องนี้ — อ่านเป็นว่างแทนที่จะพัง
       steps: obj(parsed.steps) as LogState['steps'],
       plans: obj(parsed.plans) as LogState['plans'],
+      refs: obj(parsed.refs) as LogState['refs'],
+      refEvents: obj(parsed.refEvents) as LogState['refEvents'],
+      consents: obj(parsed.consents) as LogState['consents'],
     }
   } catch {
     // a private window, cleared site data, or a half-written value — an empty
@@ -226,7 +315,10 @@ export function useCaseLog(userKey: string | undefined) {
     const steps = Object.fromEntries(
       Object.entries(state.steps).filter(([id]) => !id.startsWith(`${childId}-`)),
     )
-    setState({ entries: state.entries.filter((e) => e.childId !== childId), owners, steps, plans })
+    const refs = Object.fromEntries(Object.entries(state.refs).filter(([, r]) => r.childId !== childId))
+    const consents = { ...state.consents }
+    delete consents[childId]
+    setState({ ...state, entries: state.entries.filter((e) => e.childId !== childId), owners, steps, plans, refs, consents })
   }, [])
 
   const markStep = useCallback((stepId: string, mark: PlanStepMark) => {
@@ -237,7 +329,19 @@ export function useCaseLog(userKey: string | undefined) {
     setState({ ...state, plans: { ...state.plans, [plan.childId]: plan } })
   }, [])
 
-  return { ...current, add, remove, setFollowUpDone, setOwner, clearChild, markStep, savePlan }
+  const addRef = useCallback((ref: LocalReferral, first: RefEvent[]) => {
+    setState({ ...state, refs: { ...state.refs, [ref.id]: ref }, refEvents: { ...state.refEvents, [ref.id]: first } })
+  }, [])
+
+  const addRefEvent = useCallback((refId: string, ev: RefEvent) => {
+    setState({ ...state, refEvents: { ...state.refEvents, [refId]: [...(state.refEvents[refId] ?? []), ev] } })
+  }, [])
+
+  const saveConsent = useCallback((childId: string, rec: ConsentRecord) => {
+    setState({ ...state, consents: { ...state.consents, [childId]: rec } })
+  }, [])
+
+  return { ...current, add, remove, setFollowUpDone, setOwner, clearChild, markStep, savePlan, addRef, addRefEvent, saveConsent }
 }
 
 // ── reading the log back onto a child ────────────────────────
