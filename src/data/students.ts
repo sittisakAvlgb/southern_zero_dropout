@@ -81,6 +81,19 @@ const JOURNEY_POOL = [
   ...Array(14).fill('เดินเท้า'),
 ]
 
+/** โอกาสที่เด็กในแต่ละขั้นจะ "กำลังดีขึ้น" — ยังไม่เริ่มช่วยคือศูนย์ ยิ่งช่วย
+ *  ไปไกลยิ่งมีโอกาสเห็นผล กลับเข้าเรียนหรือปิดเคสแล้วคือดีขึ้นแน่นอน */
+const RECOVERY_CHANCE: Record<CaseStage, number> = {
+  alerted: 0,
+  accepted: 0,
+  inProgress: 0.3,
+  homeVisit: 0.35,
+  referred: 0.45,
+  planned: 0.6,
+  returned: 1,
+  resolved: 1,
+}
+
 const STAGES: CaseStage[] = [
   'alerted', 'accepted', 'inProgress', 'homeVisit', 'referred', 'planned',
   'returned', 'resolved',
@@ -271,7 +284,32 @@ function buildStudent(idx: number): Student {
    *  จาก attendanceRisk ซึ่งต่ำสุดคือ 22 จึงไม่มีเด็กคนไหนเลิกขาดเรียนได้
    *  และคะแนนเสี่ยงก็มีแต่ขาขึ้น ผลคือปลายทางของระบบ ("ช่วยแล้วดีขึ้นจน
    *  ปิดเคสได้") พิสูจน์ไม่ได้เลยทั้งที่เป็นเป้าหมายของทั้งแพลตฟอร์ม */
-  const recovering = ['planned', 'returned', 'resolved'].includes(stage)
+  //
+  // โอกาส "ดีขึ้น" ไล่ตามขั้นที่ได้รับการช่วยเหลือจริง ไม่ใช่ประตูเปิด/ปิด
+  // รุ่นแรกให้ดีขึ้นได้เฉพาะขั้น planned ขึ้นไป เด็กที่กำลังได้รับการช่วยเหลือ
+  // อยู่ (inProgress, referred) จึงไม่มีทางดีขึ้นเลย ซึ่งไม่ตรงกับความจริง
+  // และเมื่อเคสโหลดของบัญชีเดโมบังเอิญไม่มีเด็กขั้น planned สักคน ขั้น
+  // "เห็นผล → ปิดเคส" ก็ไม่มีวันเกิดบนหน้าครูเลย
+  //
+  // สุ่มจาก stream แยกของตัวเอง ไม่ดึงจาก rng หลัก เพื่อไม่ให้ทุกค่าที่สุ่ม
+  // หลังจากบรรทัดนี้เลื่อนไปหมดทั้งชุดข้อมูล
+  const recRng = makeRng(hashSeed(`sbp-recover-${idx}`))
+  const recovering = recRng() < RECOVERY_CHANCE[stage]
+
+  // เด็กที่กลับมาเรียนสม่ำเสมอแล้ว คะแนนด้านการมาเรียนต้องสะท้อนสภาพปัจจุบัน
+  // ไม่ใช่สภาพตอนที่ถูกแจ้งเตือน เดิมเด็กที่มาเรียน 100% ขาดแค่วันเดียวยังได้
+  // คะแนนรวม 79–82 เพราะคะแนนด้านการมาเรียนคำนวณไว้ก่อนรู้ว่าเด็กดีขึ้น
+  // ผลคือไม่มีเด็กคนไหนลงต่ำกว่า 70 ได้ และเกณฑ์ปิดเคสไม่มีวันผ่าน
+  //
+  // ผู้รับผิดชอบเคส (owner) ยังใช้ระดับตอนแจ้งเตือน เพราะคนที่รับเคสตอน
+  // วิกฤตก็ยังเป็นเจ้าของเคสตอนที่เด็กดีขึ้น ไม่ได้โยกไปคนอื่น
+  const attendanceRiskNow = recovering
+    ? Math.min(attendanceRisk, Math.round(12 + recRng() * 22))
+    : attendanceRisk
+  const riskScoreNow = computeRiskScore({
+    attendanceRisk: attendanceRiskNow, academicRisk, behaviorRisk, familyRisk, wellbeingRisk, parentRisk,
+  })
+  const levelNow = riskLevel(riskScoreNow)
   const absenceStreak = recovering
     ? randInt(rng, 0, 2)
     : Math.round((attendanceRisk / 100) * 16)
@@ -281,7 +319,7 @@ function buildStudent(idx: number): Student {
       ? 'returned'
       : stage === 'planned' || stage === 'referred'
         ? 'reengaging'
-        : level === 'normal'
+        : levelNow === 'normal'
           ? 'inSchool'
           : 'atRisk'
 
@@ -338,33 +376,33 @@ function buildStudent(idx: number): Student {
     tambonKey: tambon.key,
     gender,
     status,
-    riskScore,
-    riskLevel: level,
+    riskScore: riskScoreNow,
+    riskLevel: levelNow,
     vulnerableGroup: familyRisk > 58 || rng() > 0.66,
     causeKeys,
-    attendanceRisk, academicRisk, behaviorRisk, familyRisk, wellbeingRisk, parentRisk,
+    attendanceRisk: attendanceRiskNow, academicRisk, behaviorRisk, familyRisk, wellbeingRisk, parentRisk,
     attendance: attendance(
       rng,
-      recovering ? Math.max(78, 100 - attendanceRisk * 0.5) : 100 - attendanceRisk * 0.5,
+      recovering ? Math.max(78, 100 - attendanceRiskNow * 0.5) : 100 - attendanceRisk * 0.5,
       recovering ? 3 : -1,
     ),
     // ขาขึ้น = แย่ลง เด็กที่ยังไม่ได้รับการช่วยเหลือจึงไต่ขึ้น ส่วนเด็กที่
     // มีแผนแล้วเดินลง ซึ่งเป็นภาพของ "ช่วยแล้วได้ผล"
-    riskHistory: riskSeries(rng, riskScore, recovering ? -randInt(rng, 3, 7) : randInt(rng, 0, 4)),
+    riskHistory: riskSeries(rng, riskScoreNow, recovering ? -randInt(rng, 3, 7) : randInt(rng, 0, 4)),
     master,
     grades: grades(rng, 3.6 - academicRisk / 45),
     parentContact,
     homeVisited: ['homeVisit', 'referred', 'planned', 'returned', 'resolved'].includes(stage),
     guidanceNote:
-      level === 'critical'
+      levelNow === 'critical'
         ? 'พบสัญญาณความเครียดสูงและภาระทางบ้าน ควรประสานนักจิตวิทยาและ พมจ. โดยเร็ว'
         : 'อยู่ระหว่างติดตามการมาเรียนร่วมกับผู้นำชุมชนและครูตาดีกา',
     caseOwner: owner,
     caseStage: stage,
     nextAction:
-      level === 'critical'
+      levelNow === 'critical'
         ? 'เยี่ยมบ้านร่วมทีมสหวิชาชีพภายใน 48 ชั่วโมง'
-        : level === 'high'
+        : levelNow === 'high'
           ? 'ประสานผู้ปกครองผ่านผู้นำชุมชน และนัดพบครูแนะแนว'
           : 'เฝ้าติดตามการมาเรียนรายสัปดาห์',
     timeline,

@@ -13,7 +13,7 @@
 // optimistic cache. Nothing else about the shape would change.
 // ─────────────────────────────────────────────────────────────
 import { useCallback, useSyncExternalStore } from 'react'
-import type { CauseKey, InterventionEvent, Student } from '@/types'
+import type { CaseStage, CauseKey, InterventionEvent, Student } from '@/types'
 
 export type LogMode = 'contact' | 'visit'
 export type ContactOutcome = 'reached' | 'appointment' | 'noAnswer' | 'wrongNumber' | 'refused'
@@ -75,6 +75,9 @@ export interface CaseLogEntry {
   signature?: VisitSignature
   /** a signed visit is the consent artefact the rest of the platform waits on */
   consent?: Student['consent']
+  /** ขั้นของเคสหลังรายการนี้ — ตอนนี้ใช้กับการปิดเคสเท่านั้น ('resolved')
+   *  ครูเป็นคนกดเสมอ ระบบเสนอได้แต่ไม่ปิดเอง */
+  stage?: CaseStage
 }
 
 interface LogState {
@@ -197,10 +200,11 @@ export function applyLog(base: Student, log: LogState): Student {
   const parentContact = mine.find((e) => e.parentContact)?.parentContact
   const visited = mine.some((e) => e.homeVisited)
   const consent = mine.find((e) => e.consent)?.consent
+  const stage = mine.find((e) => e.stage)?.stage
 
   const extra: InterventionEvent[] = mine.map((e) => ({
     date: e.date,
-    stageKey: e.mode === 'visit' ? 'homeVisit' : base.caseStage,
+    stageKey: e.stage ?? (e.mode === 'visit' ? 'homeVisit' : base.caseStage),
     note: e.note,
     by: e.by,
   }))
@@ -211,6 +215,7 @@ export function applyLog(base: Student, log: LogState): Student {
     parentContact: parentContact ?? base.parentContact,
     homeVisited: visited || base.homeVisited,
     consent: consent ?? base.consent,
+    caseStage: stage ?? base.caseStage,
     timeline: [...extra, ...base.timeline],
   }
 }

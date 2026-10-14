@@ -55,9 +55,16 @@ export function TeacherWorkspace() {
    *  apart. Both surfaces now read the child through `applyLog`. */
   const roster = useMemo(() => students.map((st) => applyLog(st, log)), [students, log])
 
+  /** วันล่าสุดที่ครูบันทึกอะไรกับเด็กแต่ละคน — ใช้เริ่มนับกำหนดติดตามใหม่ */
+  const lastLogged = useMemo(() => {
+    const out: Record<string, string> = {}
+    for (const e of log.entries) if (!out[e.childId] || e.date > out[e.childId]) out[e.childId] = e.date
+    return out
+  }, [log.entries])
+
   const ops = useMemo(
-    () => buildTeacherOps({ students: roster, cases, th }),
-    [roster, cases, th],
+    () => buildTeacherOps({ students: roster, cases, th, lastLogged }),
+    [roster, cases, th, lastLogged],
   )
 
   /** Appointments this teacher booked while logging a parent contact. It is the
@@ -89,20 +96,49 @@ export function TeacherWorkspace() {
   /** คิวของเลขา — เด็กที่ควรตามวันนี้ ตามลำดับของ ops.rows (เลยกำหนดขึ้นก่อน
    *  แล้วตามคะแนนเสี่ยง) เฉพาะคนที่มีอะไรต้องทำจริง เด็กที่สบายดีอยู่แล้วไม่
    *  ต้องมาอยู่ในคิว ไม่งั้น "วันนี้มี 13 คน" จะฟังดูหนักเกินจริง */
-  const queue = useMemo(
-    () =>
-      ops.rows.filter(
-        (r) =>
-          r.stage !== 'returned' &&
-          r.stage !== 'resolved' &&
-          (r.overdue ||
-            r.riskDelta >= 5 ||
-            r.student.parentContact !== 'ok' ||
-            r.student.riskLevel === 'critical' ||
-            r.student.riskLevel === 'high'),
-      ),
-    [ops.rows],
-  )
+  const queue = useMemo(() => {
+    const open = ops.rows.filter((r) => r.stage !== 'returned' && r.stage !== 'resolved')
+    const urgent = open.filter(
+      (r) =>
+        !r.closable &&
+        (r.overdue ||
+          r.riskDelta >= 5 ||
+          r.student.parentContact !== 'ok' ||
+          r.student.riskLevel === 'critical' ||
+          r.student.riskLevel === 'high'),
+    )
+    // เคสที่เข้าเกณฑ์ปิดได้ต่อท้ายคิว — ไม่งั้นเด็กที่ดีขึ้นแล้ว (เสี่ยงต่ำ
+    // ติดต่อได้ ไม่เลยกำหนด) จะไม่เคยขึ้นมาในคิวเลย และขั้น "เห็นผล → ปิด
+    // เคส" จะไม่มีวันเกิดบนหน้านี้ งานที่ค้างยังมาก่อนเสมอ
+    return [...urgent, ...open.filter((r) => r.closable)]
+  }, [ops.rows])
+
+  /** สิ่งที่ช่วยไปแล้วล่าสุด — บันทึกของครูมาก่อน ไม่มีค่อยใช้ timeline เดิม
+   *  ครูต้องเห็นตรงนี้ ไม่งั้นจะไม่รู้ว่าทำไมคำแนะนำเปลี่ยน หรือเผลอโทรซ้ำ */
+  const lastDone = (childId: string) => {
+    const mine = log.entries
+      .filter((e) => e.childId === childId)
+      .sort((a, b) => b.date.localeCompare(a.date))[0]
+    const today = new Date()
+    const t0 = Date.UTC(today.getFullYear(), today.getMonth(), today.getDate())
+    const ago = (iso: string) => {
+      const [y, m, d] = iso.split('-').map(Number)
+      return Math.max(0, Math.round((t0 - Date.UTC(y, (m ?? 1) - 1, d ?? 1)) / 86400000))
+    }
+    if (mine) {
+      const what = mine.stage === 'resolved'
+        ? th ? 'ปิดเคสแล้ว' : 'Case closed'
+        : mine.followUpDate
+          ? th ? `ตั้งนัดติดตามวันที่ ${mine.followUpDate}` : `Follow-up set for ${mine.followUpDate}`
+          : mine.mode === 'visit'
+            ? th ? 'เยี่ยมบ้านแล้ว' : 'Home visit made'
+            : th ? 'ติดต่อผู้ปกครองแล้ว' : 'Guardian contacted'
+      return { text: what, daysAgo: ago(mine.date), by: mine.by }
+    }
+    const seeded = roster.find((st) => st.id === childId)?.timeline
+    const latest = seeded?.slice().sort((a, b) => b.date.localeCompare(a.date))[0]
+    return latest ? { text: latest.note, daysAgo: ago(latest.date), by: latest.by } : undefined
+  }
 
   // ── วันนี้ต้องทำอะไร ──────────────────────────────────────
   const followUpRef = useRef<HTMLDivElement>(null)
@@ -212,6 +248,21 @@ export function TeacherWorkspace() {
 
     return { top: all.slice(0, 3), rest: all.slice(3) }
   }, [dueNow.length, ops.overdue, ops.critical, ops.rising, ops.needParent, ops.needVisit, ops.closable, th])
+
+  /** ปิดเคส — ระบบเสนอเมื่อเข้าเกณฑ์ (closability) แต่ครูเป็นคนกดเสมอ
+   *  การปิดเคสคือการบอกว่าเด็กคนนี้ปลอดภัยแล้ว ไม่ใช่สิ่งที่ควรเป็นอัตโนมัติ */
+  const closeCase = (studentId: string, name: string) => {
+    if (!mayAct) return
+    log.add({
+      childId: studentId,
+      mode: 'contact',
+      date: new Date().toISOString().slice(0, 10),
+      note: th ? 'ปิดเคส — เข้าเกณฑ์ครบทุกข้อ ครูตรวจแล้วยืนยัน' : 'Case closed — every criterion met, confirmed by the teacher',
+      by: user?.ownerName ?? user?.name ?? (th ? 'ครูผู้รับผิดชอบ' : 'Case owner'),
+      stage: 'resolved',
+    })
+    toast.push(th ? `ปิดเคสของ ${name} แล้ว` : `Case closed for ${name}`)
+  }
 
   /** ลงมือตามคำแนะนำ — เขียนลง `useCaseLog` ซึ่งเป็นกลไกเดิมที่หน้าเด็กใช้
    *  อยู่แล้ว ทั้งสองหน้าจึงเห็นตรงกันทันทีผ่าน `applyLog`
@@ -335,6 +386,8 @@ export function TeacherWorkspace() {
         th={th}
         mayAct={mayAct}
         onAct={applyStep}
+        onClose={closeCase}
+        lastDone={lastDone}
         onOpen={(id) => go(`/student?id=${id}`)}
         onAsk={(question) => void ask(question)}
         asked={asked}

@@ -30,6 +30,8 @@ export function TeacherAssistant({
   th,
   mayAct,
   onAct,
+  onClose,
+  lastDone,
   onOpen,
   onAsk,
   asked,
@@ -42,6 +44,9 @@ export function TeacherAssistant({
   th: boolean
   mayAct: boolean
   onAct: (studentId: string, studentName: string, act: StepAction) => void
+  onClose: (studentId: string, studentName: string) => void
+  /** สิ่งที่ช่วยไปแล้วล่าสุด — ครูต้องเห็นก่อนลงมือ จะได้ไม่ทำซ้ำ */
+  lastDone: (studentId: string) => { text: string; daysAgo: number; by: string } | undefined
   onOpen: (studentId: string) => void
   onAsk: (q: string) => void
   asked: { text: string; to?: string; label?: string } | null
@@ -50,6 +55,9 @@ export function TeacherAssistant({
   const [i, setI] = useState(0)
   const [done, setDone] = useState<string[]>([])
   const [q, setQ] = useState('')
+  /** ปิดเคสต้องกดสองครั้ง — ครั้งแรกถาม ครั้งที่สองยืนยัน ปุ่มเดียวที่ย้อน
+   *  ไม่ได้ในหน้านี้ จึงไม่ควรเกิดจากการแตะพลาด */
+  const [confirmClose, setConfirmClose] = useState(false)
   /** คำตอบของคำถามเฉพาะเด็กคนนี้ — คำนวณเอง ไม่ส่งไปโมเดล เพราะข้อมูลอยู่ใน
    *  มือครบแล้ว และคำตอบต้องถูกเสมอแม้ไม่มี API key */
   const [local, setLocal] = useState<{ q: string; lines: string[] } | null>(null)
@@ -60,6 +68,8 @@ export function TeacherAssistant({
   const first = s?.name.split(' ')[0] ?? ''
 
   const steps = useMemo(() => (s ? recommendSteps(s, th) : []), [s, th])
+  const close = useMemo(() => (s ? closability(s) : null), [s])
+  const done1 = s ? lastDone(s.id) : undefined
   // ข้อแนะนำแรกที่กดลงมือได้จริง ถ้าไม่มีเลยก็ใช้ข้อแรก
   const pick = steps.find((x) => x.action) ?? steps[0]
 
@@ -87,16 +97,33 @@ export function TeacherAssistant({
 
   const next = () => {
     setLocal(null)
+    setConfirmClose(false)
     setI((v) => (v + 1 >= pending.length ? 0 : v + 1))
+  }
+
+  const finish = () => {
+    if (!s) return
+    setDone((d) => [...d, s.id])
+    setLocal(null)
+    setConfirmClose(false)
+    setI((v) => (v >= pending.length - 1 ? 0 : v))
+  }
+
+  const doClose = () => {
+    if (!s) return
+    if (!confirmClose) {
+      setConfirmClose(true)
+      return
+    }
+    onClose(s.id, s.name)
+    finish()
   }
 
   const act = () => {
     if (!s || !pick?.action) return
     onAct(s.id, s.name, pick.action)
-    setDone((d) => [...d, s.id])
-    setLocal(null)
     // index เดิมชี้ไปที่คนถัดไปอยู่แล้ว เพราะคนนี้หลุดออกจาก pending
-    setI((v) => (v >= pending.length - 1 ? 0 : v))
+    finish()
   }
 
   /** คำถามสำเร็จรูปที่มีชื่อเด็กอยู่ในนั้น — ครูอายุมากไม่ต้องคิดคำถามเอง */
@@ -225,7 +252,34 @@ export function TeacherAssistant({
               </ul>
             )}
 
-            {pick && (
+            {done1 && (
+              <p className="mt-2.5 rounded-lg bg-surface-muted px-3 py-2 text-[13px] leading-snug text-ink-muted">
+                <span className="font-semibold text-ink">{th ? 'ช่วยไปแล้ว: ' : 'Already done: '}</span>
+                {done1.text}
+                {' · '}
+                {done1.daysAgo === 0
+                  ? th ? 'วันนี้' : 'today'
+                  : th ? `${done1.daysAgo} วันก่อน` : `${done1.daysAgo} days ago`}
+              </p>
+            )}
+
+            {close?.ready ? (
+              // เห็นผล — เด็กคนนี้ดีขึ้นจนผ่านเกณฑ์ทุกข้อ แสดงเหตุผลให้ครูตรวจ
+              // ก่อนกด เพราะการปิดเคสคือการบอกว่าเด็กปลอดภัยแล้ว
+              <div className="mt-3 rounded-xl bg-green-50 p-3">
+                <p className="text-[12px] font-semibold" style={{ color: RISK_COLOR.normal }}>
+                  {th ? 'AI แนะนำ' : 'AI suggests'}
+                </p>
+                <p className="mt-0.5 text-[15px] font-semibold leading-snug text-ink">
+                  {th ? 'เด็กคนนี้ดีขึ้นจนผ่านเกณฑ์แล้ว — ปิดเคสได้' : 'This child now meets every criterion — the case can close'}
+                </p>
+                <ul className="mt-1.5 space-y-0.5">
+                  {(th ? close.metTh : close.metEn).map((m) => (
+                    <li key={m} className="text-[13px] leading-snug text-ink-muted">✓ {m}</li>
+                  ))}
+                </ul>
+              </div>
+            ) : pick && (
               <div className="mt-3 rounded-xl bg-brand-50 p-3">
                 <p className="text-[12px] font-semibold text-brand-700">
                   {th ? 'AI แนะนำ' : 'AI suggests'}
@@ -240,7 +294,23 @@ export function TeacherAssistant({
             )}
 
             <div className="mt-3 flex flex-col gap-2 sm:flex-row">
-              {pick?.action && mayAct && (
+              {close?.ready && mayAct && (
+                <button
+                  type="button"
+                  onClick={doClose}
+                  className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl px-4 py-3 text-[15px] font-semibold text-white shadow-card transition-colors"
+                  style={{ background: confirmClose ? RISK_COLOR.critical : RISK_COLOR.normal }}
+                >
+                  {confirmClose
+                    ? th
+                      ? `ยืนยันปิดเคส${first} — กดอีกครั้ง`
+                      : `Confirm closing ${first}'s case — tap again`
+                    : th
+                      ? 'ปิดเคส'
+                      : 'Close the case'}
+                </button>
+              )}
+              {!close?.ready && pick?.action && mayAct && (
                 <button
                   type="button"
                   onClick={act}

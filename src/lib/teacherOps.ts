@@ -116,13 +116,30 @@ export function matchesTask(row: CaseRow, filter: TaskFilter): boolean {
   }
 }
 
+/** ครูต้องแตะเคสอย่างน้อยทุกกี่วัน ถึงไม่นับว่าเลยกำหนด — brief ใช้ตัวเลขนี้
+ *  เป็นเกณฑ์ "เคสไม่มีการอัปเดตเกิน 7 วัน" */
+export const FOLLOW_UP_SLA_DAYS = 7
+
 export function buildTeacherOps(input: {
   students: Student[]
   cases: CaseRecord[]
   /** only the day unit inside a signal value needs it */
   th: boolean
+  /** วันล่าสุดที่ครูบันทึกอะไรสักอย่างกับเด็กแต่ละคน (YYYY-MM-DD)
+   *
+   *  เดิม "เลยกำหนด" อ่านจาก record.slaBreached ที่ seed ไว้อย่างเดียว ครูโทร
+   *  หาผู้ปกครองแล้ว รีโหลดหน้า เด็กคนเดิมยังเลยกำหนดและยังอยู่อันดับหนึ่ง
+   *  สิ่งที่ครูทำจึงไม่เปลี่ยนอะไรบนจอเลย ซึ่งเป็นทางที่เร็วที่สุดที่จะทำให้
+   *  ครูเลิกบันทึก ตอนนี้บันทึกแล้วเริ่มนับใหม่จากวันนั้น */
+  lastLogged?: Record<string, string>
+  today?: Date
 }): TeacherOps {
-  const { students, cases, th } = input
+  const { students, cases, th, lastLogged = {}, today = new Date() } = input
+  const t0 = Date.UTC(today.getFullYear(), today.getMonth(), today.getDate())
+  const daysSince = (iso: string) => {
+    const [y, m, d] = iso.split('-').map(Number)
+    return Math.max(0, Math.round((t0 - Date.UTC(y, (m ?? 1) - 1, d ?? 1)) / 86400000))
+  }
 
   const byName = new Map(cases.map((c) => [c.studentName, c]))
 
@@ -136,9 +153,13 @@ export function buildTeacherOps(input: {
         closable: closability(s).ready,
         stage: s.caseStage,
         record,
-        overdue: Boolean(record?.slaBreached),
+        ...(lastLogged[s.id]
+          ? (() => {
+              const d = daysSince(lastLogged[s.id])
+              return { overdue: d > FOLLOW_UP_SLA_DAYS, updatedDaysAgo: d }
+            })()
+          : { overdue: Boolean(record?.slaBreached), updatedDaysAgo: record?.openedDaysAgo }),
         urgent: Boolean(record?.urgent),
-        updatedDaysAgo: record?.openedDaysAgo,
         problem: s.causeKeys[0],
         lastEvent: s.timeline[s.timeline.length - 1],
       }
