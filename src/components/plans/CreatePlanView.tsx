@@ -16,6 +16,17 @@ import { assetUrl } from '@/lib/asset'
 
 const MASCOT = assetUrl('ChatBot.png')
 const PATHWAYS: Pathway[] = ['formalReturn', 'nfe', 'vocational', 'islamicSchool', 'apprentice', 'employment', 'specialNeeds', 'undecided']
+/** คำอธิบายบรรทัดเดียวของแต่ละเส้นทาง — ครูเลือกได้โดยไม่ต้องรู้ศัพท์ */
+const PATHWAY_HINT: Record<Pathway, string> = {
+  formalReturn: 'กลับไปเรียนในโรงเรียนเดิมหรือย้ายโรงเรียน',
+  nfe: 'เรียนแบบยืดหยุ่นกับ สกร. เหมาะกับเด็กที่ต้องทำงานหรือมีภาระ',
+  vocational: 'เรียนสายอาชีพ ได้วุฒิและทักษะทำงาน',
+  islamicSchool: 'เรียนสามัญควบศาสนาในโรงเรียนเอกชนสอนศาสนา',
+  apprentice: 'ฝึกงานในสถานประกอบการควบคู่การเรียน',
+  employment: 'เน้นมีงานทำที่มั่นคง สำหรับเด็กที่พ้นวัยเรียนภาคบังคับ',
+  specialNeeds: 'ประเมินเฉพาะทางก่อน แล้วจัดรูปแบบการเรียนให้เหมาะ',
+  undecided: 'ยังไม่แน่ใจ — เก็บข้อมูลและคุยกับครอบครัวก่อน',
+}
 const iso = (offset = 0) => {
   const d = new Date()
   d.setDate(d.getDate() + offset)
@@ -116,10 +127,18 @@ export function CreatePlanView({
       >
         <header className="flex items-start gap-3 border-b border-surface-border px-5 py-4">
           <div className="min-w-0 flex-1">
-            <p className="text-[12.5px] font-semibold text-brand-600">
-              {step === 1 ? 'ขั้นที่ 1 จาก 2 · วางแผน' : 'ขั้นที่ 2 จาก 2 · AI แนะนำ'}
-            </p>
-            <p className="truncate text-[19px] font-bold text-ink">สร้างแผนช่วยเหลือ · {s.name}</p>
+            <p className="truncate text-[19px] font-bold text-ink">สร้างแผนช่วยเหลือ</p>
+            {/* แถบขั้น — ข้อความกำกับทุกขั้น */}
+            <ol className="mt-2 grid grid-cols-2 gap-2" aria-label="ขั้นตอน">
+              {['วางแผน', 'AI แนะนำลำดับขั้น'].map((x, i) => (
+                <li key={x}>
+                  <span className={`block h-1.5 rounded-full ${i < step ? 'bg-brand-500' : 'bg-surface-muted'}`} />
+                  <span className={`mt-1 block text-[12.5px] ${i + 1 === step ? 'font-bold text-ink' : 'text-ink-muted'}`}>
+                    {i + 1}. {x}
+                  </span>
+                </li>
+              ))}
+            </ol>
           </div>
           <button type="button" onClick={onClose} aria-label="ปิด" className="grid h-10 w-10 place-items-center rounded-xl text-ink-muted hover:bg-surface-muted">
             <IconClose width={18} height={18} />
@@ -129,86 +148,125 @@ export function CreatePlanView({
         <div className="flex-1 overflow-y-auto px-5 pb-6 pt-4">
           {step === 1 ? (
             <>
-              <p className="rounded-xl bg-surface-muted px-3.5 py-2.5 text-[13.5px] text-ink-muted">
-                ช่องที่มีข้อมูลแล้วดึงมาจากระเบียนของเด็ก — ตรวจ แก้ถ้าไม่ตรง แล้วกดถัดไป
-              </p>
+              {/* ── ข้อมูลจากระเบียน — อ่านอย่างเดียว ไม่ต้องกรอก ─────────── */}
+              <section className="rounded-2xl border border-surface-border bg-surface-muted/40 p-4">
+                <div className="flex items-start gap-3">
+                  <span className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-white text-[18px] font-bold text-brand-700">{s.name.slice(0, 1)}</span>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[17px] font-bold leading-tight text-ink">{s.name}</p>
+                    <p className="mt-0.5 text-[13.5px] text-ink-muted">
+                      {GRADE_LABEL(s.gradeKey, true)} · {s.id}
+                    </p>
+                  </div>
+                  <div className="shrink-0 text-right">
+                    <p className="text-[26px] font-bold leading-none tabular" style={{ color: RISK_COLOR[s.riskLevel] }}>
+                      {s.riskScore}
+                    </p>
+                    <p className="mt-0.5 text-[13px] font-semibold text-ink">{t(`risk.${s.riskLevel}`)}</p>
+                  </div>
+                </div>
+                <div className="mt-3 border-t border-surface-border pt-3">
+                  <p className="text-[12.5px] font-semibold text-ink-muted">สาเหตุหลัก</p>
+                  <p className="text-[15px] font-semibold text-ink">{cause ? `${cause.shortTh} (รหัส ${cause.id})` : t(`cause.${s.causeKeys[0]}`)}</p>
+                  <p className="mt-2.5 text-[12.5px] font-semibold text-ink-muted">ปัจจัยเสี่ยง</p>
+                  <div className="mt-1 flex flex-wrap gap-1.5">
+                    {factors.map((f) => (
+                      <span key={f} className="rounded-lg bg-white px-2.5 py-1 text-[13.5px] text-ink">
+                        {f}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+                <p className="mt-3 text-[12.5px] text-ink-muted">ดึงจากระเบียนของเด็ก — ไม่ต้องกรอก ถ้าไม่ตรงให้แก้ที่ข้อมูลเด็ก</p>
+              </section>
 
-              <Row k="นักเรียน">
-                <span className="text-[15px] font-semibold text-ink">{s.name}</span>
-                <span className="text-[13.5px] text-ink-muted"> · {GRADE_LABEL(s.gradeKey, true)}</span>
-              </Row>
-              <Row k="ระดับความเสี่ยง">
-                <span className="rounded-full px-2.5 py-1 text-[13px] font-bold text-white" style={{ background: RISK_COLOR[s.riskLevel] }}>
-                  {s.riskScore} · {t(`risk.${s.riskLevel}`)}
-                </span>
-              </Row>
-              <Row k="สาเหตุหลัก">
-                <span className="text-[14.5px] text-ink">{cause ? `${cause.shortTh} (รหัส ${cause.id})` : t(`cause.${s.causeKeys[0]}`)}</span>
-              </Row>
-              <Row k="ปัจจัยเสี่ยง">
-                <ul className="space-y-0.5 text-[14px] text-ink">
-                  {factors.map((f) => (
-                    <li key={f}>• {f}</li>
-                  ))}
-                </ul>
-              </Row>
+              {/* ── ① เป้าหมาย — การ์ดให้กดเลือก แทน dropdown ─────────────── */}
+              <Section n={1} title="เป้าหมายของแผน">
+                {(() => {
+                  const ai = suggested.pathway
+                  const card = (k: Pathway, big?: boolean) => {
+                    const on = pathway === k
+                    return (
+                      <button
+                        key={k}
+                        type="button"
+                        onClick={() => setPathway(k)}
+                        aria-pressed={on}
+                        className={`w-full rounded-xl border-2 px-3.5 text-left ${big ? 'py-3' : 'py-2.5'} ${on ? 'border-brand-500 bg-brand-50' : 'border-surface-border bg-white hover:border-brand-200'}`}
+                      >
+                        <span className="flex items-center gap-2">
+                          <span className={`grid h-5 w-5 shrink-0 place-items-center rounded-full border-2 ${on ? 'border-brand-500' : 'border-ink-faint'}`} aria-hidden>
+                            {on && <span className="h-2.5 w-2.5 rounded-full bg-brand-500" />}
+                          </span>
+                          <span className="text-[15px] font-semibold text-ink">{t(`pathway.${k}`)}</span>
+                          {k === ai && <span className="ml-auto shrink-0 rounded-md bg-white px-2 py-0.5 text-[12px] font-bold text-brand-700">AI แนะนำ</span>}
+                        </span>
+                        <span className="mt-0.5 block pl-7 text-[13px] leading-snug text-ink-muted">{k === ai ? suggested.whyTh : PATHWAY_HINT[k]}</span>
+                      </button>
+                    )
+                  }
+                  return (
+                    <>
+                      {card(ai, true)}
+                      <p className="mb-1.5 mt-3 text-[13px] text-ink-muted">หรือเลือกเส้นทางอื่น</p>
+                      <div className="grid gap-2 sm:grid-cols-2">{PATHWAYS.filter((k) => k !== ai).map((k) => card(k))}</div>
+                    </>
+                  )
+                })()}
+              </Section>
 
-              <Row k="เป้าหมายของแผน">
-                <select
-                  value={pathway}
-                  onChange={(e) => setPathway(e.target.value as Pathway)}
-                  className="w-full rounded-xl border border-surface-border px-3.5 py-3 text-[15px] outline-none focus:border-brand-400"
-                >
-                  {PATHWAYS.map((k) => (
-                    <option key={k} value={k}>
-                      {t(`pathway.${k}`)}
-                      {k === suggested.pathway ? ' (AI แนะนำ)' : ''}
-                    </option>
-                  ))}
-                </select>
-                {pathway === suggested.pathway && <p className="mt-1.5 text-[13px] text-brand-700">AI: {suggested.whyTh}</p>}
-              </Row>
-              <Row k="ผู้รับผิดชอบ">
-                <Input value={owner} onChange={setOwner} />
-              </Row>
-              <div className="grid grid-cols-2 gap-3">
-                <Row k="วันที่เริ่ม">
-                  <Input type="date" value={start} onChange={setStart} />
-                </Row>
-                <Row k="วันที่ต้องติดตาม">
-                  <Input type="date" value={follow} onChange={setFollow} />
-                </Row>
-              </div>
-              <Row k="หน่วยงานที่เกี่ยวข้อง — แนะนำตามสาเหตุ">
-                <div className="space-y-1.5">
+              {/* ── ② ใครทำ เมื่อไร ─────────────────────────────────── */}
+              <Section n={2} title="ใครรับผิดชอบ และติดตามเมื่อไร">
+                <Field label="ผู้รับผิดชอบ">
+                  <Input value={owner} onChange={setOwner} />
+                </Field>
+                <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                  <Field label="วันที่เริ่ม">
+                    <Input type="date" value={start} onChange={setStart} />
+                  </Field>
+                  <Field label="วันที่ต้องติดตาม">
+                    <Input type="date" value={follow} onChange={setFollow} />
+                  </Field>
+                </div>
+              </Section>
+
+              {/* ── ③ หน่วยงาน ──────────────────────────────────────── */}
+              <Section n={3} title="หน่วยงานที่เกี่ยวข้อง" hint="แนะนำตามสาเหตุของเด็ก — เลือกได้หลายแห่ง">
+                <div className="space-y-2">
                   {agencies.map(({ agency: a, why }) => {
                     const on = picked.includes(a.id)
                     return (
-                      <label key={a.id} className="flex items-start gap-3 rounded-xl border border-surface-border px-3.5 py-2.5">
+                      <label
+                        key={a.id}
+                        className={`flex cursor-pointer items-start gap-3 rounded-xl border-2 px-3.5 py-3 ${on ? 'border-brand-500 bg-brand-50' : 'border-surface-border bg-white'}`}
+                      >
                         <input
                           type="checkbox"
-                          className="mt-0.5 h-5 w-5"
+                          className="mt-0.5 h-5 w-5 shrink-0"
                           checked={on}
                           onChange={() => setPicked((v) => (on ? v.filter((x) => x !== a.id) : [...v, a.id]))}
                         />
-                        <span>
-                          <span className="block text-[14px] font-medium text-ink">{a.th}</span>
-                          <span className="block text-[12.5px] text-ink-muted">{why}</span>
+                        <span className="min-w-0">
+                          <span className="block text-[14.5px] font-semibold leading-snug text-ink">{a.th}</span>
+                          <span className="mt-0.5 block text-[13px] leading-snug text-ink-muted">{why}</span>
                         </span>
                       </label>
                     )
                   })}
-                  {agencies.length === 0 && <p className="text-[13.5px] text-ink-muted">สาเหตุของเด็กคนนี้อยู่ในมือโรงเรียน ยังไม่ต้องใช้หน่วยงานภายนอก</p>}
+                  {agencies.length === 0 && <p className="text-[14px] text-ink-muted">สาเหตุของเด็กคนนี้อยู่ในมือโรงเรียน ยังไม่ต้องใช้หน่วยงานภายนอก</p>}
                 </div>
-              </Row>
-              <Row k="หมายเหตุ (ไม่บังคับ)">
+              </Section>
+
+              {/* ── ④ หมายเหตุ ─────────────────────────────────────── */}
+              <Section n={4} title="หมายเหตุ" hint="ไม่บังคับ">
                 <textarea
                   value={note}
                   onChange={(e) => setNote(e.target.value)}
                   rows={2}
+                  placeholder="เช่น ครอบครัวสะดวกให้เยี่ยมช่วงเย็น"
                   className="w-full rounded-xl border border-surface-border px-3.5 py-3 text-[15px] outline-none focus:border-brand-400 focus:ring-4 focus:ring-brand-100"
                 />
-              </Row>
+              </Section>
             </>
           ) : (
             <>
@@ -264,12 +322,26 @@ export function CreatePlanView({
   )
 }
 
-function Row({ k, children }: { k: string; children: ReactNode }) {
+/** หัวข้อมีเลขลำดับ แยกด้วยเส้น — อ่านเป็นขั้น ๆ ไม่เป็นฟอร์มยาวพรืด */
+function Section({ n, title, hint, children }: { n: number; title: string; hint?: string; children: ReactNode }) {
   return (
-    <div className="mt-4">
-      <p className="mb-1.5 text-[13px] font-semibold text-ink-muted">{k}</p>
+    <section className="mt-6 border-t border-surface-border pt-5">
+      <div className="mb-3 flex items-baseline gap-2.5">
+        <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-brand-500 text-[14px] font-bold text-white">{n}</span>
+        <h3 className="text-[16px] font-bold text-ink">{title}</h3>
+        {hint && <span className="text-[13px] text-ink-muted">{hint}</span>}
+      </div>
       {children}
-    </div>
+    </section>
+  )
+}
+
+function Field({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <label className="block">
+      <span className="mb-1.5 block text-[13.5px] font-semibold text-ink">{label}</span>
+      {children}
+    </label>
   )
 }
 
