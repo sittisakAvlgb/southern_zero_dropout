@@ -217,7 +217,7 @@ export function Attendance({ s }: { s: Student }) {
           return (
             <li
               key={d.toISOString()}
-              className={`rounded-xl border px-1 py-2 text-center ${st === 'absent' ? 'border-red-200 bg-red-50' : 'border-surface-border bg-white'}`}
+              className="rounded-xl border border-surface-border bg-white px-1 py-2 text-center"
             >
               <p className="text-[12.5px] text-ink-muted">
                 {DAY_TH[d.getDay()]} {d.getDate()}

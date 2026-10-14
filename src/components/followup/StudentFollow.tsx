@@ -127,7 +127,7 @@ export function StudentTimeline({
         )}
       </div>
       <div className="px-5 py-4">
-        {/* สามสีบอกว่าใครเป็นคนทำ — มีคำกำกับในทุกแถวด้วย ไม่ใช่สีอย่างเดียว */}
+        {/* จุดสีเดียว (เข้ม = ล่าสุด) — ใครเป็นคนทำบอกด้วยคำในทุกแถว ไม่ใช้สีแยก */}
         <ol className="relative ml-2 border-l-2 border-surface-border">
           {shown.map((x, i) => {
             const e = x.who === 'school' ? mine(x.ts, x.th) : undefined
@@ -135,11 +135,11 @@ export function StudentTimeline({
               <li key={i} className="relative pb-4 pl-5 last:pb-0">
                 <span
                   className="absolute -left-[7px] top-1.5 h-3 w-3 rounded-full border-2 border-white"
-                  style={{ background: x.who === 'school' ? '#2f66f6' : x.who === 'agency' ? '#7c3aed' : '#94a3b8' }}
+                  style={{ background: i === 0 ? '#0f172a' : '#94a3b8' }}
                 />
                 <p className="text-[12.5px] text-ink-faint">
                   {fmtTs(x.ts).replace(/ \d\d:\d\d$/, '')} · {x.who === 'school' ? 'โรงเรียน' : x.who === 'agency' ? 'หน่วยงาน' : 'ระบบ'} · {x.by}
-                  {e && <span className="ml-1.5 font-semibold text-green-700">· บันทึกของคุณ</span>}
+                  {e && <span className="ml-1.5 font-semibold text-ink-muted">· บันทึกของคุณ</span>}
                 </p>
                 <p className="mt-0.5 text-[14.5px] leading-snug text-ink">{x.th}</p>
                 {e && (

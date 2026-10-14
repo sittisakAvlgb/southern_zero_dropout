@@ -365,12 +365,12 @@ function BarBtn({ onClick, primary, children }: { onClick: () => void; primary?:
 function StudentPickRow({ c, active, onPick }: { c: FollowCase; active: boolean; onPick: () => void }) {
   return (
     <li>
-      <button type="button" onClick={onPick} aria-current={active} className={`flex w-full items-center gap-3 px-4 py-2.5 text-left ${active ? 'bg-brand-50' : 'hover:bg-surface-muted/60'}`}>
-        <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg text-[14px] font-bold text-white" style={{ background: RISK_COLOR[c.s.riskLevel] }}>
+      <button type="button" onClick={onPick} aria-current={active} className={`flex w-full items-center gap-3 px-4 py-2.5 text-left ${active ? 'bg-surface-muted font-bold' : 'hover:bg-surface-muted/60'}`}>
+        <span className={`grid h-9 w-9 shrink-0 place-items-center rounded-lg border text-[14px] font-bold tabular ${c.s.riskLevel === 'critical' ? 'border-red-200 text-red-700' : 'border-surface-border text-ink'}`}>
           {c.s.riskScore}
         </span>
         <span className="min-w-0 flex-1">
-          <span className={`block truncate text-[14.5px] ${active ? 'font-bold text-brand-800' : 'font-semibold text-ink'}`}>{c.s.name}</span>
+          <span className={`block truncate text-[14.5px] ${active ? 'font-bold text-ink' : 'font-semibold text-ink'}`}>{c.s.name}</span>
           <span className="block truncate text-[12.5px] text-ink-muted">{c.today ? c.because.replace('ต้องดูวันนี้ เพราะ', '') : GRADE_LABEL(c.s.gradeKey, true)}</span>
         </span>
       </button>
@@ -396,7 +396,7 @@ function Summary({ fc, onSummary }: { fc: FollowCase; onSummary: () => void }) {
             ครูเจ้าของเคส: <span className="font-semibold text-ink">{s.caseOwner || 'ยังไม่มี'}</span>
           </p>
           <div className="mt-2 flex flex-wrap items-center gap-2">
-            <span className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[13px] font-bold" style={{ background: `${st.color}14`, color: st.color }}>
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-surface-muted px-3 py-1 text-[13px] font-semibold text-ink">
               สถานะ: {st.th}
             </span>
             <button type="button" onClick={onSummary} className="rounded-full border border-surface-border px-3 py-1 text-[13px] font-semibold text-brand-700">
@@ -405,7 +405,7 @@ function Summary({ fc, onSummary }: { fc: FollowCase; onSummary: () => void }) {
           </div>
         </div>
         {/* มือถือ: แถวเดียวเต็มความกว้าง คะแนนซ้าย คำอธิบายขวา · จอใหญ่: กล่องชิดขวา */}
-        <div className="flex items-center justify-between gap-3 rounded-2xl px-4 py-3 sm:block sm:text-right" style={{ background: `${RISK_COLOR[s.riskLevel]}12` }}>
+        <div className="flex items-center justify-between gap-3 rounded-2xl border border-surface-border px-4 py-3 sm:block sm:text-right">
           <div>
             <p className="text-[12.5px] font-semibold text-ink-muted">คะแนนความเสี่ยง</p>
             <p className="text-[34px] font-bold leading-none tabular" style={{ color: RISK_COLOR[s.riskLevel] }}>
@@ -413,7 +413,7 @@ function Summary({ fc, onSummary }: { fc: FollowCase; onSummary: () => void }) {
             </p>
           </div>
           <div className="text-right">
-            <p className="mt-0.5 text-[14px] font-bold" style={{ color: RISK_COLOR[s.riskLevel] }}>
+            <p className="mt-0.5 text-[14px] font-bold text-ink">
               เสี่ยง{LEVEL_TH[s.riskLevel]}
             </p>
             <p className="mt-1 text-[13px] font-medium text-ink">
@@ -430,8 +430,8 @@ function CloseBanner({ fc, mayAct, onAssess, onReopen }: { fc: FollowCase; mayAc
   if (fc.open && fc.closable) {
     const open = fc.refs.filter((r) => r.bucket !== 'done')
     return (
-      <section className="rounded-2xl border border-green-200 bg-green-50 p-4">
-        <p className="text-[15.5px] font-bold text-green-800">ข้อมูลล่าสุดบ่งชี้ว่าเคสนี้อาจพร้อมประเมินเพื่อปิด</p>
+      <section className="rounded-2xl border border-surface-border bg-white p-4">
+        <p className="text-[15.5px] font-bold text-ink">ข้อมูลล่าสุดบ่งชี้ว่าเคสนี้อาจพร้อมประเมินเพื่อปิด</p>
         <ul className="mt-1.5 space-y-0.5 text-[14px] text-ink">
           {closability(fc.s).metTh.slice(0, 4).map((m) => (
             <li key={m}>✓ {m}</li>
@@ -440,7 +440,7 @@ function CloseBanner({ fc, mayAct, onAssess, onReopen }: { fc: FollowCase; mayAc
         </ul>
         <p className="mt-1.5 text-[13px] text-ink-muted">ระบบไม่ปิดเคสเอง — ครูตรวจและตัดสินใจ</p>
         {mayAct && (
-          <button type="button" onClick={onAssess} className="mt-3 rounded-xl bg-green-700 px-4 py-2.5 text-[14.5px] font-semibold text-white">
+          <button type="button" onClick={onAssess} className="mt-3 rounded-xl bg-brand-500 px-4 py-2.5 text-[14.5px] font-semibold text-white">
             ประเมินเพื่อปิดเคส
           </button>
         )}
@@ -449,7 +449,7 @@ function CloseBanner({ fc, mayAct, onAssess, onReopen }: { fc: FollowCase; mayAc
   }
   if (!fc.open)
     return (
-      <section className={`rounded-2xl border p-4 ${fc.relapse ? 'border-amber-200 bg-amber-50' : 'border-surface-border bg-surface-muted/50'}`}>
+      <section className={`rounded-2xl border p-4 ${fc.relapse ? 'border-red-200 bg-white' : 'border-surface-border bg-white'}`}>
         <p className="text-[15.5px] font-bold text-ink">{fc.relapse ? `ปิดเคสแล้ว แต่ความเสี่ยงกลับมาที่ ${fc.s.riskScore}/100` : 'ปิดเคสแล้ว — ติดตามห่าง ๆ'}</p>
         <p className="mt-0.5 text-[13.5px] text-ink-muted">ประวัติทั้งหมดยังอยู่ — เปิดเคสอีกครั้งได้โดยไม่เริ่มใหม่</p>
         {mayAct && (
@@ -529,7 +529,7 @@ function Observations({
                         <button type="button" onClick={() => { setEditing(o.id); setDraft(o.text) }} className="font-semibold text-brand-700 underline-offset-2 hover:underline">
                           แก้ไข
                         </button>
-                        <button type="button" onClick={() => onResolve(o)} className="font-semibold text-green-700 underline-offset-2 hover:underline">
+                        <button type="button" onClick={() => onResolve(o)} className="font-semibold text-brand-700 underline-offset-2 hover:underline">
                           คลี่คลายแล้ว
                         </button>
                       </>
@@ -608,7 +608,7 @@ function Observations({
 /** 3 + 4. ทำไมต้องดูตอนนี้ → สิ่งที่ต้องทำต่อ (เด่นที่สุดของหน้า) */
 function NextStep({ fc, mayAct, onRun, onAlt, onAsk }: { fc: FollowCase; mayAct: boolean; onRun: () => void; onAlt: () => void; onAsk: () => void }) {
   return (
-    <section className="rounded-3xl border-2 border-brand-300 bg-gradient-to-b from-brand-50 to-white p-4 sm:p-5">
+    <section className="rounded-3xl border-2 border-ink/80 bg-white p-4 sm:p-5">
       {fc.open && fc.reasons.length > 0 && (
         <div className="mb-3">
           <p className="text-[13.5px] font-semibold text-ink-muted">ต้องติดตามตอนนี้ เพราะ</p>
@@ -619,7 +619,7 @@ function NextStep({ fc, mayAct, onRun, onAlt, onAsk }: { fc: FollowCase; mayAct:
           </ul>
         </div>
       )}
-      <p className="text-[12.5px] font-semibold uppercase tracking-wide text-brand-600">สิ่งที่ต้องทำต่อ</p>
+      <p className="text-[13px] font-semibold text-ink-muted">สิ่งที่ต้องทำต่อ</p>
       <p className="mt-0.5 text-[20px] font-bold leading-snug text-ink">{fc.next.th}</p>
       <p className="mt-1 text-[14.5px] leading-snug text-ink-muted">เหตุผล: {fc.next.whyTh}</p>
       {mayAct && (
@@ -683,7 +683,7 @@ function AiOptions({
   return (
     <section id="ai-options" className="scroll-mt-4 rounded-3xl border border-surface-border bg-white p-4 sm:p-5">
       <div className="flex items-center gap-2.5">
-        <img src={MASCOT} alt="" className="h-9 w-9 rounded-xl bg-brand-50 object-contain p-0.5" draggable={false} />
+        <img src={MASCOT} alt="" className="h-9 w-9 rounded-xl bg-surface-muted object-contain p-0.5" draggable={false} />
         <div>
           <h2 className="text-[16px] font-bold text-ink">แนวทางที่อาจช่วยได้</h2>
           <p className="text-[13px] text-ink-muted">AI เสนอทางเลือก — ครูเป็นผู้ตัดสินใจ</p>
@@ -699,7 +699,7 @@ function AiOptions({
       ) : (
         <>
           {alternative && (
-            <p className="mt-3 rounded-xl bg-amber-50 px-3.5 py-2.5 text-[14px] text-ink">
+            <p className="mt-3 rounded-xl border border-surface-border px-3.5 py-2.5 text-[14px] font-medium text-ink">
               แนวทางเดิมยังไม่ได้ผล — ติดต่อผู้ปกครองไม่สำเร็จแล้ว จึงลองเสนอทางอื่นที่ครูอาจยังไม่ได้ลอง
             </p>
           )}
@@ -711,18 +711,18 @@ function AiOptions({
               <li key={o.key} className="rounded-2xl border border-surface-border p-3.5">
                 <p className="text-[15.5px] font-bold text-ink">
                   {i + 1}. {o.th}
-                  {chosen.has(o.key) && <span className="ml-2 text-[12.5px] font-semibold text-green-700">✓ ครูเลือกแล้ว</span>}
+                  {chosen.has(o.key) && <span className="ml-2 text-[12.5px] font-semibold text-ink-muted">✓ ครูเลือกแล้ว</span>}
                 </p>
                 <p className="mt-1 text-[14px] text-ink">
                   <span className="text-ink-muted">เพราะ</span> {o.why}
                 </p>
                 <dl className="mt-1.5 grid gap-1 text-[13.5px] sm:grid-cols-2">
                   <div>
-                    <dt className="inline font-semibold text-green-700">ข้อดี: </dt>
+                    <dt className="inline font-semibold text-ink">ข้อดี: </dt>
                     <dd className="inline text-ink">{o.pros}</dd>
                   </div>
                   <div>
-                    <dt className="inline font-semibold text-amber-700">ข้อควรพิจารณา: </dt>
+                    <dt className="inline font-semibold text-ink">ข้อควรพิจารณา: </dt>
                     <dd className="inline text-ink">{o.cons}</dd>
                   </div>
                 </dl>
@@ -835,7 +835,7 @@ function Appointments({ fc, entries, mayAct, onAdd, onLog }: { fc: FollowCase; e
           {fus.map((e) => (
             <li key={e.id} className="flex items-center gap-3 py-2.5">
               <div className="w-16 shrink-0 text-center">
-                <p className={`text-[15px] font-bold ${e.followUpDate! < today ? 'text-red-700' : e.followUpDate === today ? 'text-brand-700' : 'text-ink'}`}>{fmt(e.followUpDate!)}</p>
+                <p className={`text-[15px] font-bold ${e.followUpDate! < today ? 'text-red-700' : 'text-ink'}`}>{fmt(e.followUpDate!)}</p>
                 {e.followUpTime && <p className="text-[12.5px] text-ink-muted">{e.followUpTime}</p>}
               </div>
               <div className="min-w-0 flex-1">
@@ -875,7 +875,7 @@ function Outcome({ fc, entries }: { fc: FollowCase; entries: CaseLogEntry[] }) {
       <ul className="grid gap-1.5">
         {rows.map((r) => (
           <li key={r.th} className="flex items-start gap-2 text-[14.5px]">
-            <span className={`mt-0.5 font-bold ${r.ok ? 'text-green-700' : 'text-ink-faint'}`} aria-hidden>
+            <span className={`mt-0.5 font-bold ${r.ok ? 'text-ink' : 'text-ink-faint'}`} aria-hidden>
               {r.ok ? '✓' : '○'}
             </span>
             <span className={r.ok ? 'text-ink' : 'text-ink-muted'}>{r.th}</span>
@@ -974,7 +974,7 @@ function Goals({ s, goal, mayAct, onSave }: { s: FollowCase['s']; goal?: import(
                   aria-label={g.text}
                 />
               ) : (
-                <span className={`mt-0.5 w-5 text-center font-bold ${done ? 'text-green-700' : 'text-ink-faint'}`} aria-hidden>
+                <span className={`mt-0.5 w-5 text-center font-bold ${done ? 'text-ink' : 'text-ink-faint'}`} aria-hidden>
                   {done ? '✓' : '○'}
                 </span>
               )}
@@ -1028,7 +1028,7 @@ function Trend({ fc }: { fc: FollowCase }) {
           <li key={p.label} className="grid grid-cols-[110px_1fr_36px] items-center gap-3 text-[14px]">
             <span className="text-ink-muted">{p.label}</span>
             <span className="h-2.5 overflow-hidden rounded-full bg-surface-muted">
-              <span className="block h-full rounded-full" style={{ width: `${p.score}%`, background: RISK_COLOR[p.score >= 85 ? 'critical' : p.score >= 70 ? 'high' : p.score >= 40 ? 'watch' : 'normal'] }} />
+              <span className={`block h-full rounded-full ${p.score >= 85 ? 'bg-red-600' : 'bg-slate-400'}`} style={{ width: `${p.score}%` }} />
             </span>
             <span className="text-right font-bold tabular text-ink">{p.score}</span>
           </li>
@@ -1139,7 +1139,7 @@ function MoreInfo({ fc, t }: { fc: FollowCase; th: boolean; t: (k: string) => st
           <li key={k} className="grid grid-cols-[80px_1fr_32px] items-center gap-2 text-[13.5px]">
             <span className="text-ink-muted">{k}</span>
             <span className="h-2 overflow-hidden rounded-full bg-surface-muted">
-              <span className="block h-full rounded-full bg-brand-400" style={{ width: `${v}%` }} />
+              <span className="block h-full rounded-full bg-slate-400" style={{ width: `${v}%` }} />
             </span>
             <span className="text-right font-semibold tabular text-ink">{v}</span>
           </li>
