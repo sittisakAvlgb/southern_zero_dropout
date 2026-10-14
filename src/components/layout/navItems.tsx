@@ -23,20 +23,37 @@ export interface NavItem {
    *  A สพท. seat never sees a full จังหวัด, so "เจาะลึกจังหวัด" named a level
    *  above the one it works at. */
   esaLabelKey?: string
+  /** Used instead for a teacher. The page under `/` already drops every
+   *  area read for this seat — the จชต. map, the province comparison, the
+   *  registry funnel — and shows only the children this teacher owns. The
+   *  menu kept calling it "ภาพรวมชายแดนใต้" anyway, which promised a
+   *  different page than the one that opens. */
+  teacherLabelKey?: string
   icon: (p: { width?: number; height?: number }) => ReactNode
   section: 'monitor' | 'design' | 'action' | 'system'
 }
 
 /** The label to render for this item and this account. Every surface that
  *  prints a nav label goes through here so they cannot drift apart. */
-export function navLabelKey(item: NavItem, user: { esaKey?: string } | null): string {
+export function navLabelKey(
+  item: NavItem,
+  user: { esaKey?: string; role?: string } | null,
+): string {
+  if (user?.role === 'teacher' && item.teacherLabelKey) return item.teacherLabelKey
   return user?.esaKey && item.esaLabelKey ? item.esaLabelKey : item.labelKey
 }
 
 // The four sections narrate the platform's promise in order:
 // see every child → design their opportunity → act → run the system.
 export const NAV_ITEMS: NavItem[] = [
-  { to: '/', labelKey: 'nav.overview', esaLabelKey: 'nav.overview.esa', icon: IconOverview, section: 'monitor' },
+  {
+    to: '/',
+    labelKey: 'nav.overview',
+    esaLabelKey: 'nav.overview.esa',
+    teacherLabelKey: 'nav.overview.teacher',
+    icon: IconOverview,
+    section: 'monitor',
+  },
   { to: '/geo', labelKey: 'nav.geo', icon: IconGlobe, section: 'monitor' },
   { to: '/risk-map', labelKey: 'nav.riskmap', icon: IconMap, section: 'monitor' },
   { to: '/area', labelKey: 'nav.area', esaLabelKey: 'nav.area.esa', icon: IconProvince, section: 'monitor' },

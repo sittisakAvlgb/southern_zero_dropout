@@ -438,15 +438,14 @@ export function TeacherWorkspace() {
             <IconAI width={18} height={18} />
           </span>
         </span>
+        {/* ชื่อครูกับโรงเรียนย้ายไปอยู่หัวหน้าแล้ว เหลือไว้แต่จำนวนเคส
+            ซึ่งเป็นตัวเลขที่ใช้อ่านทุกตัวเลขอื่นในแผงนี้ */}
         <div className="min-w-0 flex-1">
           <h2 className="truncate text-[15px] font-bold text-ink">
-            {user?.ownerName ?? user?.name ?? (th ? 'เคสของคุณ' : 'Your caseload')}
-          </h2>
-          <p className="truncate text-[12px] text-ink-faint">
             {th
-              ? `นักเรียนที่คุณรับผิดชอบ ${formatNumber(ops.caseload, lang)} คน${schools[0] ? ` · ${schools[0].name}` : ''}`
-              : `${formatNumber(ops.caseload, lang)} students in your care${schools[0] ? ` · ${schools[0].name}` : ''}`}
-          </p>
+              ? `เคสที่คุณรับผิดชอบ ${formatNumber(ops.caseload, lang)} คน`
+              : `${formatNumber(ops.caseload, lang)} children in your care`}
+          </h2>
         </div>
         <span className="shrink-0 text-[11px] text-ink-faint">
           {mode === 'streaming'

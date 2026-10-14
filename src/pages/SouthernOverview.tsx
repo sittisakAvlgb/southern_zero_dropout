@@ -342,15 +342,31 @@ export default function SouthernOverview() {
       {/* Header — title, who is looking, and what "the area" covers, in one block */}
       <div className="mb-4 flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
         <div>
-          <h1 className="text-xl font-bold text-ink md:text-2xl">{t('app.title')}</h1>
+          {/* A teacher's page carries no area read at all (see the note below
+              the panel switch), so counting อำเภอ and ตำบล over the top of it
+              described a page that is not there. Their heading names the work
+              and the one school it happens in. */}
+          <h1 className="text-xl font-bold text-ink md:text-2xl">
+            {user?.role === 'teacher' ? t('nav.overview.teacher') : t('app.title')}
+          </h1>
           <p className="mt-1 text-sm text-ink-muted">
-            {/* naming all three provinces beside counts covering four อำเภอ of
-                one เขต is the contradiction an area account reads first */}
-            {scopeNote} ·{' '}
-            <span className="tabular">
-              {stats.districtsCount} {t('geo.districts')} · {stats.tambonsCount} {t('geo.tambons')} ·{' '}
-              {formatNumber(schools.length)} {th ? 'โรงเรียนนำร่อง' : 'pilot schools'}
-            </span>
+            {user?.role === 'teacher' ? (
+              <>
+                {user.ownerName ?? user.name}
+                {schools[0] ? ` · ${schools[0].name}` : ''}
+              </>
+            ) : (
+              <>
+                {/* naming all three provinces beside counts covering four อำเภอ of
+                    one เขต is the contradiction an area account reads first */}
+                {scopeNote} ·{' '}
+                <span className="tabular">
+                  {stats.districtsCount} {t('geo.districts')} · {stats.tambonsCount}{' '}
+                  {t('geo.tambons')} · {formatNumber(schools.length)}{' '}
+                  {th ? 'โรงเรียนนำร่อง' : 'pilot schools'}
+                </span>
+              </>
+            )}
           </p>
         </div>
         <div className="flex shrink-0 items-center gap-2 text-xs">
