@@ -96,6 +96,25 @@ export function failedContacts(entries: CaseLogEntry[]): number {
 
 export function careOptions(fc: FollowCase, obs: Observation[], entries: CaseLogEntry[]): { options: CareOption[]; alternative: boolean; basis: string[] } {
   const s = fc.s
+  // เคสปิดแล้ว: ไม่เสนอการช่วยเหลือเชิงรุกซ้ำ — เว้นแต่ความเสี่ยงกลับมา ให้เสนอเปิดเคสอย่างเดียว
+  if (!fc.open) {
+    if (!fc.relapse) return { options: [], alternative: false, basis: [] }
+    return {
+      options: [
+        {
+          key: 'reopen',
+          th: 'เปิดเคสอีกครั้ง',
+          why: `ความเสี่ยงกลับมาที่ระดับ${LEVEL_TH[s.riskLevel]} (${s.riskScore}/100) หลังปิดเคส`,
+          pros: 'ประวัติเดิมทั้งหมดยังอยู่ เริ่มต่อจากที่ค้างได้ทันที',
+          cons: 'คุยกับนักเรียนก่อนว่าเกิดอะไรขึ้นใหม่',
+          basis: [`ความเสี่ยงปัจจุบัน ${s.riskScore}/100`, `เปลี่ยน ${fc.riskDelta > 0 ? '+' : ''}${fc.riskDelta} ใน 8 สัปดาห์`],
+          go: { sheet: 'reopen' },
+        },
+      ],
+      alternative: false,
+      basis: [`ความเสี่ยงปัจจุบัน ${s.riskScore}/100`],
+    }
+  }
   const text = teacherText(obs, entries)
   const failed = failedContacts(entries)
   const alternative = failed > 0 && s.parentContact !== 'ok'

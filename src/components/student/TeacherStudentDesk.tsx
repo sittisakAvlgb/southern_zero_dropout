@@ -683,9 +683,9 @@ function AiOptions({
               แนวทางเดิมยังไม่ได้ผล — ติดต่อผู้ปกครองไม่สำเร็จแล้ว จึงลองเสนอทางอื่นที่ครูอาจยังไม่ได้ลอง
             </p>
           )}
-          <p className="mt-3 text-[14.5px] text-ink">
+          {live.length > 0 && <p className="mt-3 text-[14.5px] text-ink">
             จากข้อมูลล่าสุด อาจพิจารณา {Math.min(3, live.length)} แนวทาง{live.length > 3 && !all ? ` (มีอีก ${live.length - 3})` : ''}:
-          </p>
+          </p>}
           <ol className="mt-2 space-y-2.5">
             {shown.map((o, i) => (
               <li key={o.key} className="rounded-2xl border border-surface-border p-3.5">
@@ -769,7 +769,11 @@ function AiOptions({
               {all ? 'ย่อ' : `ดูทางเลือกอื่นอีก ${live.length - 3} ทาง`}
             </button>
           )}
-          {!live.length && <p className="mt-2 text-[14px] text-ink-muted">ไม่มีข้อเสนอเพิ่ม — ครูปฏิเสธทุกแนวทางแล้ว หรือเคสนี้อยู่ในกำหนด</p>}
+          {!live.length && (
+            <p className="mt-2 text-[14px] text-ink-muted">
+              {fc.open ? 'ไม่มีข้อเสนอเพิ่ม — ครูปฏิเสธทุกแนวทางแล้ว หรือเคสนี้อยู่ในกำหนด' : 'เคสปิดแล้ว — AI จะเสนอแนวทางอีกครั้งถ้าความเสี่ยงกลับมา'}
+            </p>
+          )}
           {basis.length > 0 && (
             <div className="mt-3 rounded-xl bg-surface-muted/60 px-3.5 py-2.5">
               <p className="text-[13px] font-semibold text-ink-muted">AI แนะนำจากข้อมูลเหล่านี้</p>
