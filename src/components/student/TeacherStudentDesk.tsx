@@ -3,7 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom'
 import { canWorkCases } from '@/auth/roles'
 import { useI18n } from '@/i18n/LanguageContext'
 import { SCHOOL_BY_ID } from '@/data/schools'
-import { RISK_COLOR } from '@/lib/risk'
+import { RISK_BG, RISK_COLOR } from '@/lib/risk'
 import { GRADE_LABEL } from '@/lib/schoolOps'
 import { useSimulatedLoading } from '@/lib/useLoading'
 import { assetUrl } from '@/lib/asset'
@@ -20,20 +20,30 @@ import {
   type CareOption,
 } from '@/lib/careOps'
 import { closability } from '@/lib/recommend'
-import type { CaseLogEntry, Observation } from '@/lib/caseLog'
+import { isScheduleOnly, type CaseLogEntry, type Observation } from '@/lib/caseLog'
 import { useToast } from '@/components/ui/Toast'
 import { Skeleton } from '@/components/ui/Skeleton'
 import { PageHeader, Breadcrumb } from '@/components/ui/PageHeader'
-import { IconStudent } from '@/components/icons'
+import { IconCheck, IconClock, IconConsent, IconPathway, IconStudent, IconUser } from '@/components/icons'
+import { RiskGauge } from '@/components/ui/RiskGauge'
+import { RiskBadge } from '@/components/ui/RiskBadge'
 import { useFollowCases } from '@/components/followup/useFollowCases'
 import { FollowCaseDetail, type Sheet } from '@/components/followup/FollowCaseDetail'
-import { StudentTimeline } from '@/components/followup/StudentFollow'
+import { StudentNextStep, StudentTimeline } from '@/components/followup/StudentFollow'
 import { Drawer, inputCls, isoIn, textareaCls } from '@/components/referrals/ui'
 import { byOf } from '@/components/referrals/useRefCases'
 import { LogForm, type LogResult } from '@/pages/Student360'
 import { Attendance, CaseSummary, FamilyFromVisit, Grades, MicButton } from './DeskExtras'
 
 const MASCOT = assetUrl('ChatBot.png')
+
+type Tab = 'care' | 'timeline' | 'school' | 'family'
+const TABS: { k: Tab; th: string }[] = [
+  { k: 'care', th: 'ดูแลช่วยเหลือ' },
+  { k: 'timeline', th: 'ไทม์ไลน์' },
+  { k: 'school', th: 'การมาเรียนและการเรียน' },
+  { k: 'family', th: 'ครอบครัวและทีม' },
+]
 
 /**
  * ข้อมูลเด็กรายบุคคล สำหรับครู — "โต๊ะทำงานของครูสำหรับดูแลเด็กคนนี้"
@@ -68,10 +78,11 @@ export function TeacherStudentDesk() {
   const [logMode, setLogMode] = useState<'contact' | 'visit' | null>(null)
   const [picking, setPicking] = useState(false)
   const noteRef = useRef<HTMLInputElement>(null)
-  const wide = useMedia('(min-width: 1536px)')
+  const [tab, setTab] = useState<Tab>('care')
   const [summaryOpen, setSummaryOpen] = useState(false)
 
   const pick = (sid: string) => {
+    setTab('care')
     const next = new URLSearchParams(params)
     next.set('id', sid)
     setParams(next, { replace: true })
@@ -136,7 +147,6 @@ export function TeacherStudentDesk() {
 
   // แต่ละส่วนนิยามครั้งเดียว — สองเลย์เอาต์ต่างกันแค่การจัดวาง
   const sec = {
-    summary: <Summary fc={fc} onSummary={() => setSummaryOpen(true)} />,
     close: <CloseBanner fc={fc} mayAct={mayAct} onAssess={() => setSheet({ sheet: 'close' })} onReopen={() => setSheet({ sheet: 'reopen' })} />,
     observations: (
       <Observations
@@ -156,15 +166,6 @@ export function TeacherStudentDesk() {
           log.add({ childId, by, date: isoIn(0), mode: 'note', note: `คลี่คลายแล้ว: ${o.text}` })
           push('ทำเครื่องหมายว่าคลี่คลายแล้ว')
         }}
-      />
-    ),
-    next: (
-      <NextStep
-        fc={fc}
-        mayAct={mayAct}
-        onRun={() => run(fc.next.go)}
-        onAlt={() => document.getElementById('ai-options')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
-        onAsk={() => setSheet({ sheet: 'ask' })}
       />
     ),
     ai: <AiOptions key={`ai-${childId}`} fc={fc} obs={obs} entries={entries} mayAct={mayAct} by={by} log={log} run={run} />,
@@ -217,16 +218,11 @@ export function TeacherStudentDesk() {
         subtitle="โต๊ะทำงานของคุณสำหรับดูแลเด็กหนึ่งคน — ครูรู้ปัญหา AI ช่วยหาวิธี"
       />
 
-      <div className="grid gap-5 lg:grid-cols-[260px_minmax(0,1fr)]">
-        {/* ── รายชื่อ (จอใหญ่) ─────────────────────── */}
+      <div className="grid gap-5 lg:grid-cols-[280px_minmax(0,1fr)]">
+        {/* ── รายชื่อ (จอใหญ่) — แบบเดิมของหน้า: ค้นหา + กรองระดับ + เรียงตามความเร่งด่วน ── */}
         <aside className="hidden lg:block">
-          <div className="sticky top-4 overflow-hidden rounded-2xl border border-surface-border bg-white">
-            <p className="border-b border-surface-border px-4 py-2.5 text-[13px] font-semibold text-ink-muted">เด็กในความดูแล · เรียงตามความเร่งด่วน</p>
-            <ul className="max-h-[70vh] overflow-y-auto">
-              {list.map((c) => (
-                <StudentPickRow key={c.s.id} c={c} active={c.s.id === fc.s.id} onPick={() => pick(c.s.id)} />
-              ))}
-            </ul>
+          <div className="sticky top-4 rounded-2xl border border-surface-border bg-white p-3">
+            <StudentList list={list} activeId={fc.s.id} onPick={pick} />
           </div>
         </aside>
 
@@ -240,52 +236,76 @@ export function TeacherStudentDesk() {
             <span aria-hidden>▾</span>
           </button>
 
-          {/* จอกว้าง (≥1536px) แยกสองคอลัมน์ตั้งแต่บนสุด: งานหลักตรงกลาง ข้อมูลประกอบด้านขวา
-              จอเล็กกว่านั้นเรียงคอลัมน์เดียวตามลำดับของ brief (มือถือก่อน) */}
-          {wide ? (
-            <div className="grid grid-cols-[minmax(0,1fr)_380px] items-start gap-4">
+          {/* หัวการ์ดแบบเดิม: ตัวตน + สถานะ + เกจ แล้วตามด้วยสิ่งที่ต้องทำต่อในการ์ดเดียวกัน */}
+          <section className="overflow-hidden rounded-3xl border border-surface-border bg-white">
+            <Summary fc={fc} />
+            <StudentNextStep
+              fc={fc}
+              mayAct={mayAct}
+              lastContact={entries.find((e) => !isScheduleOnly(e))?.date}
+              onLogContact={() => setSheet({ sheet: 'outcome', mode: 'contact' })}
+              onLogVisit={() => setLogMode('visit')}
+              onSheet={setSheet}
+              onExport={() => setSummaryOpen(true)}
+              exportLabel="สรุปเคส / ส่งออก"
+            />
+          </section>
+          {sec.close}
+
+          {/* แท็บแบบเดิม — งานอยู่แท็บแรก ข้อมูลอ้างอิงอยู่แท็บถัดไป หน้าจึงไม่ยาวเป็นหางว่าว */}
+          <div className="flex gap-1 overflow-x-auto rounded-xl border border-surface-border bg-surface-muted p-1" role="tablist">
+            {TABS.map((x) => (
+              <button
+                key={x.k}
+                type="button"
+                role="tab"
+                aria-selected={tab === x.k}
+                onClick={() => setTab(x.k)}
+                className={`shrink-0 flex-1 whitespace-nowrap rounded-lg px-3 py-2.5 text-[14px] ${tab === x.k ? 'bg-white font-bold text-ink shadow-card' : 'font-medium text-ink-muted hover:text-ink'}`}
+              >
+                {x.th}
+              </button>
+            ))}
+          </div>
+
+          {tab === 'care' && (
+            <div className="grid items-start gap-4 2xl:grid-cols-[minmax(0,1fr)_360px]">
               <div className="min-w-0 space-y-4">
-                {sec.summary}
-                {sec.close}
                 {sec.observations}
-                {sec.next}
                 {sec.ai}
                 {sec.note}
-                {sec.timeline}
               </div>
               <div className="space-y-4">
                 {sec.appointments}
                 {sec.outcome}
-                {sec.attendance}
                 {sec.goals}
+                {sec.related}
+              </div>
+            </div>
+          )}
+          {tab === 'timeline' && (
+            <div className="space-y-4">
+              {sec.note}
+              {sec.timeline}
+            </div>
+          )}
+          {tab === 'school' && (
+            <div className="grid items-start gap-4 md:grid-cols-2">
+              {sec.attendance}
+              <div className="space-y-4">
                 {sec.trend}
                 {sec.grades}
-                {sec.family}
+              </div>
+            </div>
+          )}
+          {tab === 'family' && (
+            <div className="grid items-start gap-4 md:grid-cols-2">
+              {sec.family}
+              <div className="space-y-4">
                 {sec.team}
-                {sec.related}
                 {sec.more}
               </div>
             </div>
-          ) : (
-            <>
-              {sec.summary}
-              {sec.close}
-              {sec.observations}
-              {sec.next}
-              {sec.ai}
-              {sec.appointments}
-              {sec.outcome}
-              {sec.attendance}
-              {sec.goals}
-              {sec.note}
-              {sec.timeline}
-              {sec.trend}
-              {sec.grades}
-              {sec.family}
-              {sec.team}
-              {sec.related}
-              {sec.more}
-            </>
           )}
         </div>
       </div>
@@ -298,8 +318,11 @@ export function TeacherStudentDesk() {
           </BarBtn>
           <BarBtn
             onClick={() => {
-              noteRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
-              window.setTimeout(() => noteRef.current?.focus(), 350)
+              if (tab !== 'care' && tab !== 'timeline') setTab('care')
+              window.setTimeout(() => {
+                noteRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+                noteRef.current?.focus()
+              }, 120)
             }}
           >
             เพิ่ม Note
@@ -317,27 +340,11 @@ export function TeacherStudentDesk() {
       {logMode && <LogForm mode={logMode} student={fc.s} actor={by} onCancel={() => setLogMode(null)} onSave={saveLogForm} th={th} t={t} />}
       {picking && (
         <Drawer label="เลือกนักเรียน" head={<p className="text-[19px] font-bold text-ink">เด็กในความดูแล</p>} onClose={() => setPicking(false)}>
-          <ul className="divide-y divide-surface-border rounded-2xl border border-surface-border">
-            {list.map((c) => (
-              <StudentPickRow key={c.s.id} c={c} active={c.s.id === fc.s.id} onPick={() => pick(c.s.id)} />
-            ))}
-          </ul>
+          <StudentList list={list} activeId={fc.s.id} onPick={pick} />
         </Drawer>
       )}
     </div>
   )
-}
-
-/** จอกว้างพอสำหรับคอลัมน์ขวาไหม — อ่านตอนเปิดและตามการปรับขนาดหน้าต่าง */
-function useMedia(q: string) {
-  const [on, setOn] = useState(() => typeof window !== 'undefined' && window.matchMedia(q).matches)
-  useEffect(() => {
-    const m = window.matchMedia(q)
-    const f = () => setOn(m.matches)
-    m.addEventListener('change', f)
-    return () => m.removeEventListener('change', f)
-  }, [q])
-  return on
 }
 
 // ── ชิ้นส่วน ─────────────────────────────────────────────────
@@ -363,67 +370,116 @@ function BarBtn({ onClick, primary, children }: { onClick: () => void; primary?:
   )
 }
 
-function StudentPickRow({ c, active, onPick }: { c: FollowCase; active: boolean; onPick: () => void }) {
+type LevelFilter = 'all' | 'high' | 'watch' | 'normal'
+
+/** รายชื่อแบบหน้าเดิม: ค้นหา + กรองระดับ + คะแนนในกล่องสี — เรียงตามความเร่งด่วนของงาน */
+function StudentList({ list, activeId, onPick }: { list: FollowCase[]; activeId: string; onPick: (id: string) => void }) {
+  const [q, setQ] = useState('')
+  const [lv, setLv] = useState<LevelFilter>('all')
+  const inLv = (c: FollowCase) =>
+    lv === 'all' ? true : lv === 'high' ? c.s.riskLevel === 'high' || c.s.riskLevel === 'critical' : c.s.riskLevel === lv
+  const n = (k: LevelFilter) => list.filter((c) => (k === 'all' ? true : k === 'high' ? c.s.riskLevel === 'high' || c.s.riskLevel === 'critical' : c.s.riskLevel === k)).length
+  const shown = list.filter((c) => inLv(c) && (!q.trim() || c.s.name.includes(q.trim()) || c.s.id.toLowerCase().includes(q.trim().toLowerCase())))
   return (
-    <li>
-      <button type="button" onClick={onPick} aria-current={active} className={`flex w-full items-center gap-3 px-4 py-2.5 text-left ${active ? 'bg-surface-muted font-bold' : 'hover:bg-surface-muted/60'}`}>
-        <span className={`grid h-9 w-9 shrink-0 place-items-center rounded-lg border text-[14px] font-bold tabular ${c.s.riskLevel === 'critical' ? 'border-red-200 text-red-700' : 'border-surface-border text-ink'}`}>
-          {c.s.riskScore}
-        </span>
-        <span className="min-w-0 flex-1">
-          <span className={`block truncate text-[14.5px] ${active ? 'font-bold text-ink' : 'font-semibold text-ink'}`}>{c.s.name}</span>
-          <span className="block truncate text-[12.5px] text-ink-muted">{c.today ? c.because.replace('ต้องดูวันนี้ เพราะ', '') : GRADE_LABEL(c.s.gradeKey, true)}</span>
-        </span>
-      </button>
-    </li>
+    <div>
+      <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="ค้นหาชื่อ / รหัสนักเรียน" className={inputCls} aria-label="ค้นหานักเรียน" />
+      <div className="mt-2 flex flex-wrap gap-1.5">
+        {(
+          [
+            ['all', 'ทั้งหมด'],
+            ['high', 'เสี่ยงสูง'],
+            ['watch', 'เฝ้าระวัง'],
+            ['normal', 'ปกติ'],
+          ] as [LevelFilter, string][]
+        ).map(([k, th]) => (
+          <button
+            key={k}
+            type="button"
+            onClick={() => setLv(k)}
+            aria-pressed={lv === k}
+            className={`rounded-full px-3 py-1.5 text-[13px] ${lv === k ? 'bg-brand-500 font-semibold text-white' : 'bg-surface-muted font-medium text-ink'}`}
+          >
+            {th} {n(k)}
+          </button>
+        ))}
+      </div>
+      <ul className="mt-2 max-h-[68vh] space-y-0.5 overflow-y-auto">
+        {shown.map((c) => {
+          const active = c.s.id === activeId
+          return (
+            <li key={c.s.id}>
+              <button
+                type="button"
+                onClick={() => onPick(c.s.id)}
+                aria-current={active}
+                className={`flex w-full items-center gap-2.5 rounded-xl px-2.5 py-2 text-left ${active ? 'bg-brand-50 ring-1 ring-brand-200' : 'hover:bg-surface-muted'}`}
+              >
+                <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg text-[13.5px] font-bold tabular" style={{ background: RISK_BG[c.s.riskLevel], color: RISK_COLOR[c.s.riskLevel] }}>
+                  {c.s.riskScore}
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-[14.5px] font-semibold text-ink">{c.s.name}</span>
+                  <span className="block truncate text-[12.5px] text-ink-muted">
+                    {c.s.id} · {GRADE_LABEL(c.s.gradeKey, true)}
+                    {c.today && !c.doneToday ? ' · ต้องดูวันนี้' : ''}
+                  </span>
+                </span>
+              </button>
+            </li>
+          )
+        })}
+        {!shown.length && <li className="px-2 py-4 text-center text-[14px] text-ink-muted">ไม่พบนักเรียน</li>}
+      </ul>
+    </div>
   )
 }
 
-/** 1. เด็กคนนี้เป็นใคร — คะแนนต้องมีคำอธิบายเสมอ */
-function Summary({ fc, onSummary }: { fc: FollowCase; onSummary: () => void }) {
+function Chip({ icon, children, tone = 'muted' }: { icon: React.ReactNode; children: React.ReactNode; tone?: 'muted' | 'bad' }) {
+  return (
+    <span className={`inline-flex items-center gap-1 rounded-lg px-2 py-1 text-[13px] font-medium ${tone === 'bad' ? 'bg-red-50 text-red-700' : 'bg-surface-muted text-ink'}`}>
+      {icon}
+      {children}
+    </span>
+  )
+}
+
+/** หัวการ์ดแบบเดิม — ตัวอักษรแรก · ชื่อ + ระดับ · รหัส ชั้น พื้นที่ · ชิปสถานะ · เกจคะแนน
+ *  เพิ่มจากเดิม: สถานะเคสภาษาคน และคะแนนเปลี่ยนจากสัปดาห์ก่อน (คะแนนต้องมีคำอธิบายเสมอ) */
+function Summary({ fc }: { fc: FollowCase }) {
   const s = fc.s
   const tr = riskTrend(s)
   const st = caseStatus(fc)
   const school = SCHOOL_BY_ID[s.schoolKey]
   return (
-    <section className="rounded-3xl border border-surface-border bg-white p-4 sm:p-5">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
-        <div className="min-w-0 flex-1">
-          <h1 className="text-[22px] font-bold leading-tight text-ink">{s.name}</h1>
-          <p className="mt-1 text-[14px] text-ink-muted">
-            {GRADE_LABEL(s.gradeKey, true)} · {school ? `โรงเรียน${school.name}` : s.schoolKey} · {s.id}
-          </p>
-          <p className="mt-0.5 text-[14px] text-ink-muted">
-            ครูเจ้าของเคส: <span className="font-semibold text-ink">{s.caseOwner || 'ยังไม่มี'}</span>
-          </p>
-          <div className="mt-2 flex flex-wrap items-center gap-2">
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-surface-muted px-3 py-1 text-[13px] font-semibold text-ink">
-              สถานะ: {st.th}
-            </span>
-            <button type="button" onClick={onSummary} className="rounded-full border border-surface-border px-3 py-1 text-[13px] font-semibold text-brand-700">
-              สรุปเคส / ส่งออก
-            </button>
+    <div className="flex flex-col gap-4 p-4 sm:p-5 md:flex-row md:items-start">
+      <div className="flex min-w-0 flex-1 items-start gap-4">
+        <span className="grid h-14 w-14 shrink-0 place-items-center rounded-2xl bg-brand-500/10 text-[20px] font-bold text-brand-700">{s.name.slice(0, 1)}</span>
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-2">
+            <h1 className="text-[22px] font-bold leading-tight text-ink">{s.name}</h1>
+            <RiskBadge level={s.riskLevel} size="sm" />
           </div>
-        </div>
-        {/* มือถือ: แถวเดียวเต็มความกว้าง คะแนนซ้าย คำอธิบายขวา · จอใหญ่: กล่องชิดขวา */}
-        <div className="flex items-center justify-between gap-3 rounded-2xl border border-surface-border px-4 py-3 sm:block sm:text-right">
-          <div>
-            <p className="text-[12.5px] font-semibold text-ink-muted">คะแนนความเสี่ยง</p>
-            <p className="text-[34px] font-bold leading-none tabular" style={{ color: RISK_COLOR[s.riskLevel] }}>
-              {s.riskScore}
-            </p>
-          </div>
-          <div className="text-right">
-            <p className="mt-0.5 text-[14px] font-bold text-ink">
-              เสี่ยง{LEVEL_TH[s.riskLevel]}
-            </p>
-            <p className="mt-1 text-[13px] font-medium text-ink">
-              {tr.weekDelta > 0 ? `↑ เพิ่มขึ้น ${tr.weekDelta} คะแนน` : tr.weekDelta < 0 ? `↓ ลดลง ${-tr.weekDelta} คะแนน` : 'ไม่เปลี่ยน'}จากสัปดาห์ก่อน
-            </p>
+          <p className="mt-0.5 text-[13.5px] text-ink-muted">
+            {s.id} · {GRADE_LABEL(s.gradeKey, true)} · {school ? `โรงเรียน${school.name}` : s.schoolKey}
+          </p>
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            <Chip icon={<IconClock width={13} height={13} />} tone={s.absenceStreak >= 10 ? 'bad' : 'muted'}>
+              ขาดเรียนต่อเนื่อง {s.absenceStreak} วัน
+            </Chip>
+            <Chip icon={<IconConsent width={13} height={13} />}>{s.consent === 'granted' ? 'ได้รับความยินยอมแล้ว' : 'ยังไม่ได้ความยินยอม'}</Chip>
+            <Chip icon={<IconPathway width={13} height={13} />}>{fc.hasPlan ? 'มีแผนโอกาสแล้ว' : 'ยังไม่มีแผนโอกาส'}</Chip>
+            <Chip icon={<IconUser width={13} height={13} />}>{s.caseOwner || 'ยังไม่มีเจ้าของเคส'}</Chip>
+            <Chip icon={<IconCheck width={13} height={13} />}>สถานะ: {st.th}</Chip>
           </div>
         </div>
       </div>
-    </section>
+      <div className="flex shrink-0 items-center gap-3 self-center md:flex-col md:gap-1">
+        <RiskGauge score={s.riskScore} size={120} />
+        <p className="max-w-[140px] text-center text-[13px] font-medium text-ink">
+          {tr.weekDelta > 0 ? `↑ เพิ่มขึ้น ${tr.weekDelta}` : tr.weekDelta < 0 ? `↓ ลดลง ${-tr.weekDelta}` : 'ไม่เปลี่ยน'} จากสัปดาห์ก่อน
+        </p>
+      </div>
+    </div>
   )
 }
 
@@ -609,40 +665,6 @@ function Observations({
   )
 }
 
-/** 3 + 4. ทำไมต้องดูตอนนี้ → สิ่งที่ต้องทำต่อ (เด่นที่สุดของหน้า) */
-function NextStep({ fc, mayAct, onRun, onAlt, onAsk }: { fc: FollowCase; mayAct: boolean; onRun: () => void; onAlt: () => void; onAsk: () => void }) {
-  return (
-    <section className="rounded-3xl border-2 border-ink/80 bg-white p-4 sm:p-5">
-      {fc.open && fc.reasons.length > 0 && (
-        <div className="mb-3">
-          <p className="text-[13.5px] font-semibold text-ink-muted">ต้องติดตามตอนนี้ เพราะ</p>
-          <ul className="mt-1 space-y-0.5 text-[14.5px] text-ink">
-            {fc.reasons.slice(0, 4).map((r) => (
-              <li key={r}>• {r}</li>
-            ))}
-          </ul>
-        </div>
-      )}
-      <p className="text-[13px] font-semibold text-ink-muted">สิ่งที่ต้องทำต่อ</p>
-      <p className="mt-0.5 text-[20px] font-bold leading-snug text-ink">{fc.next.th}</p>
-      <p className="mt-1 text-[14.5px] leading-snug text-ink-muted">เหตุผล: {fc.next.whyTh}</p>
-      {mayAct && (
-        <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:flex-wrap">
-          <button type="button" onClick={onRun} className="rounded-xl bg-brand-500 px-5 py-3.5 text-[15.5px] font-semibold text-white shadow-card">
-            {fc.next.cta}
-          </button>
-          <button type="button" onClick={onAlt} className="rounded-xl border border-surface-border bg-white px-4 py-3 text-[14.5px] font-medium text-ink">
-            ดูทางเลือกอื่น
-          </button>
-          <button type="button" onClick={onAsk} className="rounded-xl border border-surface-border bg-white px-4 py-3 text-[14.5px] font-medium text-ink">
-            ถาม AI
-          </button>
-        </div>
-      )}
-    </section>
-  )
-}
-
 /** 5–6, 16–17. แนวทางที่ AI เสนอ — ภาษาเสนอ ไม่สั่ง · บอกว่าใช้ข้อมูลอะไร · ครูเลือก */
 function AiOptions({
   fc,
@@ -667,6 +689,8 @@ function AiOptions({
   const [adjust, setAdjust] = useState<string | null>(null)
   const [draft, setDraft] = useState('')
   const [dismissing, setDismissing] = useState<string | null>(null)
+  const [open, setOpen] = useState<string | null>(null)
+  const [showBasis, setShowBasis] = useState(false)
   useEffect(() => {
     const id = window.setTimeout(() => setThinking(false), 500)
     return () => window.clearTimeout(id)
@@ -674,8 +698,10 @@ function AiOptions({
   const { options, alternative, basis } = useMemo(() => careOptions(fc, obs, entries), [fc, obs, entries])
   // ทางที่ครูปฏิเสธแล้วไม่เสนอซ้ำ — อ่านจากบันทึก จึงคงอยู่หลังรีโหลด
   const declined = new Set(entries.filter((e) => e.choice?.startsWith('dismiss:')).map((e) => e.choice!.slice(8)))
-  const chosen = new Set(entries.filter((e) => /^(pick|adjust):/.test(e.choice ?? '')).map((e) => e.choice!.split(':')[1]))
-  const live = options.filter((o) => !declined.has(o.key))
+  const chosen = new Set(entries.filter((e) => /^adjust:/.test(e.choice ?? '')).map((e) => e.choice!.split(':')[1]))
+  // ไม่ซ้ำกับ "สิ่งที่ต้องทำต่อ" ที่อยู่ด้านบนแล้ว — ที่นี่คือทางเลือก *อื่น*
+  const sameAsNext = (o: CareOption) => JSON.stringify(o.go) === JSON.stringify(fc.next.go)
+  const live = options.filter((o) => !declined.has(o.key) && !sameAsNext(o))
   const shown = all ? live : live.slice(0, 3)
   const add = (note: string, choice: string) => log.add({ childId: fc.s.id, by, date: isoIn(0), mode: 'note', note, choice })
 
@@ -687,126 +713,138 @@ function AiOptions({
     <section id="ai-options" className="scroll-mt-4 rounded-3xl border border-surface-border bg-white p-4 sm:p-5">
       <div className="flex items-center gap-2.5">
         <img src={MASCOT} alt="" className="h-9 w-9 rounded-xl bg-surface-muted object-contain p-0.5" draggable={false} />
-        <div>
+        <div className="min-w-0">
           <h2 className="text-[16px] font-bold text-ink">แนวทางที่อาจช่วยได้</h2>
-          <p className="text-[13px] text-ink-muted">AI เสนอทางเลือก — ครูเป็นผู้ตัดสินใจ</p>
+          <p className="text-[13px] text-ink-muted">AI เสนอจากข้อมูลของ{fc.s.name.split(' ')[0]} — ครูเป็นผู้เลือก</p>
         </div>
       </div>
 
       {thinking ? (
         <div className="mt-3 space-y-2" role="status">
           <p className="text-[13.5px] text-ink-muted">AI กำลังคิดทางเลือกจากข้อมูลล่าสุด…</p>
-          <Skeleton className="h-20 w-full rounded-2xl" />
-          <Skeleton className="h-20 w-full rounded-2xl" />
+          <Skeleton className="h-14 w-full rounded-2xl" />
+          <Skeleton className="h-14 w-full rounded-2xl" />
         </div>
       ) : (
         <>
-          {alternative && (
-            <p className="mt-3 rounded-xl border border-surface-border px-3.5 py-2.5 text-[14px] font-medium text-ink">
-              แนวทางเดิมยังไม่ได้ผล — ติดต่อผู้ปกครองไม่สำเร็จแล้ว จึงลองเสนอทางอื่นที่ครูอาจยังไม่ได้ลอง
-            </p>
-          )}
-          {live.length > 0 && <p className="mt-3 text-[14.5px] text-ink">
-            จากข้อมูลล่าสุด อาจพิจารณา {Math.min(3, live.length)} แนวทาง{live.length > 3 && !all ? ` (มีอีก ${live.length - 3})` : ''}:
-          </p>}
-          <ol className="mt-2 space-y-2.5">
-            {shown.map((o, i) => (
-              <li key={o.key} className="rounded-2xl border border-surface-border p-3.5">
-                <p className="text-[15.5px] font-bold text-ink">
-                  {i + 1}. {o.th}
-                  {chosen.has(o.key) && <span className="ml-2 text-[12.5px] font-semibold text-ink-muted">✓ ครูเลือกแล้ว</span>}
-                </p>
-                <p className="mt-1 text-[14px] text-ink">
-                  <span className="text-ink-muted">เพราะ</span> {o.why}
-                </p>
-                <dl className="mt-1.5 grid gap-1 text-[13.5px] sm:grid-cols-2">
-                  <div>
-                    <dt className="inline font-semibold text-ink">ข้อดี: </dt>
-                    <dd className="inline text-ink">{o.pros}</dd>
-                  </div>
-                  <div>
-                    <dt className="inline font-semibold text-ink">ข้อควรพิจารณา: </dt>
-                    <dd className="inline text-ink">{o.cons}</dd>
-                  </div>
-                </dl>
-                {adjust === o.key ? (
-                  <div className="mt-2.5">
-                    <textarea value={draft} onChange={(e) => setDraft(e.target.value)} rows={2} className={textareaCls} aria-label="ปรับแนวทาง" />
-                    <div className="mt-2 flex gap-2">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          add(`ครูเลือกแนวทาง (ปรับเอง): ${draft.trim() || o.th}`, `adjust:${o.key}`)
-                          setAdjust(null)
-                          run(o.go)
-                        }}
-                        className="rounded-xl bg-brand-500 px-4 py-2.5 text-[14px] font-semibold text-white"
-                      >
-                        ใช้แนวทางที่ปรับแล้ว
+          {alternative && <p className="mt-3 text-[14px] font-semibold text-ink">ติดต่อผู้ปกครองทางเดิมยังไม่สำเร็จ — ลองทางอื่นที่ยังไม่ได้ลอง</p>}
+          {/* แถวละหนึ่งทาง: ชื่อ · เหตุผลบรรทัดเดียว · ปุ่มเดียว — รายละเอียดกดดูเมื่ออยากรู้ */}
+          {live.length > 0 && (
+            <ul className="mt-3 divide-y divide-surface-border rounded-2xl border border-surface-border">
+              {shown.map((o, idx) => {
+                const isOpen = open === o.key
+                return (
+                  <li key={o.key} className="px-3.5 py-3">
+                    <div className="flex items-start gap-3">
+                      <span className="mt-0.5 grid h-6 w-6 shrink-0 place-items-center rounded-full bg-surface-muted text-[13px] font-bold text-ink">{idx + 1}</span>
+                      <button type="button" onClick={() => setOpen(isOpen ? null : o.key)} aria-expanded={isOpen} className="min-w-0 flex-1 text-left">
+                        <p className="text-[15px] font-bold leading-snug text-ink">
+                          {o.th}
+                          {chosen.has(o.key) && <span className="ml-1.5 text-[12.5px] font-semibold text-ink-muted">· ครูปรับแล้ว</span>}
+                        </p>
+                        <p className="mt-0.5 text-[13.5px] leading-snug text-ink-muted">
+                          {o.why} <span className="font-semibold text-brand-700">{isOpen ? 'ย่อ' : 'รายละเอียด'}</span>
+                        </p>
                       </button>
-                      <button type="button" onClick={() => setAdjust(null)} className="rounded-xl border border-surface-border px-4 py-2.5 text-[14px] text-ink">
-                        ยกเลิก
-                      </button>
-                    </div>
-                  </div>
-                ) : dismissing === o.key ? (
-                  <div className="mt-2.5">
-                    <p className="text-[13.5px] text-ink-muted">ไม่ใช้เพราะ</p>
-                    <div className="mt-1.5 flex flex-wrap gap-2">
-                      {['ทำไปแล้ว', 'ไม่เหมาะกับครอบครัวนี้', 'ยังไม่ถึงเวลา', 'ครูมีวิธีอื่น'].map((r) => (
-                        <button
-                          key={r}
-                          type="button"
-                          onClick={() => {
-                            add(`ไม่ใช้คำแนะนำ "${o.th}" — ${r}`, `dismiss:${o.key}`)
-                            setDismissing(null)
-                            push('รับทราบ — จะไม่เสนอแนวทางนี้ซ้ำ')
-                          }}
-                          className="rounded-full border border-surface-border bg-white px-3.5 py-2 text-[13.5px] text-ink"
-                        >
-                          {r}
+                      {mayAct && (
+                        <button type="button" onClick={() => choose(o)} className="shrink-0 rounded-xl bg-brand-500 px-3.5 py-2 text-[14px] font-semibold text-white">
+                          ใช้แนวทางนี้
                         </button>
-                      ))}
+                      )}
                     </div>
-                  </div>
-                ) : (
-                  mayAct && (
-                    <div className="mt-2.5 flex flex-wrap gap-2">
-                      <button type="button" onClick={() => choose(o)} className="rounded-xl bg-brand-500 px-4 py-2.5 text-[14px] font-semibold text-white">
-                        เลือกแนวทางนี้
-                      </button>
-                      <button type="button" onClick={() => { setAdjust(o.key); setDraft(o.th) }} className="rounded-xl border border-surface-border bg-white px-4 py-2.5 text-[14px] font-medium text-ink">
-                        ปรับแนวทาง
-                      </button>
-                      <button type="button" onClick={() => setDismissing(o.key)} className="rounded-xl px-3 py-2.5 text-[14px] font-medium text-ink-muted underline-offset-2 hover:underline">
-                        ไม่ใช้คำแนะนำ
-                      </button>
-                    </div>
-                  )
-                )}
-              </li>
-            ))}
-          </ol>
-          {live.length > 3 && (
-            <button type="button" onClick={() => setAll((v) => !v)} className="mt-2 text-[14px] font-semibold text-brand-700 underline">
-              {all ? 'ย่อ' : `ดูทางเลือกอื่นอีก ${live.length - 3} ทาง`}
-            </button>
+                    {isOpen && (
+                      <div className="ml-9 mt-2 space-y-1 text-[14px] text-ink">
+                        <p>
+                          <span className="font-semibold">ข้อดี:</span> {o.pros}
+                        </p>
+                        <p>
+                          <span className="font-semibold">ข้อควรพิจารณา:</span> {o.cons}
+                        </p>
+                        <p className="text-[13px] text-ink-muted">จากข้อมูล: {o.basis.join(' · ')}</p>
+                        {adjust === o.key ? (
+                          <div className="pt-1">
+                            <textarea value={draft} onChange={(e) => setDraft(e.target.value)} rows={2} className={textareaCls} aria-label="ปรับแนวทาง" />
+                            <div className="mt-2 flex gap-2">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  add(`ครูปรับแนวทาง: ${draft.trim() || o.th}`, `adjust:${o.key}`)
+                                  setAdjust(null)
+                                  run(o.go)
+                                }}
+                                className="rounded-xl bg-brand-500 px-4 py-2 text-[14px] font-semibold text-white"
+                              >
+                                ใช้แนวทางที่ปรับ
+                              </button>
+                              <button type="button" onClick={() => setAdjust(null)} className="rounded-xl border border-surface-border px-4 py-2 text-[14px] text-ink">
+                                ยกเลิก
+                              </button>
+                            </div>
+                          </div>
+                        ) : dismissing === o.key ? (
+                          <div className="flex flex-wrap gap-2 pt-1">
+                            <span className="self-center text-[13.5px] text-ink-muted">ไม่ใช้เพราะ</span>
+                            {['ทำไปแล้ว', 'ไม่เหมาะกับครอบครัวนี้', 'ยังไม่ถึงเวลา', 'ครูมีวิธีอื่น'].map((r) => (
+                              <button
+                                key={r}
+                                type="button"
+                                onClick={() => {
+                                  add(`ไม่ใช้คำแนะนำ "${o.th}" — ${r}`, `dismiss:${o.key}`)
+                                  setDismissing(null)
+                                  push('รับทราบ — จะไม่เสนอแนวทางนี้ซ้ำ')
+                                }}
+                                className="rounded-full border border-surface-border bg-white px-3 py-1.5 text-[13.5px] text-ink"
+                              >
+                                {r}
+                              </button>
+                            ))}
+                          </div>
+                        ) : (
+                          mayAct && (
+                            <div className="flex gap-4 pt-1 text-[14px] font-semibold">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setAdjust(o.key)
+                                  setDraft(o.th)
+                                }}
+                                className="text-brand-700 underline-offset-2 hover:underline"
+                              >
+                                ปรับแนวทาง
+                              </button>
+                              <button type="button" onClick={() => setDismissing(o.key)} className="text-ink-muted underline-offset-2 hover:underline">
+                                ไม่ใช้คำแนะนำนี้
+                              </button>
+                            </div>
+                          )
+                        )}
+                      </div>
+                    )}
+                  </li>
+                )
+              })}
+            </ul>
           )}
           {!live.length && (
             <p className="mt-2 text-[14px] text-ink-muted">
               {fc.open ? 'ไม่มีข้อเสนอเพิ่ม — ครูปฏิเสธทุกแนวทางแล้ว หรือเคสนี้อยู่ในกำหนด' : 'เคสปิดแล้ว — AI จะเสนอแนวทางอีกครั้งถ้าความเสี่ยงกลับมา'}
             </p>
           )}
-          {basis.length > 0 && (
-            <div className="mt-3 rounded-xl bg-surface-muted/60 px-3.5 py-2.5">
-              <p className="text-[13px] font-semibold text-ink-muted">AI แนะนำจากข้อมูลเหล่านี้</p>
-              <ul className="mt-1 flex flex-wrap gap-x-4 gap-y-0.5 text-[13.5px] text-ink">
-                {basis.map((b) => (
-                  <li key={b}>• {b}</li>
-                ))}
-              </ul>
-            </div>
-          )}
+          <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
+            {live.length > 3 ? (
+              <button type="button" onClick={() => setAll((v) => !v)} className="text-[14px] font-semibold text-brand-700">
+                {all ? 'ย่อ' : `ดูทางเลือกอื่นอีก ${live.length - 3} ทาง`}
+              </button>
+            ) : (
+              <span />
+            )}
+            {basis.length > 0 && (
+              <button type="button" onClick={() => setShowBasis((v) => !v)} className="text-[13.5px] font-medium text-ink-muted underline-offset-2 hover:underline">
+                {showBasis ? 'ซ่อน' : 'AI ใช้ข้อมูลอะไร?'}
+              </button>
+            )}
+          </div>
+          {showBasis && <p className="mt-1 text-[13.5px] text-ink">{basis.join(' · ')}</p>}
         </>
       )}
     </section>

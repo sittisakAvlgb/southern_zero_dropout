@@ -158,17 +158,57 @@ export function careOptions(fc: FollowCase, obs: Observation[], entries: CaseLog
       score: (s.riskLevel === 'high' || s.riskLevel === 'critical' ? 80 : 50) + (alternative ? 10 : 0),
     })
   const moody = /ไม่พูด|เงียบ|เครียด|ซึม|ร้องไห้|ไม่คุย/.test(text)
-  if (s.absenceStreak >= 2 || s.wellbeingRisk >= 55 || moody)
+  // นัดครูแนะแนวเฉพาะเมื่อมีสัญญาณจริง — เดิมขึ้นเมื่อขาด 2 วัน เด็กเกือบทุกคนจึงได้ข้อนี้
+  // เหมือนกันหมด จนครูรู้สึกว่า AI ตอบแบบสำเร็จรูป
+  if (moody || s.wellbeingRisk >= 60 || s.behaviorRisk >= 60 || s.causeKeys.includes('family') || (s.absenceStreak >= 5 && s.parentContact === 'ok'))
     opts.push({
       key: 'counsel',
       th: 'นัดครูแนะแนวพูดคุยกับนักเรียน',
-      why: moody ? 'ครูสังเกตว่าเด็กเปลี่ยนไป' : s.absenceStreak >= 2 ? 'ขาดเรียนต่อเนื่อง — ควรฟังจากตัวเด็กว่าเกิดอะไรขึ้น' : 'มีสัญญาณด้านสุขภาวะ',
+      why: moody
+        ? 'ครูสังเกตว่าเด็กเปลี่ยนไป'
+        : s.wellbeingRisk >= 60
+          ? `มีสัญญาณด้านสุขภาวะ/อารมณ์ (${s.wellbeingRisk}/100)`
+          : s.causeKeys.includes('family')
+            ? 'มีปัญหาในครอบครัว — เด็กอาจเล่ากับครูได้ง่ายกว่าเล่าต่อหน้าผู้ปกครอง'
+            : `ขาด ${s.absenceStreak} วันทั้งที่ติดต่อครอบครัวได้ — สาเหตุอาจอยู่ที่ตัวเด็ก`,
       pros: 'เด็กได้เล่าเรื่องที่บ้านเอง ครูได้ข้อมูลตรง',
       cons: 'ต้องหาเวลาที่เด็กมาโรงเรียน และพื้นที่ที่เป็นส่วนตัว',
       basis: B(absent, s.wellbeingRisk >= 55 ? `สุขภาวะ ${s.wellbeingRisk}/100` : '', noteSays(/ไม่พูด|เงียบ|เครียด|ซึม|ร้องไห้|ไม่คุย/, 'เด็กเปลี่ยนไป')),
       go: { sheet: 'schedule', method: 'คุยกับนักเรียน' },
-      score: moody ? 88 : 70,
+      score: moody ? 88 : 66,
     })
+
+  // ── ทางเลือกตามสาเหตุของเด็กคนนี้ (รหัสสาเหตุ สพฐ.) — ทำให้แต่ละเคสได้คำแนะนำไม่เหมือนกัน
+  const has = (k: Student['causeKeys'][number]) => s.causeKeys.includes(k)
+  const gpa = s.grades[s.grades.length - 1]?.gpa
+  const cause = (o: Omit<CareOption, 'basis'> & { basis: string[]; score: number }) => opts.push(o)
+  if (has('grades') || has('failing') || has('noExam') || (gpa !== undefined && gpa < 1.5))
+    cause({
+      key: 'tutor',
+      th: has('noExam') ? 'คุยกับครูประจำวิชาให้สอบ/ส่งงานย้อนหลังได้' : 'ขอครูประจำวิชาสอนเสริมและปรับงานที่ค้าง',
+      why: gpa !== undefined ? `เกรดเฉลี่ยภาคล่าสุด ${gpa.toFixed(2)} — ถ้าตามไม่ทัน เด็กจะยิ่งไม่อยากมา` : 'ผลการเรียนเป็นสาเหตุหนึ่งของเด็กคนนี้',
+      pros: 'ทำได้ในโรงเรียนทันที ไม่ต้องรอหน่วยงานอื่น',
+      cons: 'ต้องขอความร่วมมือครูหลายวิชา',
+      basis: [gpa !== undefined ? `GPA ${gpa.toFixed(2)}` : 'สาเหตุ: ผลการเรียน'],
+      go: { sheet: 'schedule', method: 'ประชุมทีม' },
+      score: 72,
+    })
+  if (has('noDevice'))
+    cause({ key: 'device', th: 'ยืมอุปกรณ์การเรียนจากโรงเรียน / ขอทุนอุปกรณ์', why: 'ไม่มีอุปกรณ์สำหรับเรียนที่บ้าน', pros: 'แก้ได้เร็ว ใช้ของที่โรงเรียนมี', cons: 'ต้องมีระบบยืม-คืน', basis: ['สาเหตุ: ไม่มีอุปกรณ์'], go: { sheet: 'schedule', method: 'คุยกับนักเรียน' }, score: 70 })
+  if (has('earlyMarriage'))
+    cause({ key: 'flex', th: 'คุยกับครอบครัวเรื่องเรียนต่อแบบยืดหยุ่น (กศน. / เรียนทางไกล)', why: 'มีภาระครอบครัวจากการแต่งงาน — การเรียนเต็มเวลาอาจไม่ไหว', pros: 'เด็กไม่หลุดจากระบบแม้มาเรียนทุกวันไม่ได้', cons: 'ต้องคุยอย่างระมัดระวังเรื่องวัฒนธรรมและศาสนา', basis: ['สาเหตุ: แต่งงานก่อนวัยอันควร'], go: { sheet: 'schedule', method: 'เยี่ยมบ้าน' }, score: 80 })
+  if (has('childLabour'))
+    cause({ key: 'labour', th: 'ปรับเวลาเรียนให้เข้ากับงานที่ช่วยครอบครัว + หาทุนลดภาระ', why: 'เด็กต้องทำงานช่วยครอบครัว', pros: 'แก้ที่เหตุ ไม่บังคับให้เลือกระหว่างงานกับเรียน', cons: 'ต้องคุยกับครอบครัวเรื่องรายได้ที่หายไป', basis: ['สาเหตุ: ทำงานช่วยครอบครัว', `รายได้ครอบครัว ${s.master.parentSalary.toLocaleString('th-TH')} บาท`], go: { sheet: 'schedule', method: 'เยี่ยมบ้าน' }, score: 78 })
+  if (has('dualSchooling'))
+    cause({ key: 'dual', th: 'ประสานครูตาดีกา/ปอเนาะ ปรับตารางเรียนสามัญ-ศาสนาให้ไม่ชนกัน', why: 'เรียนควบสองระบบจนภาระเกิน', pros: 'เด็กไม่ต้องเลือกทิ้งอย่างใดอย่างหนึ่ง', cons: 'ต้องได้ความร่วมมือจากผู้นำศาสนา', basis: ['สาเหตุ: เรียนควบสามัญ-ศาสนา'], go: { sheet: 'schedule', method: 'ประสานผู้นำชุมชน' }, score: 74 })
+  if (has('unrestAffected'))
+    cause({ key: 'trauma', th: 'ส่งต่อนักจิตวิทยา / ศูนย์เยียวยาผู้ได้รับผลกระทบ', why: 'ได้รับผลกระทบจากเหตุการณ์ความไม่สงบ', pros: 'ได้ผู้เชี่ยวชาญดูแลจิตใจ', cons: 'ต้องได้ความยินยอมผู้ปกครอง (PDPA)', basis: ['สาเหตุ: ได้รับผลกระทบจากความไม่สงบ', `สุขภาวะ ${s.wellbeingRisk}/100`], go: { href: `/referral?child=${s.id}` }, score: 82 })
+  if (has('noDocuments') || has('stateless'))
+    cause({ key: 'docs', th: 'พาไปทำเอกสารสถานะบุคคลกับอำเภอ', why: has('stateless') ? 'ไม่มีสถานะทางทะเบียน — สิทธิ์เรียนต่อและทุนติดเรื่องนี้' : 'ไม่มีเอกสารแสดงตน', pros: 'ปลดล็อกสิทธิ์ทุนและการเรียนต่อทั้งหมด', cons: 'ใช้เวลานาน ต้องมีพยานบุคคล', basis: [has('stateless') ? 'สาเหตุ: ไร้สถานะ' : 'สาเหตุ: ไม่มีเอกสาร'], go: { href: `/referral?child=${s.id}` }, score: 76 })
+  if (has('migration'))
+    cause({ key: 'migrant', th: 'ติดต่อพ่อแม่ที่ย้ายไปทำงานผ่านญาติหรือ LINE', why: `ผู้ปกครองย้ายถิ่น — เด็กอยู่กับ${s.master.parentRelationName}`, pros: 'พ่อแม่ยังมีบทบาทตัดสินใจเรื่องเรียน', cons: 'ต้องขอช่องทางติดต่อจากผู้ดูแลก่อน', basis: ['สาเหตุ: ผู้ปกครองย้ายถิ่น', `ผู้ดูแล: ${s.master.parentRelationName}`], go: { sheet: 'outcome', mode: 'contact' }, score: 68 })
+  if (has('transition'))
+    cause({ key: 'transition', th: 'ให้ครูประจำชั้นใหม่และเพื่อนพี่เลี้ยงดูแลช่วงเปลี่ยนชั้น', why: 'อยู่ช่วงเปลี่ยนผ่านชั้นเรียน ซึ่งเด็กหลุดบ่อยที่สุด', pros: 'เด็กมีคนรู้จักที่โรงเรียนใหม่/ชั้นใหม่', cons: 'ต้องประสานก่อนเปิดเทอม', basis: ['สาเหตุ: ช่วงเปลี่ยนผ่านชั้นเรียน'], go: { sheet: 'schedule', method: 'คุยกับนักเรียน' }, score: 64 })
   const travel = /ค่าเดินทาง|ค่ารถ|ไม่มีรถ|เดินทาง/.test(text) || s.causeKeys.includes('travel')
   if (travel)
     opts.push({

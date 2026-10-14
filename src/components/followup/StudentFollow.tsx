@@ -24,6 +24,7 @@ export function StudentNextStep({
   onLogVisit,
   onSheet,
   onExport,
+  exportLabel = 'ส่งออกประวัติเด็ก',
 }: {
   fc: FollowCase
   mayAct: boolean
@@ -34,6 +35,7 @@ export function StudentNextStep({
   onLogVisit: () => void
   onSheet: (s: Sheet) => void
   onExport: () => void
+  exportLabel?: string
 }) {
   const nav = useNavigate()
   const n = fc.next
@@ -83,7 +85,7 @@ export function StudentNextStep({
           </>
         )}
         <button type="button" onClick={onExport} className="rounded-xl border border-surface-border bg-white px-4 py-2.5 text-[14px] font-medium text-ink">
-          ส่งออกประวัติเด็ก
+          {exportLabel}
         </button>
       </div>
     </div>
