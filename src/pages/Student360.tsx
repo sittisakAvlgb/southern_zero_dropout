@@ -311,6 +311,31 @@ export default function Student360() {
     )
   }, [myEntries, base])
 
+  /** One line of the timeline as words — shared by the timeline tab and the
+   *  "recent" block in the header, so the two can never describe an event
+   *  differently.
+   *
+   *  A phone call tagged with the case's *current* stage read as if the call
+   *  were a referral, so the teacher's own contact entries are labelled by
+   *  what actually happened. */
+  const rowText = (row: (typeof timelineRows)[number]) => {
+    const chip =
+      row.kind === 'mine' && row.entry.mode === 'contact' && row.entry.channel
+        ? t(`st.ch.${row.entry.channel}`)
+        : t(
+            `stage.${
+              row.kind === 'mine'
+                ? row.entry.mode === 'visit'
+                  ? 'homeVisit'
+                  : selected?.caseStage
+                : row.ev.stageKey
+            }`,
+          )
+    const note = row.kind === 'mine' ? row.entry.note : row.ev.note
+    const by = row.kind === 'mine' ? row.entry.by : row.ev.by
+    return { chip, note, by }
+  }
+
   const selectStudent = (id: string) => {
     const next = new URLSearchParams(params)
     next.set('id', id)
@@ -588,6 +613,26 @@ export default function Student360() {
                   does not mean opening a second tab */}
               <WhyScore s={selected} th={th} />
 
+              {/* what has already been done — the last two events, so the
+                  teacher need not open the timeline to know where this stands */}
+              <RecentHistory
+                th={th}
+                total={timelineRows.length}
+                items={timelineRows.slice(0, 2).map((row) => ({
+                  key: row.key,
+                  date: row.date,
+                  mine: row.kind === 'mine',
+                  ...rowText(row),
+                }))}
+                yours={t('st.yours')}
+                onOpen={() => {
+                  setTab('timeline')
+                  document
+                    .getElementById('st-tabs')
+                    ?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+                }}
+              />
+
               {/* next action — the one line this page exists for */}
               <div className="flex flex-wrap items-center justify-between gap-3 border-t border-surface-border bg-brand-50/50 px-5 py-3">
                 <p className="flex min-w-0 items-center gap-2 text-[13px]">
@@ -674,7 +719,10 @@ export default function Student360() {
             </Card>
 
             {/* tabs — a 360 view without a wall of cards */}
-            <div className="flex flex-wrap gap-1 rounded-xl border border-surface-border bg-surface-muted p-1">
+            <div
+              id="st-tabs"
+              className="flex scroll-mt-20 flex-wrap gap-1 rounded-xl border border-surface-border bg-surface-muted p-1"
+            >
               {(
                 [
                   ['overview', t('st.tabOverview')],
@@ -1128,23 +1176,7 @@ export default function Student360() {
                   <div className="p-5">
                     <ol className="relative ml-2 border-l-2 border-surface-border">
                       {timelineRows.map((row, i) => {
-                        // A phone call tagged with the case's *current* stage
-                        // read as if the call were a referral. Own contact
-                        // entries are labelled by what actually happened.
-                        const chip =
-                          row.kind === 'mine' && row.entry.mode === 'contact' && row.entry.channel
-                            ? t(`st.ch.${row.entry.channel}`)
-                            : t(
-                                `stage.${
-                                  row.kind === 'mine'
-                                    ? row.entry.mode === 'visit'
-                                      ? 'homeVisit'
-                                      : selected.caseStage
-                                    : row.ev.stageKey
-                                }`,
-                              )
-                        const note = row.kind === 'mine' ? row.entry.note : row.ev.note
-                        const by = row.kind === 'mine' ? row.entry.by : row.ev.by
+                        const { chip, note, by } = rowText(row)
                         return (
                           <motion.li
                             key={row.key}
@@ -2248,6 +2280,94 @@ function TrendUnderGauge({ s, th }: { s: Student; th: boolean }) {
         {unit} → {tr.last}
         {unit} · {tr.series.length} {th ? 'สัปดาห์' : 'weeks'}
       </p>
+    </div>
+  )
+}
+
+interface RecentItem {
+  key: string
+  date: string
+  chip: string
+  note: string
+  by: string
+  /** logged by this teacher rather than seeded */
+  mine: boolean
+}
+
+/** The last two things done for this child, in the header. History was the one
+ *  of Risk / Why / History / Next action that still sat behind a tab. On a
+ *  phone only the latest shows, so the next-action bar stays within reach. */
+function RecentHistory({
+  th,
+  total,
+  items,
+  yours,
+  onOpen,
+}: {
+  th: boolean
+  total: number
+  items: RecentItem[]
+  yours: string
+  onOpen: () => void
+}) {
+  return (
+    <div className="border-t border-surface-border px-5 py-4">
+      <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+        <p className="text-[15px] font-semibold text-ink">
+          {th ? 'ที่ผ่านมา' : 'So far'}
+          <span className="ml-2 text-[13px] font-normal text-ink-muted">
+            {th ? 'ช่วยอะไรไปแล้ว' : 'what has been done'}
+          </span>
+        </p>
+        {total > 0 && (
+          <button
+            type="button"
+            onClick={onOpen}
+            className="inline-flex items-center gap-1 text-[13px] font-semibold text-brand-600"
+          >
+            {th ? `ดูไทม์ไลน์ทั้งหมด (${total})` : `Full timeline (${total})`}
+            <IconArrowRight width={13} height={13} />
+          </button>
+        )}
+      </div>
+
+      {items.length === 0 ? (
+        <p className="mt-2 text-[14px] text-ink-muted">
+          {th
+            ? 'ยังไม่มีการช่วยเหลือที่บันทึกไว้ — เริ่มจากบันทึกการติดต่อผู้ปกครองด้านล่าง'
+            : 'Nothing logged yet — start by logging a parent contact below'}
+        </p>
+      ) : (
+        <ul className="mt-2 divide-y divide-surface-border">
+          {items.map((it, i) => (
+            <li key={it.key} className={`gap-3 py-2.5 ${i === 0 ? 'flex' : 'hidden sm:flex'}`}>
+              <span
+                className={`mt-2 h-2.5 w-2.5 shrink-0 rounded-full ${
+                  i === 0 ? 'bg-brand-500' : 'bg-slate-300'
+                }`}
+              />
+              <div className="min-w-0 flex-1">
+                <p className="flex flex-wrap items-center gap-2">
+                  <span className="rounded-full bg-brand-50 px-2 py-0.5 text-[12px] font-semibold text-brand-700">
+                    {it.chip}
+                  </span>
+                  <span className="text-[13px] text-ink-muted">{it.date}</span>
+                  {it.mine && (
+                    <span className="rounded-full bg-risk-normal/10 px-2 py-0.5 text-[12px] font-semibold text-risk-normal">
+                      {yours}
+                    </span>
+                  )}
+                </p>
+                <p className="mt-0.5 text-[14px] text-ink">{it.note}</p>
+                <p className="text-[12px] text-ink-muted">
+                  {th ? 'โดย ' : 'by '}
+                  {it.by}
+                </p>
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   )
 }
