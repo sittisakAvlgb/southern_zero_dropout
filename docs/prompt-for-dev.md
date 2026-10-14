@@ -2,12 +2,31 @@
 
 ไฟล์นี้มี prompt สำเร็จรูป 3 แบบ — **คัดลอกทั้งบล็อกไปวางเป็นข้อความแรก**
 
+## 🔀 ใครทำอะไร — อ่านก่อน จะได้ไม่แก้ทับกัน
+
+ตอนนี้มีสองคนทำพร้อมกัน แบ่งไฟล์กันไว้แล้วเพื่อไม่ให้ merge ชนกัน
+
+| | เจ้าของโปรเจกต์ | **น้องในทีม (คุณ)** |
+|---|---|---|
+| งาน | หน้าครู (ข้อ 1 + 9 ของ brief) | **หน้าข้อมูลเด็กรายบุคคล (ข้อ 2)** |
+| ไฟล์ | `src/components/ai/TeacherWorkspace.tsx`<br>`src/pages/SouthernOverview.tsx` | **`src/pages/Student360.tsx`**<br>**`src/components/ui/RiskGauge.tsx`** |
+| branch | `feat/teacher-home` | **`feat/student-detail`** |
+
+**อย่าแก้ไฟล์ของอีกฝั่ง** ถ้าจำเป็นต้องแก้จริง ๆ บอกก่อน
+
+⚠️ ไฟล์ที่ทั้งสองฝั่งอาจแตะพร้อมกันคือ `src/i18n/sbp.ts` (ตอนเพิ่มข้อความใหม่) —
+**ให้เพิ่มบรรทัดใหม่ต่อท้ายกลุ่มที่เกี่ยวข้อง อย่าจัดเรียงไฟล์ใหม่** ไม่งั้น merge จะชนทั้งไฟล์
+
 ---
 
 ## 1. Prompt เริ่มงานครั้งแรก (ใช้ครั้งเดียว)
 
 ```text
-ฉันเพิ่ง clone โปรเจกต์นี้มาและจะเริ่มทำงานบน branch dev
+ฉันเพิ่ง clone โปรเจกต์นี้มา และจะทำงานบน branch feat/student-detail
+(แตกจาก dev) ช่วยสร้าง branch นี้ให้ด้วยถ้ายังไม่มี:
+git checkout -b feat/student-detail origin/dev
+
+ห้าม commit ลง dev หรือ main โดยตรง
 
 ก่อนทำอะไร ขอให้อ่าน 4 ไฟล์นี้ตามลำดับ แล้วสรุปให้ฉันฟังสั้น ๆ ว่าเข้าใจอะไรบ้าง:
 1. CLAUDE.md
@@ -72,7 +91,8 @@
 ## 3. Prompt ที่ใช้ซ้ำได้ทุกครั้งที่เริ่มงานใหม่
 
 ```text
-อ่าน CLAUDE.md ก่อน แล้วทำงานนี้บน branch dev เท่านั้น ห้าม push เข้า main
+อ่าน CLAUDE.md ก่อน แล้วทำงานนี้บน branch feat/student-detail เท่านั้น
+ห้าม commit ลง dev หรือ main โดยตรง
 
 [เขียนงานที่ต้องการตรงนี้]
 
@@ -108,10 +128,27 @@ npm run build
 ```
 
 ```bash
-git add -A; git commit -m "อธิบายสิ่งที่แก้"; git push origin dev
+git add -A; git commit -m "อธิบายสิ่งที่แก้"; git push -u origin feat/student-detail
 ```
 
-พอชุดงานเสร็จและพร้อมขึ้นเว็บจริง เปิด PR จาก `dev` เข้า `main`:
-https://github.com/sittisakAvlgb/southern_zero_dropout/compare/main...dev
+พอชุดงานเสร็จ เปิด PR จาก `feat/student-detail` **เข้า `dev`** (ไม่ใช่เข้า main):
+https://github.com/sittisakAvlgb/southern_zero_dropout/compare/dev...feat/student-detail
 
-> `main` deploy ขึ้น GitHub Pages อัตโนมัติทุกครั้งที่ merge — งานที่ยังไม่เสร็จจึงต้องอยู่บน `dev` เท่านั้น
+## ลำดับ branch
+
+```
+feat/student-detail  ─┐
+                      ├─→  dev  ─→  main  ─→  deploy ขึ้นเว็บอัตโนมัติ
+feat/teacher-home    ─┘
+```
+
+- `main` = สิ่งที่อยู่บนเว็บจริง **merge เข้าเมื่อไร เว็บเปลี่ยนทันที**
+- `dev` = ที่รวมงานของทั้งสองคน ใช้ตรวจว่างานสองฝั่งอยู่ด้วยกันแล้วไม่พัง
+- `feat/*` = ที่ทำงานจริงของแต่ละคน
+
+**ดึงงานของอีกฝั่งมารวมเป็นระยะ** อย่าปล่อยให้ branch ห่างจาก dev นานเกินไป
+ยิ่งห่างยิ่งแก้ conflict ยาก:
+
+```bash
+git fetch origin; git merge origin/dev
+```
