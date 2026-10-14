@@ -326,7 +326,13 @@ export function overviewStats(user: User | null): OverviewStats {
 
   // school / teacher / agency — roll up from the individual rows they own
   const st = scopedStudents(user)
-  const oos = scopedOosc(user)
+  // Same guard as `scopedPlans()` below, and for the same reason: a teacher has
+  // no `/oosc` in their menu, so the registry is not theirs to count either.
+  // Without this the AI assistant greeted a teacher whose caseload is twelve
+  // children with "เด็กนอกระบบในทะเบียน 117" — the whole district's registry,
+  // hidden by the menu and handed back by the data layer. Access follows the
+  // job (TOR ๔.๕.๕); a summary figure is still the record.
+  const oos = canAccess(user, '/oosc') ? scopedOosc(user) : []
   const count = (pred: (s: Student) => boolean) => st.filter(pred).length
   // A director's headline is their school's enrolment, which the school record
   // holds; the individual student rows are the detailed sample sitting inside

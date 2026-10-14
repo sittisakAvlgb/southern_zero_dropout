@@ -3,8 +3,8 @@ import { useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { useI18n } from '@/i18n/LanguageContext'
 import { useAuth } from '@/auth/AuthContext'
-import { ROLE_META, canAccess } from '@/auth/roles'
-import { overviewStats, scopedCases } from '@/auth/scope'
+import { ROLE_META, canAccess, canWorkCases } from '@/auth/roles'
+import { overviewStats, scopedCases, scopedStudents } from '@/auth/scope'
 import { oosSplit } from '@/lib/oos'
 import { formatNumber } from '@/lib/format'
 import { RISK_COLOR } from '@/lib/risk'
@@ -22,7 +22,22 @@ import { assetUrl } from '@/lib/asset'
 /** the platform's own mascot — public/ChatBot.png, copied from assets/image */
 const MASCOT = assetUrl('ChatBot.png')
 
-const CHIPS = [
+/** คำถามตั้งต้น แยกตามว่าบัญชีนี้ "ทำงานกับเด็กรายคน" หรือ "กำกับดูแลพื้นที่"
+ *
+ *  เดิมมีชุดเดียวใช้กับทุกบทบาท และชุดนั้นเขียนไว้สำหรับผู้บริหาร — "พื้นที่ไหน
+ *  เสี่ยงสูงสุด" · "โรงเรียนไหนต้องตามด่วน" · "สรุปตัวเลขสำหรับรายงาน" ครูที่
+ *  ดูแลเด็กสิบสองคนในโรงเรียนเดียวไม่เคยถามคำถามพวกนี้ และเมื่อครูเป็นผู้ใช้
+ *  หลักของระบบ ช่องถามตอบที่เสนอคำถามของคนอื่นคือช่องที่ครูจะไม่แตะเลย */
+const CASEWORK_CHIPS = [
+  { th: 'วันนี้ต้องตามใครก่อน', en: 'Who should I chase first today' },
+  { th: 'ทำไมเด็กคนนี้ถึงเสี่ยง', en: 'Why is this child at risk' },
+  { th: 'ควรช่วยเด็กคนนี้อย่างไร', en: 'How should I help this child' },
+  { th: 'ใครขาดเรียนต่อเนื่องบ้าง', en: 'Who has been absent repeatedly' },
+  { th: 'เคสไหนยังไม่ได้ลงมือ', en: 'Which cases have had no action' },
+  { th: 'เคสไหนปิดได้แล้ว', en: 'Which cases can be closed' },
+]
+
+const OVERSIGHT_CHIPS = [
   { th: 'พื้นที่ไหนเสี่ยงสูงสุด', en: 'Which areas carry the most risk' },
   { th: 'สาเหตุหลักคืออะไร', en: 'What is driving it' },
   { th: 'เคสเกิน SLA มีกี่เคส', en: 'How many cases are overdue' },
@@ -118,6 +133,12 @@ export function AIChatWidget() {
   const firstAllowed = (...paths: string[]) =>
     paths.find((p) => !user || canAccess(user, p)) ?? '/'
 
+  /** ครูและ ผอ. ทำงานกับเด็กรายคน ที่เหลือกำกับดูแลพื้นที่ — คนละคำถาม
+   *  คนละตัวเลข ใช้ `canWorkCases` ที่มีอยู่แล้วแทนการไล่เช็กชื่อ role
+   *  จะได้ไม่ต้องตามแก้ทุกครั้งที่เพิ่มบทบาทใหม่ */
+  const caseworker = canWorkCases(user) && user?.role !== 'exec'
+  const chips = caseworker ? CASEWORK_CHIPS : OVERSIGHT_CHIPS
+
   /** The opening message carries real numbers, so saying hello is also useful.
    *  Only built while the panel is open — it walks the scoped datasets. */
   const brief = useMemo(() => {
@@ -130,6 +151,57 @@ export function AIChatWidget() {
       outcomeCount: stats.returned,
     })
     const overdue = cases.filter((c) => c.slaBreached).length
+
+    // ครู / ผอ. ทำงานกับเด็กที่ตัวเองรับผิดชอบ ตัวเลขเปิดห้องจึงต้องเป็นเคส
+    // ของเขา ไม่ใช่ทะเบียนเด็กนอกระบบทั้งอำเภอ — นอกจากไม่ใช่งานของเขาแล้ว
+    // ครูยังไม่มี /oosc ในเมนูด้วย การสรุปตัวเลขนั้นให้ดูจึงเป็นการคืนสิ่งที่
+    // เมนูตั้งใจปิดไว้
+    if (caseworker) {
+      const mine = scopedStudents(user)
+      const high = mine.filter((s) => s.riskLevel === 'high' || s.riskLevel === 'critical').length
+      const noContact = mine.filter((s) => s.parentContact !== 'ok').length
+      const notVisited = mine.filter(
+        (s) => (s.riskLevel === 'high' || s.riskLevel === 'critical') && !s.homeVisited,
+      ).length
+      return [
+        {
+          key: 'mine',
+          label: th ? 'เด็กที่คุณรับผิดชอบ' : 'Children in your care',
+          value: mine.length,
+          tone: undefined as string | undefined,
+          to: firstAllowed('/student', '/'),
+        },
+        {
+          key: 'overdue',
+          label: th ? 'เคสเลยกำหนดติดตาม' : 'Past their follow-up date',
+          value: overdue,
+          tone: overdue > 0 ? RISK_COLOR.critical : RISK_COLOR.normal,
+          to: firstAllowed('/intervention', '/student', '/'),
+        },
+        {
+          key: 'high',
+          label: th ? 'เสี่ยงสูงและวิกฤต' : 'High and critical risk',
+          value: high,
+          tone: high > 0 ? RISK_COLOR.high : RISK_COLOR.normal,
+          to: firstAllowed('/student', '/'),
+        },
+        {
+          key: 'contact',
+          label: th ? 'ยังติดต่อผู้ปกครองไม่ได้' : 'Guardians not yet reached',
+          value: noContact,
+          tone: noContact > 0 ? RISK_COLOR.high : RISK_COLOR.normal,
+          to: firstAllowed('/student', '/'),
+        },
+        {
+          key: 'visit',
+          label: th ? 'เสี่ยงสูงแต่ยังไม่ได้เยี่ยมบ้าน' : 'At risk, not yet visited',
+          value: notVisited,
+          tone: notVisited > 0 ? RISK_COLOR.watch : RISK_COLOR.normal,
+          to: firstAllowed('/student', '/'),
+        },
+      ]
+    }
+
     return [
       {
         key: 'oos',
@@ -160,7 +232,7 @@ export function AIChatWidget() {
         to: firstAllowed('/intervention', '/referral', '/'),
       },
     ]
-  }, [open, user, th])
+  }, [open, user, th, caseworker])
 
   const goTo = (to: string) => {
     nav(user && !canAccess(user, to) ? '/' : to)
@@ -358,9 +430,13 @@ export function AIChatWidget() {
               </motion.span>
               <div className="min-w-0 max-w-[86%] rounded-2xl rounded-tl-md border border-surface-border bg-white p-2.5">
                 <p className="text-[13px] leading-relaxed text-ink">
-                  {th
-                    ? 'สวัสดีครับ นี่คือสถานะพื้นที่ของคุณตอนนี้ — กดบรรทัดไหนก็เข้าไปทำงานต่อได้เลย'
-                    : 'Here is where your area stands right now — tap any line to go and work on it.'}
+                  {caseworker
+                    ? th
+                      ? 'สวัสดีครับ นี่คือเคสของคุณตอนนี้ — กดบรรทัดไหนก็เข้าไปทำงานต่อได้เลย'
+                      : 'Here is where your caseload stands right now — tap any line to go and work on it.'
+                    : th
+                      ? 'สวัสดีครับ นี่คือสถานะพื้นที่ของคุณตอนนี้ — กดบรรทัดไหนก็เข้าไปทำงานต่อได้เลย'
+                      : 'Here is where your area stands right now — tap any line to go and work on it.'}
                 </p>
                 <div className="mt-2 space-y-0.5">
                   {brief.map((row, i) => (
@@ -462,7 +538,7 @@ export function AIChatWidget() {
 
           {/* Suggestions — always reachable, stagger in on open */}
           <div className="flex flex-wrap gap-1.5 border-t border-surface-border px-3 pb-1 pt-2">
-            {CHIPS.filter((c) => !messages.some((m) => m.text === (th ? c.th : c.en))).map(
+            {chips.filter((c) => !messages.some((m) => m.text === (th ? c.th : c.en))).map(
               (c, i) => (
                 <motion.button
                   key={c.th}
