@@ -242,7 +242,7 @@ function Fold({ title, children }: { title: string; children: React.ReactNode })
   )
 }
 
-const COLS = 'xl:grid xl:grid-cols-[minmax(180px,1fr)_minmax(220px,1.3fr)_minmax(200px,1.2fr)_250px] xl:items-center xl:gap-x-6'
+const COLS = 'xl:grid xl:grid-cols-[minmax(170px,0.9fr)_minmax(240px,1.5fr)_minmax(190px,1.1fr)_230px] xl:items-center xl:gap-x-6'
 
 /** รายการเคส — จอใหญ่เป็นแถวแบ่งคอลัมน์ (นักเรียน · ทำไมต้องดู · ถัดไป · ปุ่ม) ใช้ความกว้างจอ
  *  มือถือเรียงลงเป็นการ์ด · เดิมการ์ดกว้างเต็มจอแต่เนื้อหาอยู่ซ้ายหนึ่งในสาม */

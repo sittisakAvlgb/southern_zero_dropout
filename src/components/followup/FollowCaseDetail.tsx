@@ -302,7 +302,7 @@ export function FollowCaseDetail({
 
 function SumRow({ k, v, strong }: { k: string; v: string; strong?: boolean }) {
   return (
-    <div className="grid grid-cols-[88px_1fr] gap-2">
+    <div className="sm:grid sm:grid-cols-[88px_1fr] sm:gap-2">
       <dt className="text-[13px] font-semibold text-ink-muted">{k}</dt>
       <dd className={`leading-snug ${strong ? 'font-bold text-brand-800' : 'text-ink'}`}>{v}</dd>
     </div>
