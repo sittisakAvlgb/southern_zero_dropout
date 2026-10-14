@@ -406,9 +406,10 @@ export function TeacherWorkspace() {
     ['sent', 'accepted', 'inProgress', 'overdue'].includes(r.status),
   ).length
 
-  /** Standing facts about the caseload. The four action counts deliberately do
-   *  NOT appear here — they live on the cards below, which are clickable, and
-   *  printing them twice was the reason this screen read as noise. */
+  /** Standing facts about the caseload, shown large at the top of the panel.
+   *  The action counts deliberately do NOT appear here — they live on the
+   *  clickable "วันนี้ต้องทำอะไร" rows, and printing them twice was the reason
+   *  this screen read as noise. */
   const CONTEXT = [
     { label: th ? 'เคสที่รับผิดชอบ' : 'Caseload', value: ops.caseload },
     { label: th ? 'มีแผนโอกาสแล้ว' : 'With a plan', value: plans.length },
@@ -461,6 +462,23 @@ export function TeacherWorkspace() {
                 : 'AI'}
         </span>
       </div>
+
+      {/* ── ตัวเลขประจำตัวเคสโหลด — ใหญ่ อยู่บนสุด ───────────
+          ย้ายกลับมาจาก "ภาพรวมเคสของคุณ" ท้ายหน้าตามที่ผู้ใช้ขอ ตัวเลขชุดนี้
+          จึงอยู่ที่นี่ที่เดียว ไม่แสดงซ้ำท้ายหน้า */}
+      <dl className="grid grid-cols-2 gap-3 px-5 pt-4 lg:grid-cols-4">
+        {CONTEXT.map((k) => (
+          <div key={k.label} className="rounded-xl border border-surface-border bg-surface-muted px-4 py-3">
+            <dt className="text-[13px] font-medium text-ink-muted">{k.label}</dt>
+            <dd
+              className="mt-0.5 text-[34px] font-bold leading-tight tabular text-ink"
+              style={k.color ? { color: k.color } : undefined}
+            >
+              <AnimatedCounter value={k.value} />
+            </dd>
+          </div>
+        ))}
+      </dl>
 
       {/* ── งานวันนี้ — ชั้นเดียว ไม่ซ้ำ ────────────────────
           สามแถวแรกคือสิ่งที่ต้องโฟกัส ตัวเลขกับความหมายอยู่บรรทัดเดียวกัน
@@ -911,23 +929,6 @@ export function TeacherWorkspace() {
         </div>
 
         <div>
-          {/* ตัวเลขประจำตัวเคสโหลด เป็น DETAIL ไม่ใช่ NUMBER ของวันนี้ จึงย้าย
-              ลงมาจากหัวหน้าจอ ไม่ให้แย่งความสนใจไปจากงานที่ต้องทำวันนี้ */}
-          <SectionLabel>{th ? 'ภาพรวมเคสของคุณ' : 'Your caseload at a glance'}</SectionLabel>
-          <dl className="mb-4 grid grid-cols-2 gap-x-6 gap-y-3 rounded-xl border border-surface-border p-4">
-            {CONTEXT.map((k) => (
-              <div key={k.label}>
-                <dt className="text-[12px] text-ink-faint">{k.label}</dt>
-                <dd
-                  className="text-[22px] font-bold leading-tight tabular text-ink"
-                  style={k.color ? { color: k.color } : undefined}
-                >
-                  <AnimatedCounter value={k.value} />
-                </dd>
-              </div>
-            ))}
-          </dl>
-
           <SectionLabel>{th ? 'ผลของเคสที่คุณดูแล' : 'How your cases end'}</SectionLabel>
           <div className="rounded-xl border border-surface-border p-4">
             <div className="flex items-baseline gap-2">

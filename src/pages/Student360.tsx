@@ -6,9 +6,10 @@ import { Card, CardHeader } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { RiskBadge } from '@/components/ui/RiskBadge'
 import { RiskGauge } from '@/components/ui/RiskGauge'
+import { Sparkline } from '@/components/ui/Sparkline'
 import { useToast } from '@/components/ui/Toast'
 import { useI18n } from '@/i18n/LanguageContext'
-import { RISK_COLOR, RISK_BG, RISK_WEIGHTS } from '@/lib/risk'
+import { RISK_COLOR, RISK_BG, RISK_ICON, RISK_WEIGHTS } from '@/lib/risk'
 import type { RiskInputs } from '@/lib/risk'
 import type { CauseKey, InterventionEvent, RiskLevel, Student } from '@/types'
 import { useScopedData } from '@/auth/scope'
@@ -32,12 +33,15 @@ import {
   IconClock,
   IconClose,
   IconConsent,
+  IconDown,
   IconExport,
   IconHome,
+  IconMail,
   IconPathway,
   IconReferral,
   IconSearch,
   IconStudent,
+  IconUp,
   IconUser,
 } from '@/components/icons'
 
@@ -50,6 +54,36 @@ const FACTORS: { key: keyof RiskInputs; weight: number; th: string; en: string }
   { key: 'wellbeingRisk', weight: RISK_WEIGHTS.wellbeing, th: 'สุขภาวะ', en: 'Wellbeing' },
   { key: 'parentRisk', weight: RISK_WEIGHTS.parent, th: 'ผู้ปกครอง', en: 'Parent' },
 ]
+
+/** each factor's contribution to the score, biggest first — the one list the
+ *  header block and the risk tab both read, so they cannot disagree */
+function factorRows(s: Student) {
+  return FACTORS.map((f) => {
+    const value = s[f.key]
+    return { ...f, value, points: Math.round(value * f.weight * 10) / 10 }
+  }).sort((a, b) => b.points - a.points)
+}
+
+/** Which way the child is heading, over the weeks the record holds.
+ *
+ *  The risk score's own history is the right series — it is the number on the
+ *  dial. Branches that predate `riskHistory` (the field arrives with the
+ *  teacher-home work) fall back to weekly attendance, and the label says which
+ *  one it is showing, so the line never claims to be the score when it is not. */
+function scoreTrend(s: Student) {
+  const risk = (s as Student & { riskHistory?: { score: number }[] }).riskHistory
+  const kind: 'risk' | 'attendance' = risk && risk.length >= 2 ? 'risk' : 'attendance'
+  const series = kind === 'risk' ? risk!.map((p) => p.score) : s.attendance.map((a) => a.rate)
+  if (series.length < 2) return null
+  const first = Math.round(series[0])
+  const last = Math.round(series[series.length - 1])
+  const delta = last - first
+  // a rising risk score is bad; a rising attendance rate is good
+  const worse = kind === 'risk' ? delta >= 5 : delta <= -5
+  const better = kind === 'risk' ? delta <= -5 : delta >= 5
+  const dir: 'worse' | 'better' | 'flat' = worse ? 'worse' : better ? 'better' : 'flat'
+  return { kind, series, first, last, delta, dir }
+}
 
 const PARENT_META: Record<Student['parentContact'], { key: string; level: RiskLevel }> = {
   ok: { key: 'st.parent.ok', level: 'normal' },
@@ -543,10 +577,16 @@ export default function Student360() {
                   </div>
                 </div>
 
-                <div className="flex shrink-0 items-center gap-4">
+                {/* the score and which way it is heading */}
+                <div className="flex shrink-0 flex-col items-center gap-2">
                   <RiskGauge score={selected.riskScore} />
+                  <TrendUnderGauge s={selected} th={th} />
                 </div>
               </div>
+
+              {/* why this score — beside the dial, so explaining it to a parent
+                  does not mean opening a second tab */}
+              <WhyScore s={selected} th={th} />
 
               {/* next action — the one line this page exists for */}
               <div className="flex flex-wrap items-center justify-between gap-3 border-t border-surface-border bg-brand-50/50 px-5 py-3">
@@ -684,20 +724,37 @@ export default function Student360() {
                         <p className="text-[13px] leading-relaxed text-ink">
                           {selected.guidanceNote}
                         </p>
-                        <div className="mt-4 grid grid-cols-2 gap-2">
-                          <Fact
-                            k={t('st.parentContact')}
-                            v={t(PARENT_META[selected.parentContact].key)}
-                            level={PARENT_META[selected.parentContact].level}
-                          />
-                          <Fact
-                            k={t('st.homeVisit')}
-                            v={selected.homeVisited ? t('st.visited') : t('st.notVisited')}
-                            level={selected.homeVisited ? 'normal' : 'watch'}
-                          />
-                          <Fact k={t('st.caseOwner')} v={selected.caseOwner} />
-                          <Fact k={th ? 'ขั้นตอนของเคส' : 'Case stage'} v={t(`stage.${selected.caseStage}`)} />
-                        </div>
+                        <StatusList
+                          className="mt-4"
+                          rows={[
+                            {
+                              key: 'parent',
+                              icon: <IconMail width={16} height={16} />,
+                              label: t('st.parentContact'),
+                              value: t(PARENT_META[selected.parentContact].key),
+                              level: PARENT_META[selected.parentContact].level,
+                            },
+                            {
+                              key: 'visit',
+                              icon: <IconHome width={16} height={16} />,
+                              label: t('st.homeVisit'),
+                              value: selected.homeVisited ? t('st.visited') : t('st.notVisited'),
+                              level: selected.homeVisited ? 'normal' : 'watch',
+                            },
+                            {
+                              key: 'owner',
+                              icon: <IconUser width={16} height={16} />,
+                              label: t('st.caseOwner'),
+                              value: selected.caseOwner,
+                            },
+                            {
+                              key: 'stage',
+                              icon: <IconPathway width={16} height={16} />,
+                              label: th ? 'ขั้นตอนของเคส' : 'Case stage',
+                              value: t(`stage.${selected.caseStage}`),
+                            },
+                          ]}
+                        />
                         {mayAct && selected.caseOwner !== actorName && (
                           <Button
                             size="sm"
@@ -1872,10 +1929,7 @@ function RiskTab({
   th: boolean
   t: (k: string) => string
 }) {
-  const rows = FACTORS.map((f) => {
-    const value = s[f.key]
-    return { ...f, value, points: Math.round(value * f.weight * 10) / 10 }
-  }).sort((a, b) => b.points - a.points)
+  const rows = factorRows(s)
   const maxPoints = Math.max(...rows.map((r) => r.points), 1)
   const top = rows.slice(0, 2)
 
@@ -2085,13 +2139,162 @@ function Chip({
 function Fact({ k, v, level }: { k: string; v: string; level?: RiskLevel }) {
   return (
     <div className="rounded-xl border border-surface-border px-3 py-2">
-      <p className="text-[10px] text-ink-faint">{k}</p>
+      <p className="text-[12px] text-ink-muted">{k}</p>
       <p
-        className="mt-0.5 truncate text-[13px] font-semibold"
+        className="mt-0.5 truncate text-[14px] font-semibold"
         style={{ color: level ? RISK_COLOR[level] : undefined }}
       >
         {v}
       </p>
+    </div>
+  )
+}
+
+interface StatusRowData {
+  key: string
+  icon: React.ReactNode
+  label: string
+  value: string
+  /** set when the fact is a warning sign; leave unset for plain information */
+  level?: RiskLevel
+}
+
+/** Facts about the case as status rows. A warning (parent unreachable, no home
+ *  visit) gets a tinted row, a colour bar, a glyph and larger type, and sorts to
+ *  the top; plain information (owner, stage) stays quiet. Four equal grey boxes
+ *  made "parent unreachable" weigh the same as the owner's name, and read like
+ *  disabled form fields. */
+function StatusList({ rows, className = '' }: { rows: StatusRowData[]; className?: string }) {
+  const hot = (l?: RiskLevel) => l === 'critical' || l === 'high' || l === 'watch'
+  const ordered = [...rows].sort((a, b) => Number(hot(b.level)) - Number(hot(a.level)))
+  return (
+    <ul className={`overflow-hidden rounded-xl border border-surface-border ${className}`}>
+      {ordered.map((r) => {
+        const warn = hot(r.level)
+        const color = r.level ? RISK_COLOR[r.level] : undefined
+        return (
+          <li
+            key={r.key}
+            className="flex items-center gap-3 border-b border-surface-border px-3.5 py-3 last:border-0"
+            style={
+              warn && r.level
+                ? { background: RISK_BG[r.level], boxShadow: `inset 4px 0 0 ${color}` }
+                : undefined
+            }
+          >
+            <span className="shrink-0 text-ink-muted">{r.icon}</span>
+            <span className="min-w-0 flex-1 text-[13px] text-ink-muted">{r.label}</span>
+            <span
+              className={`flex max-w-[60%] items-center justify-end gap-1.5 text-right text-ink ${
+                warn ? 'text-[16px] font-bold' : 'text-[14px] font-semibold'
+              }`}
+            >
+              {/* a glyph as well as a colour, so the level survives without hue */}
+              {r.level && (
+                <span aria-hidden style={{ color }}>
+                  {RISK_ICON[r.level]}
+                </span>
+              )}
+              {r.value}
+            </span>
+          </li>
+        )
+      })}
+    </ul>
+  )
+}
+
+/** The sparkline and delta under the dial. Text stays dark for contrast; the
+ *  hue lives on the line and the arrow, and the word says the direction. */
+function TrendUnderGauge({ s, th }: { s: Student; th: boolean }) {
+  const tr = scoreTrend(s)
+  if (!tr) return null
+  const color =
+    tr.dir === 'worse' ? RISK_COLOR.high : tr.dir === 'better' ? RISK_COLOR.normal : '#64748b'
+  const abs = Math.abs(tr.delta)
+  const subject =
+    tr.kind === 'risk' ? (th ? 'คะแนนเสี่ยง' : 'Risk score') : th ? 'การมาเรียน' : 'Attendance'
+  // the arrow follows the number's direction; the colour says whether that is good
+  const up = tr.delta > 0
+  const verb =
+    tr.dir === 'flat'
+      ? th
+        ? 'ทรงตัว'
+        : 'steady'
+      : up
+        ? th
+          ? `เพิ่มขึ้น ${abs} จุด`
+          : `up ${abs} pt`
+        : th
+          ? `ลดลง ${abs} จุด`
+          : `down ${abs} pt`
+  const unit = tr.kind === 'risk' ? '' : '%'
+  return (
+    <div className="flex flex-col items-center gap-1">
+      <Sparkline data={tr.series} color={color} width={132} height={34} />
+      <p className="flex items-center gap-1 text-[13px] font-semibold text-ink">
+        {tr.dir !== 'flat' &&
+          (up ? (
+            <IconUp width={13} height={13} style={{ color }} />
+          ) : (
+            <IconDown width={13} height={13} style={{ color }} />
+          ))}
+        {subject}
+        {th ? '' : ' '}
+        {verb}
+      </p>
+      <p className="text-[12px] text-ink-muted">
+        {tr.first}
+        {unit} → {tr.last}
+        {unit} · {tr.series.length} {th ? 'สัปดาห์' : 'weeks'}
+      </p>
+    </div>
+  )
+}
+
+/** "Why this score" as the first thing under the dial: the six contributions,
+ *  biggest first, from the same rows the risk tab reads. */
+function WhyScore({ s, th }: { s: Student; th: boolean }) {
+  const rows = factorRows(s)
+  const maxPoints = Math.max(...rows.map((r) => r.points), 1)
+  const top = rows.slice(0, 2)
+  return (
+    <div className="border-t border-surface-border px-5 py-4">
+      <p className="text-[15px] font-semibold text-ink">
+        {th ? `ทำไมถึง ${s.riskScore} คะแนน` : `Why ${s.riskScore} points`}
+        <span className="mt-0.5 block text-[13px] font-normal text-ink-muted sm:ml-2 sm:mt-0 sm:inline">
+          {th
+            ? `${top.map((r) => r.th).join(' และ ')} ดันคะแนนมากที่สุด`
+            : `${top.map((r) => r.en).join(' and ')} add the most`}
+        </span>
+      </p>
+      <ul className="mt-3 grid grid-cols-1 gap-x-6 gap-y-3 sm:grid-cols-2">
+        {rows.map((r, i) => {
+          const lvl = subScoreLevel(r.value)
+          return (
+            <li key={r.key}>
+              <div className="mb-1 flex items-baseline justify-between gap-2 text-[14px]">
+                <span className={i < 2 ? 'font-semibold text-ink' : 'text-ink'}>
+                  {th ? r.th : r.en}
+                </span>
+                <span className="shrink-0 text-[13px] text-ink-muted">
+                  <span className="tabular font-bold text-ink">{r.points}</span>{' '}
+                  {th ? 'คะแนน' : 'pts'}
+                </span>
+              </div>
+              <div className="h-2 overflow-hidden rounded-full bg-surface-muted">
+                <motion.div
+                  className="h-full rounded-full"
+                  style={{ backgroundColor: RISK_COLOR[lvl] }}
+                  initial={{ width: 0 }}
+                  animate={{ width: `${(r.points / maxPoints) * 100}%` }}
+                  transition={{ duration: 0.7, ease: 'easeOut', delay: i * 0.05 }}
+                />
+              </div>
+            </li>
+          )
+        })}
+      </ul>
     </div>
   )
 }
