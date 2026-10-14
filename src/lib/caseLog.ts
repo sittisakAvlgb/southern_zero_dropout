@@ -405,6 +405,11 @@ export function useCaseLog(userKey: string | undefined) {
     })
   }, [])
 
+  /** ล้างทุกอย่างที่บัญชีนี้บันทึก — ใช้เริ่มการทดสอบใหม่ ข้อมูลตั้งต้นไม่ถูกแตะ */
+  const clearAll = useCallback(() => {
+    setState(EMPTY)
+  }, [])
+
   const saveGoal = useCallback((childId: string, goal: CareGoal) => {
     setState({ ...state, goals: { ...state.goals, [childId]: goal } })
   }, [])
@@ -413,7 +418,7 @@ export function useCaseLog(userKey: string | undefined) {
     setState({ ...state, consents: { ...state.consents, [childId]: rec } })
   }, [])
 
-  return { ...current, add, remove, setFollowUpDone, setOwner, clearChild, markStep, savePlan, addRef, addRefEvent, shiftRef, saveConsent, addObservation, updateObservation, saveGoal }
+  return { ...current, add, remove, setFollowUpDone, setOwner, clearChild, markStep, savePlan, addRef, addRefEvent, shiftRef, saveConsent, addObservation, updateObservation, saveGoal, clearAll }
 }
 
 // ── reading the log back onto a child ────────────────────────

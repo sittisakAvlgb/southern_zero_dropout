@@ -107,7 +107,11 @@ export function TeacherStudentDesk() {
       note: res.note,
       by,
       followUpDate: res.followUpDate || undefined,
-      parentContact: res.parentContact,
+      // เยี่ยมบ้านแล้วได้คุยกับผู้ปกครอง/ผู้ดูแลต่อหน้า = ติดต่อได้แล้ว
+      // ฟอร์มเยี่ยมบ้านอัปเดตสถานะนี้เฉพาะผลการโทร ระบบจึงยังบอกให้ "ติดต่อผู้ปกครอง" ต่อทั้งที่เพิ่งพบกัน
+      parentContact:
+        res.parentContact ??
+        (res.mode === 'visit' && res.attendees?.some((a) => a === 'parent' || a === 'guardian') ? 'ok' : undefined),
       homeVisited: res.mode === 'visit' ? true : undefined,
       attendees: res.attendees,
       family: res.family,
@@ -115,6 +119,9 @@ export function TeacherStudentDesk() {
       signature: res.signature,
       consent: res.consent,
     })
+    // ไปเยี่ยมบ้านแล้ว — ปิดนัดเยี่ยมบ้านที่ค้างอยู่ ไม่งั้นขั้นถัดไปยังบอก "รอเยี่ยมบ้านตามนัด"
+    if (res.mode === 'visit')
+      for (const e of entries) if (e.followUpDate && !e.followUpDone && e.followUpMethod === 'เยี่ยมบ้าน') log.setFollowUpDone(e.id, true)
     setLogMode(null)
     push(res.mode === 'visit' ? 'บันทึกการเยี่ยมบ้านแล้ว — เพิ่มเข้าไทม์ไลน์' : 'บันทึกการติดต่อแล้ว — เพิ่มเข้าไทม์ไลน์')
   }
@@ -918,7 +925,8 @@ function Appointments({ fc, entries, mayAct, onAdd, onLog }: { fc: FollowCase; e
 function Outcome({ fc, entries }: { fc: FollowCase; entries: CaseLogEntry[] }) {
   // การมาเรียนมีส่วนของตัวเองด้านล่าง ไม่ซ้ำที่นี่
   const rows = latestOutcome(fc, entries).filter((r) => !r.th.startsWith('มาเรียน'))
-  const last = entries.find((e) => e.result)
+  // การลงมือครั้งล่าสุดจริง (เยี่ยมบ้านไม่มีช่อง result) — ไม่นับนัด/Escalate/สิ่งที่ครูพบ
+  const last = entries.find((e) => !isScheduleOnly(e) && e.choice !== 'observe')
   return (
     <section className="rounded-3xl border border-surface-border bg-white p-4 sm:p-5">
       <SectionTitle>ผลล่าสุด</SectionTitle>

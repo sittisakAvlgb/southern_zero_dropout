@@ -55,7 +55,8 @@ export function CreateReferral({
   student: Student
   log: Log
   user: User | null
-  preset?: { kinds?: AgencyKind[]; reason?: string }
+  /** need: ด้านที่ครูเลือกมาแล้วจากหน้าอื่น (เช่น แนวทาง AI หาทุนค่าเดินทาง) — ไม่ต้องเลือกซ้ำ */
+  preset?: { kinds?: AgencyKind[]; reason?: string; need?: ReferralNeed }
   historyCount: number
   onDone: () => void
   onOpen?: (refId: string) => void
@@ -65,10 +66,15 @@ export function CreateReferral({
   // สาเหตุที่ใช้เดาด้านความช่วยเหลือ — ต้องเป็นตัวเดียวกับที่ AI อ้าง ไม่ใช่สาเหตุแรกของเด็ก
   const cause = (guess.key && reasonFor(guess.key)) || s.causeKeys.map((k) => reasonFor(k)).find(Boolean)
   const [step, setStep] = useState<Step>('problem')
-  const [need, setNeed] = useState<ReferralNeed>(guess.need)
+  const startNeed = preset?.need ?? guess.need
+  const [need, setNeed] = useState<ReferralNeed>(startNeed)
+  // สิ่งที่ครูพบเองสำคัญกว่าสาเหตุในทะเบียน — ใส่ไว้ในเหตุผลที่หน่วยงานจะเห็น
+  const found = (log.observations[s.id] ?? []).filter((o) => !o.resolvedTs).map((o) => o.text)
   const [reason, setReason] = useState(
     preset?.reason ??
-      `ขอความช่วยเหลือด้าน${NEED_LABEL[guess.need].th}${cause ? ` — สาเหตุหลักตามรหัส สพฐ. ${cause.id}: ${cause.shortTh}` : ''}`,
+      `ขอความช่วยเหลือด้าน${NEED_LABEL[startNeed].th}${
+        found.length ? ` — ครูพบว่า: ${found.slice(0, 2).join(' / ')}` : cause ? ` — สาเหตุหลักตามรหัส สพฐ. ${cause.id}: ${cause.shortTh}` : ''
+      }`,
   )
   const kinds = preset?.kinds ?? [NEED_TO_KIND[need]]
   // suggestAgencies เรียกประเภทที่ส่งเข้าไปว่า "ตรงกับทางเลือกที่คุณเลือก" ซึ่งจริงเฉพาะเมื่อมาจาก
@@ -77,7 +83,7 @@ export function CreateReferral({
     () =>
       suggestAgencies(s, s.provinceKey, kinds).map((o) =>
         !preset?.kinds && o.agency.kind === kinds[0]
-          ? { ...o, why: `รับผิดชอบด้าน${NEED_LABEL[need].th}ในจังหวัดของเด็ก${cause ? ` · ตรงกับสาเหตุรหัส ${cause.id} ${cause.shortTh}` : ''}` }
+          ? { ...o, why: `รับผิดชอบด้าน${NEED_LABEL[need].th}ในจังหวัดของเด็ก${cause && !preset?.need ? ` · ตรงกับสาเหตุรหัส ${cause.id} ${cause.shortTh}` : ''}` }
           : o,
       ),
     [s, kinds.join(','), need, cause?.id], // eslint-disable-line react-hooks/exhaustive-deps
@@ -217,7 +223,7 @@ export function CreateReferral({
       {step === 'problem' && (
         <>
           <Label>ต้องการความช่วยเหลือด้านไหน</Label>
-          {guess.code && (
+          {guess.code && !preset?.need && (
             <p className="mb-2 rounded-xl bg-brand-50 px-3.5 py-2.5 text-[13.5px] text-ink">
               AI เลือกไว้ให้จากสาเหตุของ {s.name}: <b>{cause?.shortTh}</b> (รหัส {guess.code}) — เปลี่ยนได้
             </p>

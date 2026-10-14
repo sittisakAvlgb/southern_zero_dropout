@@ -106,8 +106,16 @@ export function recommendSteps(s: Student, th: boolean): RecommendedStep[] {
       key: 'health',
       th: 'ประสานนักจิตวิทยาโรงเรียนหรือ รพ.สต. ในพื้นที่',
       en: 'Involve the school counsellor or the local health station',
-      whyTh: `คะแนนด้านสุขภาวะ ${s.wellbeingRisk}/100${has('health') ? ' และมีปัญหาสุขภาพในระเบียน' : ''}`,
-      whyEn: `Wellbeing sub-score ${s.wellbeingRisk}/100${has('health') ? ', with a health problem on the record' : ''}`,
+      // แสดงคะแนนสุขภาวะเฉพาะเมื่อสูงจริง — เดิมขึ้น "คะแนนด้านสุขภาวะ 18/100" เป็นเหตุผล
+      // ทั้งที่ 18 คือเสี่ยงต่ำ ครูอ่านแล้วขัดกันเอง เหตุผลจริงคือปัญหาสุขภาพในระเบียน
+      whyTh:
+        s.wellbeingRisk >= 70
+          ? `ความเสี่ยงด้านสุขภาวะ ${s.wellbeingRisk}/100${has('health') ? ' และมีปัญหาสุขภาพในระเบียน' : ''}`
+          : 'มีปัญหาสุขภาพบันทึกไว้ในระเบียน (สาเหตุกลุ่ม 2xx) — ควรให้ผู้เชี่ยวชาญประเมิน',
+      whyEn:
+        s.wellbeingRisk >= 70
+          ? `Wellbeing risk ${s.wellbeingRisk}/100${has('health') ? ', with a health problem on the record' : ''}`
+          : 'A health problem is on the record — worth a professional assessment',
     })
 
   // ผู้ปกครองที่ไม่ใช่พ่อแม่ + ที่อยู่ปัจจุบันต่างจากทะเบียนบ้าน คือรูปร่างของ

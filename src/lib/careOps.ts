@@ -202,9 +202,9 @@ export function careOptions(fc: FollowCase, obs: Observation[], entries: CaseLog
   if (has('dualSchooling'))
     cause({ key: 'dual', th: 'ประสานครูตาดีกา/ปอเนาะ ปรับตารางเรียนสามัญ-ศาสนาให้ไม่ชนกัน', why: 'เรียนควบสองระบบจนภาระเกิน', pros: 'เด็กไม่ต้องเลือกทิ้งอย่างใดอย่างหนึ่ง', cons: 'ต้องได้ความร่วมมือจากผู้นำศาสนา', basis: ['สาเหตุ: เรียนควบสามัญ-ศาสนา'], go: { sheet: 'schedule', method: 'ประสานผู้นำชุมชน' }, score: 74 })
   if (has('unrestAffected'))
-    cause({ key: 'trauma', th: 'ส่งต่อนักจิตวิทยา / ศูนย์เยียวยาผู้ได้รับผลกระทบ', why: 'ได้รับผลกระทบจากเหตุการณ์ความไม่สงบ', pros: 'ได้ผู้เชี่ยวชาญดูแลจิตใจ', cons: 'ต้องได้ความยินยอมผู้ปกครอง (PDPA)', basis: ['สาเหตุ: ได้รับผลกระทบจากความไม่สงบ', `สุขภาวะ ${s.wellbeingRisk}/100`], go: { href: `/referral?child=${s.id}` }, score: 82 })
+    cause({ key: 'trauma', th: 'ส่งต่อนักจิตวิทยา / ศูนย์เยียวยาผู้ได้รับผลกระทบ', why: 'ได้รับผลกระทบจากเหตุการณ์ความไม่สงบ', pros: 'ได้ผู้เชี่ยวชาญดูแลจิตใจ', cons: 'ต้องได้ความยินยอมผู้ปกครอง (PDPA)', basis: ['สาเหตุ: ได้รับผลกระทบจากความไม่สงบ', `สุขภาวะ ${s.wellbeingRisk}/100`], go: { href: `/referral?child=${s.id}&need=mentalHealth` }, score: 82 })
   if (has('noDocuments') || has('stateless'))
-    cause({ key: 'docs', th: 'พาไปทำเอกสารสถานะบุคคลกับอำเภอ', why: has('stateless') ? 'ไม่มีสถานะทางทะเบียน — สิทธิ์เรียนต่อและทุนติดเรื่องนี้' : 'ไม่มีเอกสารแสดงตน', pros: 'ปลดล็อกสิทธิ์ทุนและการเรียนต่อทั้งหมด', cons: 'ใช้เวลานาน ต้องมีพยานบุคคล', basis: [has('stateless') ? 'สาเหตุ: ไร้สถานะ' : 'สาเหตุ: ไม่มีเอกสาร'], go: { href: `/referral?child=${s.id}` }, score: 76 })
+    cause({ key: 'docs', th: 'พาไปทำเอกสารสถานะบุคคลกับอำเภอ', why: has('stateless') ? 'ไม่มีสถานะทางทะเบียน — สิทธิ์เรียนต่อและทุนติดเรื่องนี้' : 'ไม่มีเอกสารแสดงตน', pros: 'ปลดล็อกสิทธิ์ทุนและการเรียนต่อทั้งหมด', cons: 'ใช้เวลานาน ต้องมีพยานบุคคล', basis: [has('stateless') ? 'สาเหตุ: ไร้สถานะ' : 'สาเหตุ: ไม่มีเอกสาร'], go: { href: `/referral?child=${s.id}&need=documents` }, score: 76 })
   if (has('migration'))
     cause({ key: 'migrant', th: 'ติดต่อพ่อแม่ที่ย้ายไปทำงานผ่านญาติหรือ LINE', why: `ผู้ปกครองย้ายถิ่น — เด็กอยู่กับ${s.master.parentRelationName}`, pros: 'พ่อแม่ยังมีบทบาทตัดสินใจเรื่องเรียน', cons: 'ต้องขอช่องทางติดต่อจากผู้ดูแลก่อน', basis: ['สาเหตุ: ผู้ปกครองย้ายถิ่น', `ผู้ดูแล: ${s.master.parentRelationName}`], go: { sheet: 'outcome', mode: 'contact' }, score: 68 })
   if (has('transition'))
@@ -218,7 +218,7 @@ export function careOptions(fc: FollowCase, obs: Observation[], entries: CaseLog
       pros: 'แก้ที่ต้นเหตุ เด็กกลับมาเรียนได้ทันที',
       cons: 'ต้องมีหลักฐานรายได้ และใช้เวลาอนุมัติ',
       basis: B(noteSays(/ค่าเดินทาง|ค่ารถ|ไม่มีรถ/, 'มีปัญหาค่าเดินทาง'), `เวลาเดินทาง ${s.master.timeDt} นาที`, `รายได้ครอบครัว ${s.master.parentSalary.toLocaleString('th-TH')} บาท`),
-      go: { href: `/referral?child=${s.id}` },
+      go: { href: `/referral?child=${s.id}&need=transport` },
       score: /ค่าเดินทาง|ค่ารถ|ไม่มีรถ/.test(text) ? 92 : 60,
     })
   if (alternative || fc.updatedDaysAgo >= 7)

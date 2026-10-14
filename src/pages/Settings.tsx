@@ -7,6 +7,7 @@ import { RiskBadge } from '@/components/ui/RiskBadge'
 import { SkeletonCard } from '@/components/ui/Skeleton'
 import { useToast } from '@/components/ui/Toast'
 import { useSimulatedLoading } from '@/lib/useLoading'
+import { DemoResetCard } from '@/components/settings/DemoResetCard'
 import { useI18n } from '@/i18n/LanguageContext'
 import { RISK_COLOR, RISK_WEIGHT_LABELS } from '@/lib/risk'
 import { IconSettings, IconCheck, IconBell, IconGlobe, IconShield, IconAI, IconLock } from '@/components/icons'
@@ -445,6 +446,7 @@ export default function Settings() {
               </div>
             </Card>
           </motion.div>
+          <DemoResetCard />
         </div>
       )}
     </div>

@@ -132,6 +132,12 @@ export function FamilyFromVisit({ visit, t, onVisit, mayAct }: { visit?: CaseLog
             </p>
           )}
           {!rows.length && !f?.study.length && !f?.findings.length && <p className="text-[14px] text-ink-muted">บันทึกการเยี่ยมครั้งนี้ไม่ได้กรอกข้อมูลครอบครัว</p>}
+          {/* เยี่ยมซ้ำได้เสมอ — เดิมปุ่มหายไปหลังเยี่ยมครั้งแรก ครูบันทึกครั้งที่สองไม่ได้ */}
+          {mayAct && (
+            <button type="button" onClick={onVisit} className="mt-3 rounded-xl border border-surface-border px-3.5 py-2 text-[14px] font-semibold text-brand-700">
+              บันทึกการเยี่ยมบ้านครั้งใหม่
+            </button>
+          )}
         </>
       )}
     </section>

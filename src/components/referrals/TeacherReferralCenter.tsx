@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import type { AgencyKind } from '@/types'
+import type { AgencyKind, ReferralNeed } from '@/types'
 import { useScopedData } from '@/auth/scope'
 import { canWorkCases } from '@/auth/roles'
 import { useI18n } from '@/i18n/LanguageContext'
@@ -55,7 +55,7 @@ export function TeacherReferralCenter() {
 
   const [filter, setFilter] = useState<Bucket | 'all'>('all')
   const [openId, setOpenId] = useState<string | null>(null)
-  const [creating, setCreating] = useState<{ childId: string; kinds?: AgencyKind[] } | null>(null)
+  const [creating, setCreating] = useState<{ childId: string; kinds?: AgencyKind[]; need?: ReferralNeed } | null>(null)
   const [picking, setPicking] = useState(false)
   const [q, setQ] = useState('')
   const [allCand, setAllCand] = useState(false)
@@ -67,9 +67,10 @@ export function TeacherReferralCenter() {
     const child = params.get('child')
     if (!ref && !child) return
     if (ref) setOpenId(ref)
-    else if (child && byId.has(child)) setCreating({ childId: child })
+    else if (child && byId.has(child)) setCreating({ childId: child, need: (params.get('need') as ReferralNeed | null) ?? undefined })
     params.delete('ref')
     params.delete('child')
+    params.delete('need')
     setParams(params, { replace: true })
   }, [params, setParams, loading, byId])
 
@@ -304,7 +305,7 @@ export function TeacherReferralCenter() {
             student={creatingStudent}
             log={log}
             user={user}
-            preset={creating.kinds ? { kinds: creating.kinds } : undefined}
+            preset={creating.kinds || creating.need ? { kinds: creating.kinds, need: creating.need } : undefined}
             historyCount={historyOf(creatingStudent.id)}
             onDone={() => setCreating(null)}
             onOpen={(id) => {
