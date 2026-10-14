@@ -99,80 +99,103 @@ export function TeacherWorkspace() {
    *  ส่วนการมาเรียนมี 8 สัปดาห์ย้อนหลัง ครูจึงย้อนตรวจคำกล่าวอ้างนี้ได้ */
   const falling = ops.alerts.filter((a) => a.delta < 0).length
 
-  /** INSIGHT — ตัวเลขด้านบนบอกว่ามีเท่าไร บรรทัดพวกนี้บอกว่าแปลว่าอะไร
-   *  คำนวณทั้งหมดจากข้อมูลในระบบ จึงทำงานได้แม้ไม่มี API key */
-  const todayLines = useMemo(() => {
-    const out: { key: string; text: string; tone: string; onClick: () => void }[] = []
+  /** งานวันนี้ — รายการเดียว ไม่แยกเป็น "ตัวเลข" กับ "ประโยค" สองชั้น
+   *
+   *  รอบก่อนหน้านี้หน้าจอมีการ์ดตัวเลข 6 ใบ แล้วตามด้วยประโยค 5 บรรทัดที่
+   *  พูดเลขชุดเดิมซ้ำอีกรอบ ("2 เคสเกินกำหนด" กับ "2 เคสเลยกำหนดติดตามแล้ว"
+   *  คือข้อมูลเดียวกัน) ครูจึงเห็นสิบเอ็ดสิ่งที่หนักเท่ากันและไม่มีอะไรเป็น
+   *  อันดับหนึ่ง — ซึ่งเป็นปัญหาที่โค้ดเดิมเคยแก้ไปแล้วและเตือนไว้ในคอมเมนต์
+   *
+   *  ตอนนี้ตัวเลขกับความหมายอยู่ในบรรทัดเดียวกัน เรียงตามความเร่งด่วนจริง
+   *  สามอันดับแรกได้เป็นแถวใหญ่ ที่เหลือหดเป็นชิปตัวกรอง */
+  const jobs = useMemo(() => {
+    const all: {
+      key: string
+      count: number
+      text: string
+      short: string
+      tone: string
+      filter?: TaskFilter
+      onClick: () => void
+    }[] = []
+    const toFilter = (f: TaskFilter) => () => {
+      setFocus(f)
+      reveal(listRef.current)
+    }
+
     if (dueNow.length)
-      out.push({
+      all.push({
         key: 'due',
-        text: th
-          ? `นัดติดตาม ${dueNow.length} รายการถึงกำหนดแล้ว`
-          : `${dueNow.length} follow-ups are due`,
+        count: dueNow.length,
+        text: th ? 'นัดติดตามถึงกำหนดแล้ว' : 'follow-ups are due',
+        short: th ? 'นัดถึงกำหนด' : 'Due today',
         tone: RISK_COLOR.critical,
         onClick: () => reveal(followUpRef.current),
       })
     if (ops.overdue)
-      out.push({
+      all.push({
         key: 'overdue',
-        text: th
-          ? `${ops.overdue} เคสเลยกำหนดติดตามแล้ว`
-          : `${ops.overdue} cases are past their follow-up deadline`,
+        count: ops.overdue,
+        text: th ? 'เคสเลยกำหนดติดตามแล้ว' : 'cases are past their deadline',
+        short: th ? 'เลยกำหนด' : 'Overdue',
         tone: RISK_COLOR.critical,
-        onClick: () => {
-          setFocus('overdue')
-          reveal(listRef.current)
-        },
+        filter: 'overdue',
+        onClick: toFilter('overdue'),
+      })
+    if (ops.critical)
+      all.push({
+        key: 'critical',
+        count: ops.critical,
+        text: th ? 'นักเรียนอยู่ระดับวิกฤต' : 'students are at critical risk',
+        short: th ? 'วิกฤต' : 'Critical',
+        tone: RISK_COLOR.critical,
+        filter: 'critical',
+        onClick: toFilter('critical'),
       })
     if (ops.rising)
-      out.push({
+      all.push({
         key: 'rising',
-        text: th
-          ? `นักเรียน ${ops.rising} คนมีความเสี่ยงเพิ่มขึ้นใน 8 สัปดาห์`
-          : `${ops.rising} students' risk has climbed over 8 weeks`,
+        count: ops.rising,
+        text: th ? 'นักเรียนเสี่ยงเพิ่มขึ้นใน 8 สัปดาห์' : "students' risk has climbed over 8 weeks",
+        short: th ? 'เสี่ยงเพิ่มขึ้น' : 'Rising',
         tone: RISK_COLOR.high,
-        onClick: () => {
-          setFocus('rising')
-          reveal(listRef.current)
-        },
-      })
-    if (falling)
-      out.push({
-        key: 'falling',
-        text: th
-          ? `นักเรียน ${falling} คนมีการมาเรียนลดลงต่อเนื่อง`
-          : `${falling} students keep missing more school`,
-        tone: RISK_COLOR.high,
-        onClick: () => reveal(alertsRef.current),
+        filter: 'rising',
+        onClick: toFilter('rising'),
       })
     if (ops.needParent)
-      out.push({
+      all.push({
         key: 'parents',
-        text: th
-          ? `ยังติดต่อผู้ปกครองไม่ได้ ${ops.needParent} คน`
-          : `${ops.needParent} parents still not reached`,
+        count: ops.needParent,
+        text: th ? 'คนยังติดต่อผู้ปกครองไม่ได้' : 'guardians still not reached',
+        short: th ? 'ติดต่อผู้ปกครอง' : 'Parents',
         tone: RISK_COLOR.high,
-        onClick: () => {
-          setFocus('parents')
-          reveal(listRef.current)
-        },
+        filter: 'parents',
+        onClick: toFilter('parents'),
       })
-    // บรรทัดเดียวในชุดนี้ที่เป็นข่าวดี วางท้ายสุดโดยตั้งใจ — งานที่ค้างต้อง
-    // มาก่อน แต่ครูก็ควรได้เห็นว่ามีเคสที่สำเร็จแล้วเหมือนกัน
+    if (ops.needVisit)
+      all.push({
+        key: 'visit',
+        count: ops.needVisit,
+        text: th ? 'คนเสี่ยงสูงและยังไม่ได้เยี่ยมบ้าน' : 'at-risk students not yet visited',
+        short: th ? 'ยังไม่เยี่ยมบ้าน' : 'Not visited',
+        tone: RISK_COLOR.watch,
+        filter: 'visit',
+        onClick: toFilter('visit'),
+      })
+    // ข่าวดีอยู่ท้ายเสมอ งานที่ค้างต้องมาก่อน
     if (ops.closable)
-      out.push({
+      all.push({
         key: 'closable',
-        text: th
-          ? `${ops.closable} เคสเข้าเกณฑ์ปิดได้แล้ว`
-          : `${ops.closable} cases now meet the bar to close`,
+        count: ops.closable,
+        text: th ? 'เคสเข้าเกณฑ์ปิดได้แล้ว' : 'cases now meet the bar to close',
+        short: th ? 'ปิดเคสได้' : 'Ready to close',
         tone: RISK_COLOR.normal,
-        onClick: () => {
-          setFocus('closable')
-          reveal(listRef.current)
-        },
+        filter: 'closable',
+        onClick: toFilter('closable'),
       })
-    return out
-  }, [dueNow.length, ops.overdue, ops.needParent, ops.rising, ops.closable, falling, th])
+
+    return { top: all.slice(0, 3), rest: all.slice(3) }
+  }, [dueNow.length, ops.overdue, ops.critical, ops.rising, ops.needParent, ops.needVisit, ops.closable, th])
 
   /** ลงมือตามคำแนะนำ — เขียนลง `useCaseLog` ซึ่งเป็นกลไกเดิมที่หน้าเด็กใช้
    *  อยู่แล้ว ทั้งสองหน้าจึงเห็นตรงกันทันทีผ่าน `applyLog`
@@ -440,136 +463,107 @@ export function TeacherWorkspace() {
         </span>
       </div>
 
-      {/* ── ① NUMBER — งานบนโต๊ะวันนี้ ──────────────────────
-          ขึ้นก่อนทุกอย่างตามหลัก NUMBER → INSIGHT → ACTION → DETAIL
-          เดิมบรรทัดสรุปของ AI อยู่เหนือตัวเลข ครูจึงต้องอ่านความเห็น
-          ก่อนจะได้เห็นข้อเท็จจริง ตอนนี้สลับให้ข้อเท็จจริงมาก่อน */}
+      {/* ── งานวันนี้ — ชั้นเดียว ไม่ซ้ำ ────────────────────
+          สามแถวแรกคือสิ่งที่ต้องโฟกัส ตัวเลขกับความหมายอยู่บรรทัดเดียวกัน
+          เรื่องที่เหลือหดเป็นชิปด้านล่าง ยังกดกรองได้เหมือนเดิมแต่ไม่แย่ง
+          สายตาจากสามอันดับแรก */}
       <div className="px-5 pt-4">
-        <SectionLabel>{th ? 'วันนี้ต้องดำเนินการ · กดเพื่อกรองรายชื่อ' : 'On your desk today · tap to filter the list'}</SectionLabel>
-        {ops.tasks.length ? (
-          // คอลัมน์เดียวบนมือถือ — บีบเป็นสองคอลัมน์ที่ 375px แล้วป้ายอย่าง
-          // "นักเรียนระดับวิกฤต" ตัดเป็นสามบรรทัด อ่านยากและพื้นที่กดเตี้ยลง
-          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-4">
-            {ops.tasks.map((task, i) => {
-              const tone =
-                task.tone === 'critical'
-                  ? RISK_COLOR.critical
-                  : task.tone === 'high'
-                    ? RISK_COLOR.high
-                    : task.tone === 'good'
-                      ? RISK_COLOR.normal
-                      : RISK_COLOR.watch
-              const on = focus === task.filter
+        <SectionLabel>{th ? 'วันนี้ต้องทำอะไร' : 'What today needs'}</SectionLabel>
+
+        {jobs.top.length ? (
+          <ul className="overflow-hidden rounded-2xl border border-surface-border">
+            {jobs.top.map((job, i) => {
+              const on = job.filter ? focus === job.filter : false
               return (
-                <motion.button
-                  key={task.key}
-                  type="button"
-                  // the card is the filter — no second screen to get lost on
-                  onClick={() => setFocus(on ? null : task.filter)}
-                  aria-pressed={on}
-                  initial={{ opacity: 0, y: 8 }}
+                <motion.li
+                  key={job.key}
+                  initial={{ opacity: 0, y: 6 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: 0.05 * i, duration: 0.3 }}
-                  whileHover={{ y: -1 }}
-                  // py-3 + ไอคอน 44px ทำให้พื้นที่กดสูงพอสำหรับนิ้วบนมือถือ
-                  className="flex items-center gap-3 rounded-xl border px-4 py-3 text-left transition-shadow hover:shadow-card"
-                  style={{
-                    borderColor: on ? tone : undefined,
-                    background: on ? `${tone}0d` : undefined,
-                  }}
+                  className="border-b border-surface-border last:border-0"
                 >
-                  <span
-                    className="grid h-11 w-11 shrink-0 place-items-center rounded-lg text-[17px] font-bold text-white"
-                    style={{ background: tone }}
-                  >
-                    <AnimatedCounter value={task.count} />
-                  </span>
-                  <span className="min-w-0 flex-1 text-[13.5px] font-semibold leading-snug text-ink">
-                    {th ? task.th : task.en}
-                  </span>
-                  <span className="sr-only">
-                    {on
-                      ? th
-                        ? 'กำลังกรองอยู่ กดเพื่อล้าง'
-                        : 'Filtering, tap to clear'
-                      : th
-                        ? 'ดูรายชื่อ'
-                        : 'Show the list'}
-                  </span>
-                </motion.button>
-              )
-            })}
-          </div>
-        ) : (
-          <p className="rounded-xl border border-surface-border px-3 py-4 text-[13px] text-ink-faint">
-            {th ? 'ไม่มีงานค้างในวันนี้' : 'Nothing outstanding today'}
-          </p>
-        )}
-      </div>
-
-      {/* ── ② INSIGHT แล้วจบด้วย ③ ACTION ────────────────────
-          ตัวเลขด้านบนตอบว่า "มีเท่าไร" บล็อกนี้ตอบว่า "แปลว่าอะไร" แล้วปิดท้าย
-          ด้วยปุ่มเดียวที่ตอบว่า "เริ่มตรงไหน" ทุกบรรทัดกดได้และพาไปยังส่วนที่
-          เกี่ยวข้องในหน้าเดียวกัน ไม่เด้งออกไปหน้าอื่น */}
-      <div className="px-5 pt-5">
-        <SectionLabel>{th ? 'สิ่งที่ต้องทำวันนี้' : 'What today needs'}</SectionLabel>
-        <div className="rounded-2xl border border-surface-border bg-surface-muted/60 p-4">
-          {todayLines.length ? (
-            <ul className="space-y-1">
-              {todayLines.map((line) => (
-                <li key={line.key}>
                   <button
                     type="button"
-                    onClick={line.onClick}
-                    className="group flex w-full items-center gap-2.5 rounded-lg px-1.5 py-2 text-left transition-colors hover:bg-white"
+                    onClick={job.onClick}
+                    aria-pressed={on}
+                    className="group flex w-full items-center gap-3.5 px-4 py-3.5 text-left transition-colors hover:bg-surface-muted/70"
+                    style={on ? { background: `${job.tone}0d` } : undefined}
                   >
                     <span
-                      className="h-2.5 w-2.5 shrink-0 rounded-full"
-                      style={{ background: line.tone }}
-                    />
-                    <span className="min-w-0 flex-1 text-[15px] font-medium leading-snug text-ink">
-                      {line.text}
+                      className="grid h-12 w-12 shrink-0 place-items-center rounded-xl text-[19px] font-bold text-white"
+                      style={{ background: job.tone }}
+                    >
+                      <AnimatedCounter value={job.count} />
+                    </span>
+                    <span className="min-w-0 flex-1 text-[16px] font-semibold leading-snug text-ink">
+                      {job.text}
                     </span>
                     <IconArrowRight
-                      width={14}
-                      height={14}
+                      width={16}
+                      height={16}
                       className="shrink-0 text-ink-faint transition-colors group-hover:text-brand-600"
                     />
                   </button>
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p className="px-1.5 py-1 text-[15px] text-ink-muted">
-              {th
-                ? 'ไม่มีงานเร่งด่วนวันนี้ — ทุกเคสยังอยู่ในกำหนด'
-                : 'Nothing urgent today — every case is still within its deadline'}
-            </p>
-          )}
+                </motion.li>
+              )
+            })}
+          </ul>
+        ) : (
+          <p className="rounded-2xl border border-surface-border px-4 py-5 text-[15px] text-ink-muted">
+            {th
+              ? 'ไม่มีงานเร่งด่วนวันนี้ — ทุกเคสยังอยู่ในกำหนด'
+              : 'Nothing urgent today — every case is still within its deadline'}
+          </p>
+        )}
 
-          {/* บรรทัดสรุปของ AI อยู่ "หลัง" ข้อเท็จจริง ไม่ใช่ก่อน และถ้าไม่มี
-              API key จะ fallback เป็นข้อความที่คำนวณเอง หน้าจึงไม่เคยว่าง */}
-          <div className="mt-3 border-t border-surface-border pt-3">
-            {text ? (
-              <p className="text-[14px] leading-relaxed text-ink-muted">
-                {text.split('\n').map((line, i) => (
-                  <span key={i} className={i === 0 ? 'block font-semibold text-ink' : 'block'}>
-                    {line}
-                  </span>
-                ))}
-              </p>
-            ) : (
-              <div className="space-y-2" aria-live="polite">
-                <Skeleton className="h-4 w-9/12" />
-                <Skeleton className="h-4 w-6/12" />
-              </div>
-            )}
+        {jobs.rest.length > 0 && (
+          <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
+            <span className="text-[12px] text-ink-faint">{th ? 'ดูเพิ่ม:' : 'Also:'}</span>
+            {jobs.rest.map((job) => {
+              const on = job.filter ? focus === job.filter : false
+              return (
+                <button
+                  key={job.key}
+                  type="button"
+                  onClick={job.onClick}
+                  aria-pressed={on}
+                  className="inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-[12.5px] font-medium transition-colors"
+                  style={{
+                    borderColor: on ? job.tone : undefined,
+                    background: on ? `${job.tone}14` : undefined,
+                    color: job.tone,
+                  }}
+                >
+                  <span className="font-bold tabular">{job.count}</span>
+                  <span className="text-ink-muted">{job.short}</span>
+                </button>
+              )
+            })}
           </div>
+        )}
+      </div>
 
+      {/* ── เริ่มตรงไหน — บรรทัดเดียวจาก AI แล้วปุ่มเดียว ──── */}
+      <div className="px-5 pt-4">
+        <div className="rounded-2xl border border-surface-border bg-surface-muted/60 p-4">
+          {text ? (
+            <p className="text-[15px] leading-relaxed text-ink-muted">
+              {text.split('\n').map((line, i) => (
+                <span key={i} className={i === 0 ? 'block font-semibold text-ink' : 'block'}>
+                  {line}
+                </span>
+              ))}
+            </p>
+          ) : (
+            <div className="space-y-2" aria-live="polite">
+              <Skeleton className="h-4 w-9/12" />
+              <Skeleton className="h-4 w-6/12" />
+            </div>
+          )}
           <button
             type="button"
             onClick={primary.run}
-            className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-brand-500 px-5 py-3.5 text-[15px] font-semibold text-white shadow-card transition-colors hover:bg-brand-600 sm:w-auto"
+            className="mt-3.5 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-brand-500 px-5 py-3.5 text-[15px] font-semibold text-white shadow-card transition-colors hover:bg-brand-600 sm:w-auto"
           >
             {primary.label}
             <IconArrowRight width={16} height={16} />
