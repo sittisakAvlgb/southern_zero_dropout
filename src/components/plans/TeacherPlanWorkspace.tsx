@@ -267,7 +267,6 @@ function CaseRow({ c, pathway, onOpen }: { c: PlanCase; pathway: string; onOpen:
   return (
     <li className="border-b border-surface-border last:border-0">
       <button type="button" onClick={onOpen} className="group flex w-full gap-3 px-4 py-3.5 text-left transition-colors hover:bg-surface-muted/60">
-        <span className="w-1 shrink-0 self-stretch rounded-full" style={{ background: PRIORITY_META[c.priority].color }} />
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-1.5">
             <span className="text-[16px] font-bold text-ink">{c.plan.childName}</span>

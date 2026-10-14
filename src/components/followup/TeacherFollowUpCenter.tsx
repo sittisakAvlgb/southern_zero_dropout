@@ -297,7 +297,6 @@ function CaseCard({ c, mayAct, onOpen, onCta }: { c: FollowCase; mayAct: boolean
   return (
     <li className="overflow-hidden rounded-2xl border border-surface-border bg-white">
       <div className="flex">
-        <span className="w-1.5 shrink-0" style={{ background: HEALTH_META[c.health].color }} />
         <div className="min-w-0 flex-1 px-4 py-3.5">
           <button type="button" onClick={onOpen} className="block w-full text-left">
             <div className="flex flex-wrap items-center gap-1.5">

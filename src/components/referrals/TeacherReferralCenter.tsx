@@ -387,7 +387,6 @@ function ChildCard({ refs, risk, level, onOpen }: { refs: RefCase[]; risk?: numb
         {refs.map((r) => (
           <li key={r.id} className="border-b border-surface-border last:border-0">
             <button type="button" onClick={() => onOpen(r.id)} className="group flex w-full gap-3 px-4 py-3 text-left hover:bg-surface-muted/60">
-              <span className="w-1 shrink-0 self-stretch rounded-full" style={{ background: BUCKET_META[r.bucket].color }} />
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-center gap-1.5">
                   <BucketBadge b={r.bucket} />
