@@ -1,18 +1,13 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { useScopedData } from '@/auth/scope'
 import { canWorkCases } from '@/auth/roles'
 import { useI18n } from '@/i18n/LanguageContext'
-import { applyLog, applyPlans, lastLoggedMap, useCaseLog } from '@/lib/caseLog'
 import { useSimulatedLoading } from '@/lib/useLoading'
 import { assetUrl } from '@/lib/asset'
 import {
   ATTN_META,
-  buildFollowCase,
   FILTERS,
-  HEALTH_META,
   insightOf,
-  sortFollow,
   type Attn,
   type FollowCase,
   type QuickFilter,
@@ -20,7 +15,7 @@ import {
 import { Skeleton } from '@/components/ui/Skeleton'
 import { PageHeader, Breadcrumb } from '@/components/ui/PageHeader'
 import { IconArrowRight, IconIntervention } from '@/components/icons'
-import { useRefCases } from '@/components/referrals/useRefCases'
+import { useFollowCases } from './useFollowCases'
 import { FollowCaseDetail, HealthBadge, RiskBadge, SLA_TONE, type Sheet } from './FollowCaseDetail'
 
 const MASCOT = assetUrl('ChatBot.png')
@@ -41,12 +36,10 @@ const groupOf = (c: FollowCase): Group => (c.relapse ? 'relapse' : c.attn)
 export function TeacherFollowUpCenter() {
   const { t } = useI18n()
   const nav = useNavigate()
-  const { user, students, cases, referrals, plans } = useScopedData()
-  const log = useCaseLog(user?.id)
+  const { user, log, built } = useFollowCases()
   const mayAct = canWorkCases(user)
   const loading = useSimulatedLoading(450)
   const [params, setParams] = useSearchParams()
-  const [retry, setRetry] = useState(0)
   const [offline, setOffline] = useState(typeof navigator !== 'undefined' && navigator.onLine === false)
   useEffect(() => {
     const on = () => setOffline(false)
@@ -58,33 +51,6 @@ export function TeacherFollowUpCenter() {
       window.removeEventListener('offline', off)
     }
   }, [])
-
-  const now = useMemo(() => Date.now(), [log]) // eslint-disable-line react-hooks/exhaustive-deps
-  const roster = useMemo(() => students.map((s) => applyLog(s, log)), [students, log])
-  const refs = useRefCases(user, roster, referrals, log, now)
-  const planned = useMemo(() => new Set(applyPlans(plans, log).map((p) => p.childId)), [plans, log])
-
-  const built = useMemo((): { list: FollowCase[] } | { error: true } => {
-    try {
-      const lastLogged = lastLoggedMap(log)
-      // เคสเชื่อมกับเด็กด้วยชื่อ — เหมือนหน้าเคสของฉัน (ดู teacherOps)
-      const byName = new Map(cases.map((c) => [c.studentName, c]))
-      const list = roster.map((s) =>
-        buildFollowCase({
-          s,
-          record: byName.get(s.name),
-          entries: log.entries.filter((e) => e.childId === s.id),
-          lastLogged: lastLogged[s.id],
-          refs: refs.filter((r) => r.childId === s.id),
-          hasPlan: planned.has(s.id),
-        }),
-      )
-      return { list: sortFollow(list) }
-    } catch {
-      return { error: true }
-    }
-    // retry บังคับคำนวณใหม่เมื่อครูกด "ลองอีกครั้ง"
-  }, [roster, cases, log, refs, planned, retry]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const all = 'list' in built ? built.list : []
   const open = all.filter((c) => c.open)
@@ -210,7 +176,7 @@ export function TeacherFollowUpCenter() {
         <div className="rounded-2xl border border-red-200 bg-red-50 px-6 py-8 text-center">
           <p className="text-[17px] font-semibold text-red-700">ไม่สามารถโหลดข้อมูลเคสได้</p>
           <p className="mt-1 text-[14px] text-ink">บันทึกที่คุณทำไว้ยังอยู่ครบ ลองโหลดอีกครั้ง</p>
-          <button type="button" onClick={() => setRetry((n) => n + 1)} className="mt-4 rounded-xl bg-brand-500 px-5 py-3 text-[15px] font-semibold text-white">
+          <button type="button" onClick={() => window.location.reload()} className="mt-4 rounded-xl bg-brand-500 px-5 py-3 text-[15px] font-semibold text-white">
             ลองอีกครั้ง
           </button>
         </div>

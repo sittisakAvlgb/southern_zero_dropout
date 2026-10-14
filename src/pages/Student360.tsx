@@ -12,6 +12,10 @@ import { RISK_COLOR, RISK_BG, RISK_WEIGHTS } from '@/lib/risk'
 import type { RiskInputs } from '@/lib/risk'
 import type { CauseKey, InterventionEvent, RiskLevel, Student } from '@/types'
 import { useScopedData } from '@/auth/scope'
+import { useFollowCases } from '@/components/followup/useFollowCases'
+import { isScheduleOnly } from '@/lib/caseLog'
+import { StudentNextStep, StudentTimeline } from '@/components/followup/StudentFollow'
+import { FollowCaseDetail, type Sheet } from '@/components/followup/FollowCaseDetail'
 import {
   applyLog,
   lastContact,
@@ -138,6 +142,10 @@ export default function Student360() {
   const log = useCaseLog(user?.id)
   /** which logging form is open, if any */
   const [logMode, setLogMode] = useState<LogMode | null>(null)
+  /** เคสติดตามของเด็กทุกคน — ชุดเดียวกับหน้าติดตามการช่วยเหลือ */
+  const { built: follow } = useFollowCases()
+  /** แผ่นงานของหน้าติดตามที่เปิดจากหน้านี้ (นัด · ปิดเคส · ถาม AI …) */
+  const [followSheet, setFollowSheet] = useState<Sheet | null>(null)
 
   const list = useMemo(() => {
     const q = query.trim().toLowerCase()
@@ -159,6 +167,10 @@ export default function Student360() {
     () => (base ? applyLog(base, log) : null),
     [base, log],
   )
+  const followCase = useMemo(
+    () => ('list' in follow && selected ? follow.list.find((c) => c.s.id === selected.id) : undefined),
+    [follow, selected],
+  )
   /** entries this account wrote for the open child, newest first — the only
    *  rows that may be deleted, because the seeded history is not ours to edit */
   const myEntries = useMemo(
@@ -170,9 +182,6 @@ export default function Student360() {
     [base, log],
   )
   const latestVisit = useMemo(() => (base ? lastVisit(base.id, log) : undefined), [base, log])
-  /** The card says "newest first"; the seeded history is stored oldest-first,
-   *  so it has to be sorted rather than concatenated. Own entries carry their
-   *  id so the row can offer a delete — the seeded record is not ours to edit. */
   /** What is actually outstanding for the open child. Each row is a condition
    *  on their record plus the control that clears it — so "ยังไม่ได้เยี่ยมบ้าน"
    *  disappears the moment a visit is logged, rather than sitting there as a
@@ -188,7 +197,8 @@ export default function Student360() {
       run: () => void
     }[]
     const due = log.entries.find(
-      (e) => e.childId === selected.id && e.followUpDate && !e.followUpDone,
+      // นัดที่ยังไม่ถึงวันไม่ใช่งานค้าง — เดิมขึ้น "ถึงนัด" ทั้งที่นัดไว้อีกสามวัน
+      (e) => e.childId === selected.id && e.followUpDate && !e.followUpDone && e.followUpDate <= new Date().toISOString().slice(0, 10),
     )
     const rows: {
       key: string
@@ -258,24 +268,6 @@ export default function Student360() {
     return rows
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selected, log.entries, user])
-
-  const timelineRows = useMemo(() => {
-    const mine = myEntries.map((entry) => ({
-      kind: 'mine' as const,
-      key: entry.id,
-      date: entry.date,
-      entry,
-    }))
-    const seeded = (base?.timeline ?? []).map((ev, i) => ({
-      kind: 'seed' as const,
-      key: `seed-${i}`,
-      date: ev.date,
-      ev,
-    }))
-    return [...mine, ...seeded].sort(
-      (a, b) => b.date.localeCompare(a.date) || (a.kind === 'mine' ? -1 : 1),
-    )
-  }, [myEntries, base])
 
   const selectStudent = (id: string) => {
     const next = new URLSearchParams(params)
@@ -548,54 +540,18 @@ export default function Student360() {
                 </div>
               </div>
 
-              {/* next action — the one line this page exists for */}
-              <div className="flex flex-wrap items-center justify-between gap-3 border-t border-surface-border bg-brand-50/50 px-5 py-3">
-                <p className="flex min-w-0 items-center gap-2 text-[13px]">
-                  <span className="grid h-6 w-6 shrink-0 place-items-center rounded-lg bg-brand-500 text-white">
-                    <IconArrowRight width={13} height={13} />
-                  </span>
-                  <span className="font-semibold text-brand-800">{t('st.nextAction')}:</span>
-                  <span className="truncate text-ink">{selected.nextAction}</span>
-                </p>
-                <div className="flex flex-wrap items-center gap-2">
-                  {/* when the parent was last reached, from this account's own
-                      log — a caseload without it re-dials the same family twice */}
-                  <span className="text-[11px] text-ink-faint">
-                    {t('st.lastContact')}:{' '}
-                    <span className="font-semibold text-ink-muted">
-                      {latestContact ? latestContact.date : t('st.neverContacted')}
-                    </span>
-                  </span>
-                  {mayAct && (
-                    <>
-                      <Button
-                        size="sm"
-                        variant="primary"
-                        icon={<IconUser width={13} height={13} />}
-                        onClick={() => setLogMode('contact')}
-                      >
-                        {t('st.logContact')}
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="secondary"
-                        icon={<IconHome width={13} height={13} />}
-                        onClick={() => setLogMode('visit')}
-                      >
-                        {selected.homeVisited ? t('st.visited') : t('iv.visit')}
-                      </Button>
-                    </>
-                  )}
-                  <Button
-                    size="sm"
-                    variant="secondary"
-                    icon={<IconExport width={13} height={13} />}
-                    onClick={() => exportChild(selected)}
-                  >
-                    {t('st.exportCsv')}
-                  </Button>
-                </div>
-              </div>
+              {/* สิ่งที่ต้องทำต่อ — มาจาก followOps ตัวเดียวกับหน้าติดตามการช่วยเหลือ */}
+              {followCase && (
+                <StudentNextStep
+                  fc={followCase}
+                  mayAct={mayAct}
+                  lastContact={myEntries.find((e) => !isScheduleOnly(e))?.date}
+                  onLogContact={() => setLogMode('contact')}
+                  onLogVisit={() => setLogMode('visit')}
+                  onSheet={setFollowSheet}
+                  onExport={() => exportChild(selected)}
+                />
+              )}
 
               {/* Everything still open on this child, each row paired with the
                   control that closes it. */}
@@ -1046,125 +1002,33 @@ export default function Student360() {
                 </Card>
               )}
 
-              {tab === 'timeline' && (
-                <Card>
-                  <CardHeader
-                    title={t('st.ivTimeline')}
-                    subtitle={
-                      th
-                        ? `เรียงตามวันที่ ใหม่ไปเก่า · ${t('st.savedHint')}`
-                        : `Newest first by date · ${t('st.savedHint')}`
-                    }
-                    action={
-                      mayAct ? (
-                        <Button
-                          size="sm"
-                          variant="secondary"
-                          icon={<IconUser width={13} height={13} />}
-                          onClick={() => setLogMode('contact')}
-                        >
-                          {t('st.logContact')}
-                        </Button>
-                      ) : undefined
-                    }
-                  />
-                  <div className="p-5">
-                    <ol className="relative ml-2 border-l-2 border-surface-border">
-                      {timelineRows.map((row, i) => {
-                        // A phone call tagged with the case's *current* stage
-                        // read as if the call were a referral. Own contact
-                        // entries are labelled by what actually happened.
-                        const chip =
-                          row.kind === 'mine' && row.entry.mode === 'contact' && row.entry.channel
-                            ? t(`st.ch.${row.entry.channel}`)
-                            : t(
-                                `stage.${
-                                  row.kind === 'mine'
-                                    ? row.entry.mode === 'visit'
-                                      ? 'homeVisit'
-                                      : selected.caseStage
-                                    : row.ev.stageKey
-                                }`,
-                              )
-                        const note = row.kind === 'mine' ? row.entry.note : row.ev.note
-                        const by = row.kind === 'mine' ? row.entry.by : row.ev.by
-                        return (
-                          <motion.li
-                            key={row.key}
-                            initial={{ opacity: 0, x: 8 }}
-                            animate={{ opacity: 1, x: 0 }}
-                            transition={{ delay: Math.min(i * 0.06, 0.4) }}
-                            className="relative mb-5 pl-6 last:mb-0"
-                          >
-                            <span
-                              className={`absolute -left-[9px] top-1 grid h-4 w-4 place-items-center rounded-full border-2 border-white ring-2 ${
-                                i === 0 ? 'bg-brand-500 ring-brand-100' : 'bg-slate-300 ring-slate-100'
-                              }`}
-                            />
-                            <div className="flex flex-wrap items-center gap-2">
-                              <span className="inline-flex items-center gap-1 text-[11px] font-medium text-ink-muted">
-                                <IconClock width={12} height={12} />
-                                {row.date}
-                              </span>
-                              <span className="rounded-full bg-brand-50 px-2 py-0.5 text-[11px] font-semibold text-brand-700">
-                                {chip}
-                              </span>
-                              {row.kind === 'mine' && (
-                                <span className="rounded-full bg-risk-normal/10 px-2 py-0.5 text-[11px] font-semibold text-risk-normal">
-                                  {t('st.yours')}
-                                </span>
-                              )}
-                              {row.kind === 'mine' && row.entry.followUpDate && (
-                                <span
-                                  className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${
-                                    row.entry.followUpDone
-                                      ? 'bg-surface-muted text-ink-faint line-through'
-                                      : 'bg-risk-watch/10 text-risk-watch'
-                                  }`}
-                                >
-                                  {t('st.followUp')} {row.entry.followUpDate}
-                                </span>
-                              )}
-                            </div>
-                            <p className="mt-1 text-sm text-ink">{note}</p>
-                            <div className="mt-0.5 flex flex-wrap items-center gap-3">
-                              <span className="text-[11px] text-ink-faint">{by}</span>
-                              {row.kind === 'mine' && row.entry.followUpDate && (
-                                <button
-                                  type="button"
-                                  onClick={() =>
-                                    log.setFollowUpDone(row.entry.id, !row.entry.followUpDone)
-                                  }
-                                  className="text-[11px] font-semibold text-brand-600 underline-offset-2 hover:underline"
-                                >
-                                  {row.entry.followUpDone ? t('st.followUpNone') : t('st.markDone')}
-                                </button>
-                              )}
-                              {/* a typo in a field note should not be permanent */}
-                              {row.kind === 'mine' && (
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    log.remove(row.entry.id)
-                                    toast.push(t('st.deleted'))
-                                  }}
-                                  className="text-[11px] font-semibold text-ink-faint underline-offset-2 hover:text-risk-critical hover:underline"
-                                >
-                                  {t('st.deleteEntry')}
-                                </button>
-                              )}
-                            </div>
-                          </motion.li>
-                        )
-                      })}
-                    </ol>
-                  </div>
-                </Card>
+              {tab === 'timeline' && followCase && (
+                <StudentTimeline
+                  fc={followCase}
+                  entries={myEntries}
+                  log={log}
+                  mayAct={mayAct}
+                  onLogContact={() => setLogMode('contact')}
+                />
               )}
             </motion.div>
           </div>
         )}
       </div>
+
+      {followCase && followSheet && (
+        <FollowCaseDetail
+          key={JSON.stringify(followSheet)}
+          c={followCase}
+          entries={myEntries}
+          log={log}
+          user={user}
+          mayAct={mayAct}
+          initial={followSheet}
+          closeAfter
+          onClose={() => setFollowSheet(null)}
+        />
+      )}
 
       {selected && logMode && (
         <LogForm

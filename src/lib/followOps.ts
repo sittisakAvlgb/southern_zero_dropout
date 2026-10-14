@@ -133,10 +133,11 @@ export function buildFollowCase(input: {
   const left = FOLLOW_UP_SLA_DAYS - updatedDaysAgo
 
   // ── นัดที่ยังไม่ได้ทำ (เร็วสุดก่อน) ──
-  const fu = entries
+  const fus = entries
     .filter((e) => e.followUpDate && !e.followUpDone)
     .map((entry) => ({ entry, daysAway: -daysSince(entry.followUpDate!, today) }))
-    .sort((a, b) => a.daysAway - b.daysAway)[0]
+    .sort((a, b) => a.daysAway - b.daysAway)
+  const fu = fus[0]
 
   const sla: FollowCase['sla'] = !open
     ? { level: 'done', text: 'ปิดเคสแล้ว' }
@@ -229,7 +230,8 @@ export function buildFollowCase(input: {
     if (refMine) return { kind: 'agency', th: refMine.next.th, whyTh: refMine.next.whyTh || `การส่งต่อไป ${refMine.toName}`, cta: 'ดูการส่งต่อ', go: { href: `/referral?ref=${refMine.id}` } }
     if (refLate) return { kind: 'agency', th: `ติดตามสถานะกับ ${refLate.toName}`, whyTh: `ส่งต่อไปแล้วแต่หน่วยงานยังไม่ตอบรับ · ${refLate.sla.text}`, cta: 'ติดตามหน่วยงาน', go: { href: `/referral?ref=${refLate.id}` } }
     // นัดเยี่ยมบ้านไว้แล้ว — ถึงวันก็บันทึกผล ยังไม่ถึงก็ไม่ต้องให้นัดซ้ำ
-    const visitBooked = fu?.entry.followUpMethod === 'เยี่ยมบ้าน' ? fu : undefined
+    // ดูทุกนัด ไม่ใช่แค่นัดแรก — นัดโทรกับนัดเยี่ยมบ้านวันเดียวกันต้องเห็นทั้งคู่
+    const visitBooked = fus.find((f) => f.entry.followUpMethod === 'เยี่ยมบ้าน')
     if (visitBooked && visitBooked.daysAway <= 0)
       return { kind: 'logVisit', th: 'บันทึกผลการเยี่ยมบ้านตามนัด', whyTh: `นัดไว้วันที่ ${fmtDate(visitBooked.entry.followUpDate!)}`, cta: 'บันทึกผลเยี่ยมบ้าน', go: { sheet: 'outcome', mode: 'visit' } }
     if (s.parentContact !== 'ok' && visitBooked)

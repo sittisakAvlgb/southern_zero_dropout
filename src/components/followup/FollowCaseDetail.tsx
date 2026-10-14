@@ -61,6 +61,7 @@ export function FollowCaseDetail({
   user,
   mayAct,
   initial,
+  closeAfter,
   onClose,
 }: {
   c: FollowCase
@@ -69,6 +70,8 @@ export function FollowCaseDetail({
   user: User | null
   mayAct: boolean
   initial?: Sheet
+  /** เปิดมาเพื่อทำแผ่นงานเดียวจากหน้าอื่น — ทำเสร็จแล้วปิดลิ้นชักกลับไปหน้านั้น */
+  closeAfter?: boolean
   onClose: () => void
 }) {
   const nav = useNavigate()
@@ -111,8 +114,8 @@ export function FollowCaseDetail({
 
   if (sheet)
     return (
-      <Drawer label={s.name} head={head} onBack={() => setSheet(null)} onClose={onClose}>
-        <ActionSheet sheet={sheet} c={c} entries={entries} tl={tl} by={by} log={log} add={add} push={push} done={() => setSheet(null)} go={run} />
+      <Drawer label={s.name} head={head} onBack={closeAfter ? undefined : () => setSheet(null)} onClose={onClose}>
+        <ActionSheet sheet={sheet} c={c} entries={entries} tl={tl} by={by} log={log} add={add} push={push} done={() => (closeAfter ? onClose() : setSheet(null))} go={run} />
       </Drawer>
     )
 
