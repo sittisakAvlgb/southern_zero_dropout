@@ -38,11 +38,11 @@ import { Attendance, CaseSummary, FamilyFromVisit, Grades, MicButton } from './D
 const MASCOT = assetUrl('ChatBot.png')
 
 type Tab = 'care' | 'timeline' | 'school' | 'family'
-const TABS: { k: Tab; th: string }[] = [
-  { k: 'care', th: 'ดูแลช่วยเหลือ' },
-  { k: 'timeline', th: 'ไทม์ไลน์' },
-  { k: 'school', th: 'การมาเรียนและการเรียน' },
-  { k: 'family', th: 'ครอบครัวและทีม' },
+const TABS: { k: Tab; th: string; short: string }[] = [
+  { k: 'care', th: 'ดูแลช่วยเหลือ', short: 'ดูแล' },
+  { k: 'timeline', th: 'ไทม์ไลน์', short: 'ไทม์ไลน์' },
+  { k: 'school', th: 'การมาเรียนและการเรียน', short: 'การเรียน' },
+  { k: 'family', th: 'ครอบครัวและทีม', short: 'ครอบครัว' },
 ]
 
 /**
@@ -218,9 +218,9 @@ export function TeacherStudentDesk() {
         subtitle="โต๊ะทำงานของคุณสำหรับดูแลเด็กหนึ่งคน — ครูรู้ปัญหา AI ช่วยหาวิธี"
       />
 
-      <div className="grid gap-5 lg:grid-cols-[280px_minmax(0,1fr)]">
+      <div className="grid gap-5 xl:grid-cols-[280px_minmax(0,1fr)]">
         {/* ── รายชื่อ (จอใหญ่) — แบบเดิมของหน้า: ค้นหา + กรองระดับ + เรียงตามความเร่งด่วน ── */}
-        <aside className="hidden lg:block">
+        <aside className="hidden xl:block">
           <div className="sticky top-4 rounded-2xl border border-surface-border bg-white p-3">
             <StudentList list={list} activeId={fc.s.id} onPick={pick} />
           </div>
@@ -230,7 +230,7 @@ export function TeacherStudentDesk() {
           <button
             type="button"
             onClick={() => setPicking(true)}
-            className="flex w-full items-center justify-between rounded-xl border border-surface-border bg-white px-4 py-3 text-[14.5px] font-medium text-ink lg:hidden"
+            className="flex w-full items-center justify-between rounded-xl border border-surface-border bg-white px-4 py-3 text-[14.5px] font-medium text-ink xl:hidden"
           >
             เปลี่ยนนักเรียน ({list.length} คน)
             <span aria-hidden>▾</span>
@@ -263,7 +263,8 @@ export function TeacherStudentDesk() {
                 onClick={() => setTab(x.k)}
                 className={`shrink-0 flex-1 whitespace-nowrap rounded-lg px-3 py-2.5 text-[14px] ${tab === x.k ? 'bg-white font-bold text-ink shadow-card' : 'font-medium text-ink-muted hover:text-ink'}`}
               >
-                {x.th}
+                <span className="sm:hidden">{x.short}</span>
+                <span className="hidden sm:inline">{x.th}</span>
               </button>
             ))}
           </div>
@@ -290,7 +291,7 @@ export function TeacherStudentDesk() {
             </div>
           )}
           {tab === 'school' && (
-            <div className="grid items-start gap-4 md:grid-cols-2">
+            <div className="grid items-start gap-4 lg:grid-cols-2">
               {sec.attendance}
               <div className="space-y-4">
                 {sec.trend}
@@ -299,7 +300,7 @@ export function TeacherStudentDesk() {
             </div>
           )}
           {tab === 'family' && (
-            <div className="grid items-start gap-4 md:grid-cols-2">
+            <div className="grid items-start gap-4 lg:grid-cols-2">
               {sec.family}
               <div className="space-y-4">
                 {sec.team}
@@ -383,7 +384,7 @@ function StudentList({ list, activeId, onPick }: { list: FollowCase[]; activeId:
   return (
     <div>
       <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="ค้นหาชื่อ / รหัสนักเรียน" className={inputCls} aria-label="ค้นหานักเรียน" />
-      <div className="mt-2 flex flex-wrap gap-1.5">
+      <div className="-mx-1 mt-2 flex gap-1.5 overflow-x-auto px-1 pb-1">
         {(
           [
             ['all', 'ทั้งหมด'],
@@ -397,7 +398,7 @@ function StudentList({ list, activeId, onPick }: { list: FollowCase[]; activeId:
             type="button"
             onClick={() => setLv(k)}
             aria-pressed={lv === k}
-            className={`rounded-full px-3 py-1.5 text-[13px] ${lv === k ? 'bg-brand-500 font-semibold text-white' : 'bg-surface-muted font-medium text-ink'}`}
+            className={`shrink-0 whitespace-nowrap rounded-full px-3 py-1.5 text-[13px] ${lv === k ? 'bg-brand-500 font-semibold text-white' : 'bg-surface-muted font-medium text-ink'}`}
           >
             {th} {n(k)}
           </button>
@@ -450,34 +451,46 @@ function Summary({ fc }: { fc: FollowCase }) {
   const tr = riskTrend(s)
   const st = caseStatus(fc)
   const school = SCHOOL_BY_ID[s.schoolKey]
+  const delta = `${tr.weekDelta > 0 ? `↑ เพิ่มขึ้น ${tr.weekDelta}` : tr.weekDelta < 0 ? `↓ ลดลง ${-tr.weekDelta}` : 'ไม่เปลี่ยน'} จากสัปดาห์ก่อน`
+  // ชื่อกับเกจอยู่แถวเดียวกันทุกขนาดจอ (เกจเล็กลงบนมือถือ) ชิปสถานะลงไปเต็มแถวด้านล่าง
+  // — เดิมชิปอยู่ข้างเกจ จอแคบ ๆ ชิปถูกบีบเหลือแถวละอัน
   return (
-    <div className="flex flex-col gap-4 p-4 sm:p-5 md:flex-row md:items-start">
-      <div className="flex min-w-0 flex-1 items-start gap-4">
-        <span className="grid h-14 w-14 shrink-0 place-items-center rounded-2xl bg-brand-500/10 text-[20px] font-bold text-brand-700">{s.name.slice(0, 1)}</span>
-        <div className="min-w-0">
-          <div className="flex flex-wrap items-center gap-2">
-            <h1 className="text-[22px] font-bold leading-tight text-ink">{s.name}</h1>
+    <div className="p-4 sm:p-5">
+      <div className="flex items-start gap-3 sm:gap-4">
+        <span className="hidden h-14 w-14 shrink-0 place-items-center rounded-2xl bg-brand-500/10 text-[20px] font-bold text-brand-700 sm:grid">{s.name.slice(0, 1)}</span>
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+            <h1 className="text-[20px] font-bold leading-tight text-ink sm:text-[22px]">{s.name}</h1>
             <RiskBadge level={s.riskLevel} size="sm" />
           </div>
-          <p className="mt-0.5 text-[13.5px] text-ink-muted">
+          <p className="mt-1 text-[13.5px] leading-snug text-ink-muted">
             {s.id} · {GRADE_LABEL(s.gradeKey, true)} · {school ? `โรงเรียน${school.name}` : s.schoolKey}
           </p>
-          <div className="mt-2 flex flex-wrap gap-1.5">
-            <Chip icon={<IconClock width={13} height={13} />} tone={s.absenceStreak >= 10 ? 'bad' : 'muted'}>
-              ขาดเรียนต่อเนื่อง {s.absenceStreak} วัน
-            </Chip>
-            <Chip icon={<IconConsent width={13} height={13} />}>{s.consent === 'granted' ? 'ได้รับความยินยอมแล้ว' : 'ยังไม่ได้ความยินยอม'}</Chip>
-            <Chip icon={<IconPathway width={13} height={13} />}>{fc.hasPlan ? 'มีแผนโอกาสแล้ว' : 'ยังไม่มีแผนโอกาส'}</Chip>
-            <Chip icon={<IconUser width={13} height={13} />}>{s.caseOwner || 'ยังไม่มีเจ้าของเคส'}</Chip>
-            <Chip icon={<IconCheck width={13} height={13} />}>สถานะ: {st.th}</Chip>
-          </div>
+          <p className="mt-0.5 text-[13.5px] text-ink-muted">
+            ครูเจ้าของเคส: <span className="font-semibold text-ink">{s.caseOwner || 'ยังไม่มี'}</span>
+          </p>
+        </div>
+        <div className="flex shrink-0 flex-col items-center gap-0.5">
+          {/* มือถือ: ตัวเลขธรรมดา — เกจขนาดเล็กตัดคำบรรยายในวงจนอ่านไม่ออก */}
+          <span className="rounded-2xl border border-surface-border px-3 py-1.5 text-center sm:hidden">
+            <span className="block text-[30px] font-bold leading-none tabular" style={{ color: RISK_COLOR[s.riskLevel] }}>
+              {s.riskScore}
+            </span>
+            <span className="mt-0.5 block text-[12px] text-ink-muted">คะแนน /100</span>
+          </span>
+          <span className="hidden sm:block">
+            <RiskGauge score={s.riskScore} size={120} />
+          </span>
+          <p className="max-w-[120px] text-center text-[12.5px] font-medium leading-tight text-ink sm:max-w-[140px] sm:text-[13px]">{delta}</p>
         </div>
       </div>
-      <div className="flex shrink-0 items-center gap-3 self-center md:flex-col md:gap-1">
-        <RiskGauge score={s.riskScore} size={120} />
-        <p className="max-w-[140px] text-center text-[13px] font-medium text-ink">
-          {tr.weekDelta > 0 ? `↑ เพิ่มขึ้น ${tr.weekDelta}` : tr.weekDelta < 0 ? `↓ ลดลง ${-tr.weekDelta}` : 'ไม่เปลี่ยน'} จากสัปดาห์ก่อน
-        </p>
+      <div className="mt-3 flex flex-wrap gap-1.5">
+        <Chip icon={<IconCheck width={13} height={13} />}>สถานะ: {st.th}</Chip>
+        <Chip icon={<IconClock width={13} height={13} />} tone={s.absenceStreak >= 10 ? 'bad' : 'muted'}>
+          ขาดเรียนต่อเนื่อง {s.absenceStreak} วัน
+        </Chip>
+        <Chip icon={<IconConsent width={13} height={13} />}>{s.consent === 'granted' ? 'ได้รับความยินยอมแล้ว' : 'ยังไม่ได้ความยินยอม'}</Chip>
+        <Chip icon={<IconPathway width={13} height={13} />}>{fc.hasPlan ? 'มีแผนโอกาสแล้ว' : 'ยังไม่มีแผนโอกาส'}</Chip>
       </div>
     </div>
   )
