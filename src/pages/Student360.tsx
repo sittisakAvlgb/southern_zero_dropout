@@ -4,6 +4,8 @@ import { motion } from 'framer-motion'
 import Chart from 'react-apexcharts'
 import { Card, CardHeader } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
+import { Skeleton } from '@/components/ui/Skeleton'
+import { useSimulatedLoading } from '@/lib/useLoading'
 import { RiskBadge } from '@/components/ui/RiskBadge'
 import { RiskGauge } from '@/components/ui/RiskGauge'
 import { Sparkline } from '@/components/ui/Sparkline'
@@ -40,19 +42,20 @@ import {
   IconPathway,
   IconReferral,
   IconSearch,
+  IconShield,
   IconStudent,
   IconUp,
   IconUser,
 } from '@/components/icons'
 
 /** the six sub-scores in model order, with their weight */
-const FACTORS: { key: keyof RiskInputs; weight: number; th: string; en: string }[] = [
-  { key: 'attendanceRisk', weight: RISK_WEIGHTS.attendance, th: 'การมาเรียน', en: 'Attendance' },
-  { key: 'academicRisk', weight: RISK_WEIGHTS.academic, th: 'การเรียน', en: 'Academic' },
-  { key: 'behaviorRisk', weight: RISK_WEIGHTS.behavior, th: 'พฤติกรรม', en: 'Behavior' },
-  { key: 'familyRisk', weight: RISK_WEIGHTS.family, th: 'ครอบครัว', en: 'Family' },
-  { key: 'wellbeingRisk', weight: RISK_WEIGHTS.wellbeing, th: 'สุขภาวะ', en: 'Wellbeing' },
-  { key: 'parentRisk', weight: RISK_WEIGHTS.parent, th: 'ผู้ปกครอง', en: 'Parent' },
+const FACTORS: { key: keyof RiskInputs; weight: number; th: string; en: string; ms: string }[] = [
+  { key: 'attendanceRisk', weight: RISK_WEIGHTS.attendance, th: 'การมาเรียน', en: 'Attendance', ms: 'Kehadiran' },
+  { key: 'academicRisk', weight: RISK_WEIGHTS.academic, th: 'การเรียน', en: 'Academic', ms: 'Akademik' },
+  { key: 'behaviorRisk', weight: RISK_WEIGHTS.behavior, th: 'พฤติกรรม', en: 'Behavior', ms: 'Tingkah laku' },
+  { key: 'familyRisk', weight: RISK_WEIGHTS.family, th: 'ครอบครัว', en: 'Family', ms: 'Keluarga' },
+  { key: 'wellbeingRisk', weight: RISK_WEIGHTS.wellbeing, th: 'สุขภาวะ', en: 'Wellbeing', ms: 'Kesejahteraan' },
+  { key: 'parentRisk', weight: RISK_WEIGHTS.parent, th: 'ผู้ปกครอง', en: 'Parent', ms: 'Ibu bapa' },
 ]
 
 /** each factor's contribution to the score, biggest first — the one list the
@@ -155,16 +158,27 @@ const OUTCOME_TO_STATUS: Record<ContactOutcome, Student['parentContact']> = {
 }
 
 export default function Student360() {
-  const { t, pn, dn, lang } = useI18n()
+  const { t, pn, dn, lang, pick } = useI18n()
   const th = lang === 'th'
   const toast = useToast()
   const nav = useNavigate()
   const [params, setParams] = useSearchParams()
   const { students, plans, referrals, cases, user } = useScopedData()
+  /** the detail pane waits a beat like every other page does, so a slow
+   *  network later has a shape to fill instead of a blank */
+  const loading = useSimulatedLoading(600)
 
   const [query, setQuery] = useState('')
   const [riskFilter, setRiskFilter] = useState<RiskFilter>('all')
   const [tab, setTab] = useState<Tab>('overview')
+  useEffect(() => {
+    document
+      .querySelector('#st-tabs [aria-pressed="true"]')
+      ?.scrollIntoView({ block: 'nearest', inline: 'center', behavior: 'smooth' })
+  }, [tab])
+
+  /** phone only: the list of children folds away so the child opens first */
+  const [listOpen, setListOpen] = useState(false)
 
   /** Work this account has recorded, read back from the persisted log rather
    *  than from page state — a call logged here survives a reload, which is the
@@ -336,6 +350,17 @@ export default function Student360() {
     return { chip, note, by }
   }
 
+  /** choosing from the list: fold it away and, on a phone where the detail sits
+   *  below it, bring the child into view */
+  const pickStudent = (id: string) => {
+    selectStudent(id)
+    setListOpen(false)
+    if (window.matchMedia('(max-width: 1023px)').matches)
+      requestAnimationFrame(() =>
+        document.getElementById('st-detail')?.scrollIntoView({ behavior: 'smooth', block: 'start' }),
+      )
+  }
+
   const selectStudent = (id: string) => {
     const next = new URLSearchParams(params)
     next.set('id', id)
@@ -455,6 +480,48 @@ export default function Student360() {
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-[18rem_1fr]">
         {/* ── who else is on my list ── */}
         <Card className="flex max-h-[calc(100vh-7rem)] flex-col overflow-hidden lg:sticky lg:top-4 lg:self-start">
+          {/* phone: one line naming who is open, tap to choose another — the
+              whole list above the child pushed the child ~900px down the page */}
+          {selected && (
+            <button
+              type="button"
+              onClick={() => setListOpen((o) => !o)}
+              aria-expanded={listOpen}
+              aria-controls="st-list"
+              className="flex w-full items-center gap-3 p-3 text-left lg:hidden"
+            >
+              <span
+                className="tabular grid h-9 w-9 shrink-0 place-items-center rounded-lg text-[13px] font-bold"
+                style={{
+                  backgroundColor: RISK_BG[selected.riskLevel],
+                  color: RISK_COLOR[selected.riskLevel],
+                }}
+              >
+                {selected.riskScore}
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-[14px] font-semibold text-ink">
+                  {selected.name}
+                </span>
+                <span className="block text-[12px] text-ink-muted">
+                  {pick({
+                    th: `เลือกนักเรียนคนอื่น · ${list.length} คน`,
+                    en: `Choose another student · ${list.length}`,
+                    ms: `Pilih pelajar lain · ${list.length}`,
+                  })}
+                </span>
+              </span>
+              <IconDown
+                width={18}
+                height={18}
+                className={`shrink-0 text-ink-muted transition-transform ${listOpen ? 'rotate-180' : ''}`}
+              />
+            </button>
+          )}
+          <div
+            id="st-list"
+            className={`${listOpen ? 'flex' : 'hidden'} min-h-0 flex-1 flex-col border-t border-surface-border lg:flex lg:border-t-0`}
+          >
           <div className="border-b border-surface-border p-3">
             <div className="relative">
               <IconSearch
@@ -518,7 +585,7 @@ export default function Student360() {
                 return (
                   <motion.button
                     key={s.id}
-                    onClick={() => selectStudent(s.id)}
+                    onClick={() => pickStudent(s.id)}
                     initial={{ opacity: 0, y: 4 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: Math.min(i * 0.015, 0.25) }}
@@ -546,9 +613,11 @@ export default function Student360() {
               })
             )}
           </div>
+          </div>
         </Card>
 
         {/* ── the child ── */}
+        <div id="st-detail" className="min-w-0 scroll-mt-20">
         {!selected ? (
           <Card>
             <div className="grid place-items-center gap-3 p-16 text-center">
@@ -558,11 +627,18 @@ export default function Student360() {
               <p className="max-w-xs text-sm text-ink-muted">{t('st.pickPrompt')}</p>
             </div>
           </Card>
+        ) : loading ? (
+          <DetailSkeleton />
         ) : (
           <div className="flex flex-col gap-4">
             {/* identity + the two things that decide today */}
             <Card>
-              <div className="flex flex-col gap-4 p-5 lg:flex-row lg:items-start">
+              {/* On a phone the next action and the open items move up above the
+                  explanation — the teacher is standing in a corridor and needs
+                  "what do I do" before "why this score". From md up the order is
+                  Risk, Why, History, Next action, as the brief lays it out. */}
+              <div className="flex flex-col">
+              <div className="order-1 flex flex-col gap-4 p-5 lg:flex-row lg:items-start">
                 <div className="flex min-w-0 flex-1 items-start gap-4">
                   <span className="grid h-14 w-14 shrink-0 place-items-center rounded-2xl bg-brand-500/10 text-lg font-bold text-brand-700">
                     {selected.name.slice(0, 1)}
@@ -605,18 +681,18 @@ export default function Student360() {
                 {/* the score and which way it is heading */}
                 <div className="flex shrink-0 flex-col items-center gap-2">
                   <RiskGauge score={selected.riskScore} />
-                  <TrendUnderGauge s={selected} th={th} />
+                  <TrendUnderGauge s={selected} />
                 </div>
               </div>
 
               {/* why this score — beside the dial, so explaining it to a parent
                   does not mean opening a second tab */}
-              <WhyScore s={selected} th={th} />
+              <WhyScore s={selected} className="order-4 md:order-2" />
 
               {/* what has already been done — the last two events, so the
                   teacher need not open the timeline to know where this stands */}
               <RecentHistory
-                th={th}
+                className="order-5 md:order-3"
                 total={timelineRows.length}
                 items={timelineRows.slice(0, 2).map((row) => ({
                   key: row.key,
@@ -634,7 +710,7 @@ export default function Student360() {
               />
 
               {/* next action — the one line this page exists for */}
-              <div className="flex flex-wrap items-center justify-between gap-3 border-t border-surface-border bg-brand-50/50 px-5 py-3">
+              <div className="order-2 flex flex-wrap items-center justify-between gap-3 border-t border-surface-border bg-brand-50/50 px-5 py-3 md:order-4">
                 <p className="flex min-w-0 items-center gap-2 text-[13px]">
                   <span className="grid h-6 w-6 shrink-0 place-items-center rounded-lg bg-brand-500 text-white">
                     <IconArrowRight width={13} height={13} />
@@ -685,9 +761,13 @@ export default function Student360() {
               {/* Everything still open on this child, each row paired with the
                   control that closes it. */}
               {nextActions.length > 0 && (
-                <div className="border-t border-surface-border px-5 py-3">
+                <div className="order-3 border-t border-surface-border px-5 py-3 md:order-5">
                   <p className="mb-2 text-[12px] font-semibold text-ink-muted">
-                    {th ? 'สิ่งที่ยังค้างอยู่กับเด็กคนนี้' : 'Still open on this child'}
+                    {pick({
+                      th: 'สิ่งที่ยังค้างอยู่กับเด็กคนนี้',
+                      en: 'Still open on this child',
+                      ms: 'Perkara yang masih terbuka bagi kanak-kanak ini',
+                    })}
                   </p>
                   <ul className="grid grid-cols-1 gap-1.5 sm:grid-cols-2">
                     {nextActions.map((a) => (
@@ -716,12 +796,13 @@ export default function Student360() {
                   </ul>
                 </div>
               )}
+              </div>
             </Card>
 
             {/* tabs — a 360 view without a wall of cards */}
             <div
               id="st-tabs"
-              className="flex scroll-mt-20 flex-wrap gap-1 rounded-xl border border-surface-border bg-surface-muted p-1"
+              className="flex scroll-mt-20 gap-1 overflow-x-auto rounded-xl border border-surface-border bg-surface-muted p-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden md:overflow-visible"
             >
               {(
                 [
@@ -737,7 +818,7 @@ export default function Student360() {
                   type="button"
                   onClick={() => setTab(k)}
                   aria-pressed={tab === k}
-                  className={`relative flex-1 rounded-lg px-3 py-2 text-xs font-semibold transition-colors ${
+                  className={`relative shrink-0 whitespace-nowrap rounded-lg px-4 py-2.5 text-[13px] font-semibold transition-colors md:flex-1 md:px-3 ${
                     tab === k ? 'text-brand-700' : 'text-ink-muted hover:text-ink'
                   }`}
                 >
@@ -798,7 +879,7 @@ export default function Student360() {
                             {
                               key: 'stage',
                               icon: <IconPathway width={16} height={16} />,
-                              label: th ? 'ขั้นตอนของเคส' : 'Case stage',
+                              label: pick({ th: 'ขั้นตอนของเคส', en: 'Case stage', ms: 'Peringkat kes' }),
                               value: t(`stage.${selected.caseStage}`),
                             },
                           ]}
@@ -1162,17 +1243,33 @@ export default function Student360() {
                     }
                     action={
                       mayAct ? (
-                        <Button
-                          size="sm"
-                          variant="secondary"
-                          icon={<IconUser width={13} height={13} />}
-                          onClick={() => setLogMode('contact')}
-                        >
-                          {t('st.logContact')}
-                        </Button>
+                        <span className="hidden sm:inline-flex">
+                          <Button
+                            size="sm"
+                            variant="secondary"
+                            icon={<IconUser width={13} height={13} />}
+                            onClick={() => setLogMode('contact')}
+                          >
+                            {t('st.logContact')}
+                          </Button>
+                        </span>
                       ) : undefined
                     }
                   />
+                  {/* phone: the same button, full width under the title */}
+                  {mayAct && (
+                    <div className="px-5 pt-1 sm:hidden">
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        className="w-full"
+                        icon={<IconUser width={13} height={13} />}
+                        onClick={() => setLogMode('contact')}
+                      >
+                        {t('st.logContact')}
+                      </Button>
+                    </div>
+                  )}
                   <div className="p-5">
                     <ol className="relative ml-2 border-l-2 border-surface-border">
                       {timelineRows.map((row, i) => {
@@ -1253,6 +1350,7 @@ export default function Student360() {
             </motion.div>
           </div>
         )}
+        </div>
       </div>
 
       {selected && logMode && (
@@ -1961,6 +2059,7 @@ function RiskTab({
   th: boolean
   t: (k: string) => string
 }) {
+  const { pick } = useI18n()
   const rows = factorRows(s)
   const maxPoints = Math.max(...rows.map((r) => r.points), 1)
   const top = rows.slice(0, 2)
@@ -1986,9 +2085,10 @@ function RiskTab({
                 <div key={r.key}>
                   <div className="mb-1 flex items-baseline justify-between gap-2 text-xs">
                     <span className="font-medium text-ink">
-                      {th ? r.th : r.en}
+                      {pick({ th: r.th, en: r.en, ms: r.ms })}
                       <span className="ml-1.5 text-[12px] text-ink-muted">
-                        {th ? r.en : r.th} · {th ? 'น้ำหนัก' : 'weight'} {Math.round(r.weight * 100)}%
+                        {th ? r.en : r.th} · {pick({ th: 'น้ำหนัก', en: 'weight', ms: 'pemberat' })}{' '}
+                        {Math.round(r.weight * 100)}%
                       </span>
                     </span>
                     <span className="shrink-0 text-[12px] text-ink-muted">
@@ -2015,44 +2115,64 @@ function RiskTab({
             })}
           </div>
           <p className="mt-4 rounded-xl bg-surface-muted px-3 py-2.5 text-[12px] leading-relaxed text-ink-muted">
-            {th
-              ? `${top
-                  .map((r) => `${r.th} ${r.points} คะแนน`)
-                  .join(' และ ')} คือสองด้านที่ดันคะแนนขึ้นมากที่สุด — แก้สองเรื่องนี้ได้ผลไวที่สุด`
-              : `${top
-                  .map((r) => `${r.en} (${r.points})`)
-                  .join(' and ')} contribute most — they are where a change moves the score fastest.`}
+            {pick({
+              th: `${top
+                .map((r) => `${r.th} ${r.points} คะแนน`)
+                .join(' และ ')} คือสองด้านที่ดันคะแนนขึ้นมากที่สุด — แก้สองเรื่องนี้ได้ผลไวที่สุด`,
+              en: `${top
+                .map((r) => `${r.en} (${r.points})`)
+                .join(' and ')} contribute most — they are where a change moves the score fastest.`,
+              ms: `${top
+                .map((r) => `${r.ms} (${r.points})`)
+                .join(' dan ')} menyumbang paling banyak — di sinilah perubahan menggerakkan skor paling cepat.`,
+            })}
           </p>
         </div>
       </Card>
 
       <Card>
         <CardHeader
-          title={th ? 'สัญญาณที่ต้องจับตา' : 'Signals to watch'}
-          subtitle={
-            th ? 'ข้อเท็จจริงตรงจากระเบียน ไม่ใช่ข้อความสรุปอัตโนมัติ' : 'Facts from the record'
-          }
+          title={pick({ th: 'สัญญาณที่ต้องจับตา', en: 'Signals to watch', ms: 'Isyarat untuk diawasi' })}
+          subtitle={pick({
+            th: 'ข้อเท็จจริงตรงจากระเบียน ไม่ใช่ข้อความสรุปอัตโนมัติ',
+            en: 'Facts from the record',
+            ms: 'Fakta terus daripada rekod',
+          })}
         />
-        <div className="grid grid-cols-2 gap-2 px-5 pb-5 pt-2 sm:grid-cols-4">
-          <Fact
-            k={t('st.absenceStreak')}
-            v={`${s.absenceStreak} ${t('ref.days')}`}
-            level={s.absenceStreak >= 10 ? 'critical' : s.absenceStreak >= 5 ? 'watch' : 'normal'}
-          />
-          <Fact
-            k={t('st.parentContact')}
-            v={t(PARENT_META[s.parentContact].key)}
-            level={PARENT_META[s.parentContact].level}
-          />
-          <Fact
-            k={th ? 'กลุ่มเปราะบาง' : 'Vulnerable group'}
-            v={s.vulnerableGroup ? (th ? 'ใช่' : 'Yes') : th ? 'ไม่' : 'No'}
-            level={s.vulnerableGroup ? 'watch' : 'normal'}
-          />
-          <Fact
-            k={th ? 'สาเหตุที่บันทึก' : 'Causes recorded'}
-            v={String(s.causeKeys.length)}
-            level={s.causeKeys.length >= 3 ? 'high' : 'normal'}
+        <div className="px-5 pb-5 pt-2">
+          <StatusList
+            rows={[
+              {
+                key: 'absence',
+                icon: <IconClock width={16} height={16} />,
+                label: t('st.absenceStreak'),
+                value: `${s.absenceStreak} ${t('ref.days')}`,
+                level: s.absenceStreak >= 10 ? 'critical' : s.absenceStreak >= 5 ? 'watch' : 'normal',
+              },
+              {
+                key: 'parent',
+                icon: <IconMail width={16} height={16} />,
+                label: t('st.parentContact'),
+                value: t(PARENT_META[s.parentContact].key),
+                level: PARENT_META[s.parentContact].level,
+              },
+              {
+                key: 'vulnerable',
+                icon: <IconShield width={16} height={16} />,
+                label: pick({ th: 'กลุ่มเปราะบาง', en: 'Vulnerable group', ms: 'Kumpulan terdedah' }),
+                value: s.vulnerableGroup
+                  ? pick({ th: 'ใช่', en: 'Yes', ms: 'Ya' })
+                  : pick({ th: 'ไม่', en: 'No', ms: 'Tidak' }),
+                level: s.vulnerableGroup ? 'watch' : 'normal',
+              },
+              {
+                key: 'causes',
+                icon: <IconCause width={16} height={16} />,
+                label: pick({ th: 'สาเหตุที่บันทึก', en: 'Causes recorded', ms: 'Punca direkodkan' }),
+                value: String(s.causeKeys.length),
+                level: s.causeKeys.length >= 3 ? 'high' : 'normal',
+              },
+            ]}
           />
         </div>
       </Card>
@@ -2068,16 +2188,21 @@ function ScoreBuildBar({
   level,
   th,
 }: {
-  rows: { key: string; th: string; en: string; value: number; points: number }[]
+  rows: { key: string; th: string; en: string; ms: string; value: number; points: number }[]
   total: number
   level: RiskLevel
   th: boolean
 }) {
+  const { pick } = useI18n()
   return (
     <div>
       <div className="flex items-baseline justify-between gap-2">
         <p className="text-[12px] font-medium text-ink-muted">
-          {th ? 'คะแนนนี้ประกอบขึ้นจาก 6 ด้าน' : 'How the six factors build this score'}
+          {pick({
+            th: 'คะแนนนี้ประกอบขึ้นจาก 6 ด้าน',
+            en: 'How the six factors build this score',
+            ms: 'Bagaimana enam faktor membentuk skor ini',
+          })}
         </p>
         <p className="text-[12px] text-ink-muted">
           <span className="tabular text-lg font-bold" style={{ color: RISK_COLOR[level] }}>
@@ -2096,7 +2221,7 @@ function ScoreBuildBar({
             initial={{ width: 0 }}
             animate={{ width: `${r.points}%` }}
             transition={{ duration: 0.7, ease: 'easeOut', delay: 0.1 + i * 0.07 }}
-            title={`${th ? r.th : r.en} ${r.points}`}
+            title={`${pick({ th: r.th, en: r.en, ms: r.ms })} ${r.points}`}
           >
             {r.points >= 9 && (
               <span className="tabular absolute inset-0 grid place-items-center text-[12px] font-bold text-white/95">
@@ -2123,12 +2248,16 @@ function ScoreBuildBar({
               className="h-2 w-2 rounded-full"
               style={{ backgroundColor: FACTOR_COLOR[i % FACTOR_COLOR.length] }}
             />
-            {th ? r.th : r.en}
+            {pick({ th: r.th, en: r.en, ms: r.ms })}
             <span className="tabular font-semibold text-ink">{r.points}</span>
           </span>
         ))}
         <span className="ml-auto text-[12px] text-ink-muted">
-          {th ? 'เส้นแบ่งคือเกณฑ์ 40 / 70 / 85' : 'lines mark the 40 / 70 / 85 thresholds'}
+          {pick({
+            th: 'เส้นแบ่งคือเกณฑ์ 40 / 70 / 85',
+            en: 'lines mark the 40 / 70 / 85 thresholds',
+            ms: 'garisan menandakan had 40 / 70 / 85',
+          })}
         </span>
       </div>
     </div>
@@ -2168,16 +2297,38 @@ function Chip({
   )
 }
 
-function Fact({ k, v, level }: { k: string; v: string; level?: RiskLevel }) {
+/** The shape of the detail pane while it loads: identity and dial, the six
+ *  factor bars, then the next-action bar. */
+function DetailSkeleton() {
   return (
-    <div className="rounded-xl border border-surface-border px-3 py-2">
-      <p className="text-[12px] text-ink-muted">{k}</p>
-      <p
-        className="mt-0.5 truncate text-[14px] font-semibold"
-        style={{ color: level ? RISK_COLOR[level] : undefined }}
-      >
-        {v}
-      </p>
+    <div className="flex flex-col gap-4" aria-busy="true" aria-live="polite">
+      <Card>
+        <div className="flex flex-col gap-4 p-5 lg:flex-row lg:items-start">
+          <div className="flex min-w-0 flex-1 items-start gap-4">
+            <Skeleton className="h-14 w-14 shrink-0 rounded-2xl" />
+            <div className="min-w-0 flex-1 space-y-2">
+              <Skeleton className="h-6 w-48" />
+              <Skeleton className="h-4 w-64 max-w-full" />
+              <div className="flex gap-2 pt-1">
+                <Skeleton className="h-6 w-28 rounded-full" />
+                <Skeleton className="h-6 w-24 rounded-full" />
+              </div>
+            </div>
+          </div>
+          <Skeleton className="mx-auto h-[132px] w-[132px] shrink-0 rounded-full" />
+        </div>
+        <div className="space-y-3 border-t border-surface-border px-5 py-4">
+          <Skeleton className="h-5 w-56" />
+          <div className="grid gap-3 sm:grid-cols-2">
+            {[0, 1, 2, 3].map((i) => (
+              <Skeleton key={i} className="h-8 w-full" />
+            ))}
+          </div>
+        </div>
+        <div className="border-t border-surface-border px-5 py-4">
+          <Skeleton className="h-9 w-full" />
+        </div>
+      </Card>
     </div>
   )
 }
@@ -2238,28 +2389,25 @@ function StatusList({ rows, className = '' }: { rows: StatusRowData[]; className
 
 /** The sparkline and delta under the dial. Text stays dark for contrast; the
  *  hue lives on the line and the arrow, and the word says the direction. */
-function TrendUnderGauge({ s, th }: { s: Student; th: boolean }) {
+function TrendUnderGauge({ s }: { s: Student }) {
+  const { pick, lang } = useI18n()
   const tr = scoreTrend(s)
   if (!tr) return null
   const color =
     tr.dir === 'worse' ? RISK_COLOR.high : tr.dir === 'better' ? RISK_COLOR.normal : '#64748b'
   const abs = Math.abs(tr.delta)
   const subject =
-    tr.kind === 'risk' ? (th ? 'คะแนนเสี่ยง' : 'Risk score') : th ? 'การมาเรียน' : 'Attendance'
+    tr.kind === 'risk'
+      ? pick({ th: 'คะแนนเสี่ยง', en: 'Risk score', ms: 'Skor risiko' })
+      : pick({ th: 'การมาเรียน', en: 'Attendance', ms: 'Kehadiran' })
   // the arrow follows the number's direction; the colour says whether that is good
   const up = tr.delta > 0
   const verb =
     tr.dir === 'flat'
-      ? th
-        ? 'ทรงตัว'
-        : 'steady'
+      ? pick({ th: 'ทรงตัว', en: 'steady', ms: 'stabil' })
       : up
-        ? th
-          ? `เพิ่มขึ้น ${abs} จุด`
-          : `up ${abs} pt`
-        : th
-          ? `ลดลง ${abs} จุด`
-          : `down ${abs} pt`
+        ? pick({ th: `เพิ่มขึ้น ${abs} จุด`, en: `up ${abs} pt`, ms: `meningkat ${abs} mata` })
+        : pick({ th: `ลดลง ${abs} จุด`, en: `down ${abs} pt`, ms: `menurun ${abs} mata` })
   const unit = tr.kind === 'risk' ? '' : '%'
   return (
     <div className="flex flex-col items-center gap-1">
@@ -2271,14 +2419,15 @@ function TrendUnderGauge({ s, th }: { s: Student; th: boolean }) {
           ) : (
             <IconDown width={13} height={13} style={{ color }} />
           ))}
+        {/* Thai runs the words together; the other two languages need the space */}
         {subject}
-        {th ? '' : ' '}
+        {lang === 'th' ? '' : ' '}
         {verb}
       </p>
       <p className="text-[12px] text-ink-muted">
         {tr.first}
         {unit} → {tr.last}
-        {unit} · {tr.series.length} {th ? 'สัปดาห์' : 'weeks'}
+        {unit} · {tr.series.length} {pick({ th: 'สัปดาห์', en: 'weeks', ms: 'minggu' })}
       </p>
     </div>
   )
@@ -2298,25 +2447,30 @@ interface RecentItem {
  *  of Risk / Why / History / Next action that still sat behind a tab. On a
  *  phone only the latest shows, so the next-action bar stays within reach. */
 function RecentHistory({
-  th,
   total,
   items,
   yours,
   onOpen,
+  className = '',
 }: {
-  th: boolean
   total: number
   items: RecentItem[]
   yours: string
   onOpen: () => void
+  className?: string
 }) {
+  const { pick } = useI18n()
   return (
-    <div className="border-t border-surface-border px-5 py-4">
+    <div className={`border-t border-surface-border px-5 py-4 ${className}`}>
       <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
         <p className="text-[15px] font-semibold text-ink">
-          {th ? 'ที่ผ่านมา' : 'So far'}
+          {pick({ th: 'ที่ผ่านมา', en: 'So far', ms: 'Setakat ini' })}
           <span className="ml-2 text-[13px] font-normal text-ink-muted">
-            {th ? 'ช่วยอะไรไปแล้ว' : 'what has been done'}
+            {pick({
+              th: 'ช่วยอะไรไปแล้ว',
+              en: 'what has been done',
+              ms: 'bantuan yang telah diberikan',
+            })}
           </span>
         </p>
         {total > 0 && (
@@ -2325,7 +2479,11 @@ function RecentHistory({
             onClick={onOpen}
             className="inline-flex items-center gap-1 text-[13px] font-semibold text-brand-600"
           >
-            {th ? `ดูไทม์ไลน์ทั้งหมด (${total})` : `Full timeline (${total})`}
+            {pick({
+              th: `ดูไทม์ไลน์ทั้งหมด (${total})`,
+              en: `Full timeline (${total})`,
+              ms: `Garis masa penuh (${total})`,
+            })}
             <IconArrowRight width={13} height={13} />
           </button>
         )}
@@ -2333,9 +2491,11 @@ function RecentHistory({
 
       {items.length === 0 ? (
         <p className="mt-2 text-[14px] text-ink-muted">
-          {th
-            ? 'ยังไม่มีการช่วยเหลือที่บันทึกไว้ — เริ่มจากบันทึกการติดต่อผู้ปกครองด้านล่าง'
-            : 'Nothing logged yet — start by logging a parent contact below'}
+          {pick({
+            th: 'ยังไม่มีการช่วยเหลือที่บันทึกไว้ — เริ่มจากบันทึกการติดต่อผู้ปกครองด้านล่าง',
+            en: 'Nothing logged yet — start by logging a parent contact below',
+            ms: 'Belum ada bantuan direkodkan — mulakan dengan merekod hubungan dengan ibu bapa di bawah',
+          })}
         </p>
       ) : (
         <ul className="mt-2 divide-y divide-surface-border">
@@ -2360,8 +2520,7 @@ function RecentHistory({
                 </p>
                 <p className="mt-0.5 text-[14px] text-ink">{it.note}</p>
                 <p className="text-[12px] text-ink-muted">
-                  {th ? 'โดย ' : 'by '}
-                  {it.by}
+                  {pick({ th: 'โดย', en: 'by', ms: 'oleh' })} {it.by}
                 </p>
               </div>
             </li>
@@ -2374,18 +2533,26 @@ function RecentHistory({
 
 /** "Why this score" as the first thing under the dial: the six contributions,
  *  biggest first, from the same rows the risk tab reads. */
-function WhyScore({ s, th }: { s: Student; th: boolean }) {
+function WhyScore({ s, className = '' }: { s: Student; className?: string }) {
+  const { pick } = useI18n()
   const rows = factorRows(s)
   const maxPoints = Math.max(...rows.map((r) => r.points), 1)
   const top = rows.slice(0, 2)
+  const name = (r: (typeof rows)[number]) => pick({ th: r.th, en: r.en, ms: r.ms })
   return (
-    <div className="border-t border-surface-border px-5 py-4">
+    <div className={`border-t border-surface-border px-5 py-4 ${className}`}>
       <p className="text-[15px] font-semibold text-ink">
-        {th ? `ทำไมถึง ${s.riskScore} คะแนน` : `Why ${s.riskScore} points`}
+        {pick({
+          th: `ทำไมถึง ${s.riskScore} คะแนน`,
+          en: `Why ${s.riskScore} points`,
+          ms: `Mengapa ${s.riskScore} mata`,
+        })}
         <span className="mt-0.5 block text-[13px] font-normal text-ink-muted sm:ml-2 sm:mt-0 sm:inline">
-          {th
-            ? `${top.map((r) => r.th).join(' และ ')} ดันคะแนนมากที่สุด`
-            : `${top.map((r) => r.en).join(' and ')} add the most`}
+          {pick({
+            th: `${top.map(name).join(' และ ')} ดันคะแนนมากที่สุด`,
+            en: `${top.map(name).join(' and ')} add the most`,
+            ms: `${top.map(name).join(' dan ')} menyumbang paling banyak`,
+          })}
         </span>
       </p>
       <ul className="mt-3 grid grid-cols-1 gap-x-6 gap-y-3 sm:grid-cols-2">
@@ -2394,12 +2561,10 @@ function WhyScore({ s, th }: { s: Student; th: boolean }) {
           return (
             <li key={r.key}>
               <div className="mb-1 flex items-baseline justify-between gap-2 text-[14px]">
-                <span className={i < 2 ? 'font-semibold text-ink' : 'text-ink'}>
-                  {th ? r.th : r.en}
-                </span>
+                <span className={i < 2 ? 'font-semibold text-ink' : 'text-ink'}>{name(r)}</span>
                 <span className="shrink-0 text-[13px] text-ink-muted">
                   <span className="tabular font-bold text-ink">{r.points}</span>{' '}
-                  {th ? 'คะแนน' : 'pts'}
+                  {pick({ th: 'คะแนน', en: 'pts', ms: 'mata' })}
                 </span>
               </div>
               <div className="h-2 overflow-hidden rounded-full bg-surface-muted">
@@ -2448,7 +2613,9 @@ function LinkedRow({
             {count}
           </span>
         </p>
-        <p className="truncate text-[12px] text-ink-muted">{detail}</p>
+        {/* wraps rather than truncating: "In Progress · Overdue" cut to "…" hid the
+            one word the teacher was looking for */}
+        <p className="break-words text-[12px] text-ink-muted">{detail}</p>
       </div>
       {cta && (
         <Button size="sm" variant="ghost" icon={<IconArrowRight width={13} height={13} />} onClick={cta.fn}>
