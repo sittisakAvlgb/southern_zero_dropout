@@ -150,7 +150,11 @@ export interface RefEvent {
   toAgencyName?: string
   /** นัดติดตามวันที่ (YYYY-MM-DD) */
   date?: string
+  /** ครูทราบ/แจ้งเรื่องนี้ทางไหน — ยังไม่ต่อระบบหน่วยงาน ครูจึงเป็นคนบันทึกความคืบหน้าเอง */
+  via?: RefVia
 }
+
+export type RefVia = 'phone' | 'letter' | 'inPerson' | 'line'
 
 /** การส่งต่อที่ครูสร้างจากในแอป */
 export interface LocalReferral {

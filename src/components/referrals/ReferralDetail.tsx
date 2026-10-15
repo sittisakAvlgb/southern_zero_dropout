@@ -3,26 +3,29 @@ import type { Student } from '@/types'
 import type { User } from '@/auth/roles'
 import { NEED_TO_KIND } from '@/data/agencies'
 import { suggestAgencies } from '@/lib/planOps'
-import type { OutcomeKey, RefEvent } from '@/lib/caseLog'
+import type { OutcomeKey, RefEvent, RefVia } from '@/lib/caseLog'
 import { useToast } from '@/components/ui/Toast'
 import { IconAgency, IconUser } from '@/components/icons'
 import {
   ACK_STEPS,
+  ackIndex,
   ACTION_TH,
   crossTimeline,
   fmtTs,
+  NEED_OUTCOME,
   OUTCOME,
   SCOPE_OPTIONS,
   sharePreview,
   STAGE_TH,
+  VIA_TH,
   type QuickAction,
   type RefCase,
 } from '@/lib/refOps'
 import { byOf, type Log } from './useRefCases'
-import { BucketBadge, Chips, ConsentBadge, Drawer, GhostBtn, isoIn, Label, PrimaryBtn, Section, SlaText, SLA_COLOR, textareaCls } from './ui'
+import { BucketBadge, Chips, ConsentBadge, Drawer, GhostBtn, inputCls, isoIn, Label, PrimaryBtn, Section, SlaText, SLA_COLOR, textareaCls } from './ui'
 import { ConsentForm, ConsentSummary } from './CreateReferral'
 
-type Sheet = null | 'contact' | 'escalate' | 'reassign' | 'followUp' | 'sendInfo' | 'review' | 'close' | 'consent'
+type Sheet = null | 'update' | 'contact' | 'escalate' | 'reassign' | 'followUp' | 'sendInfo' | 'review' | 'close' | 'consent'
 
 const ESC_TH = { 1: 'แจ้งเตือนหน่วยงาน', 2: 'แจ้งหัวหน้าหน่วยงาน', 3: 'แจ้งผู้บริหารระดับจังหวัด' } as const
 
@@ -56,7 +59,7 @@ export function ReferralDetail({
   const { push } = useToast()
   const by = byOf(user)
   const [sheet, setSheet] = useState<Sheet>(null)
-  const ev = (e: Omit<RefEvent, 'ts' | 'by'> & { by?: string }, toast?: string) => {
+  const ev = (e: Omit<RefEvent, 'ts' | 'by'> & { by?: string; ts?: number }, toast?: string) => {
     log.addRefEvent(r.id, { ts: Date.now(), by, ...e })
     if (toast) push(toast)
   }
@@ -70,7 +73,6 @@ export function ReferralDetail({
   const consentOk = r.consent.state === 'granted' || r.consent.state === 'expiring'
 
   const act = (a: QuickAction) => {
-    if (a === 'remind') return ev({ type: 'reminded' }, `ส่งการแจ้งเตือนถึง ${r.toName} แล้ว`)
     if (a === 'referMore') return onReferMore()
     setSheet(a === 'review' ? 'review' : a === 'consent' ? 'consent' : (a as Sheet))
   }
@@ -116,10 +118,8 @@ export function ReferralDetail({
           <div className="mt-3">
             <PrimaryBtn
               onClick={() => {
-                const now = Date.now()
                 ev({ type: 'sent', by: r.fromName })
-                log.addRefEvent(r.id, { type: 'received', ts: now + 1, by: 'ระบบ' })
-                push(`ส่งต่อสำเร็จ และ${r.toName}ได้รับแจ้งแล้ว`)
+                push(`บันทึกการส่งต่อแล้ว — แจ้ง ${r.toName} แล้วกลับมาอัปเดตเมื่อหน่วยงานรับเรื่อง`)
               }}
             >
               ได้รับความยินยอมแล้ว — ส่งต่อเลย
@@ -157,7 +157,7 @@ export function ReferralDetail({
       </section>
 
       {/* ── ความคืบหน้า: ตารางขั้น พร้อมเวลา ─────────────────────── */}
-      <Section title="ความคืบหน้าการรับเรื่อง">
+      <Section title="ความคืบหน้า">
         <AckStepper r={r} />
       </Section>
 
@@ -273,15 +273,13 @@ export function ReferralDetail({
         )}
       </Section>
 
-      {mayAct && <AgencySimulator r={r} log={log} />}
     </Drawer>
   )
 }
 
-/** แถบความคืบหน้าแบบย่อ 8 จุด + ชื่อขั้นปัจจุบัน — เห็นภาพรวมในบรรทัดเดียว */
+/** แถบความคืบหน้าแบบย่อ 5 ช่อง + ชื่อขั้นปัจจุบัน — เห็นภาพรวมในบรรทัดเดียว */
 function ProgressStrip({ r }: { r: RefCase }) {
-  const done = ACK_STEPS.filter((x) => r.events.some((e) => e.type === x.ev)).length
-  const branch = r.stage === 'needInfo' || r.stage === 'returned'
+  const done = ackIndex(r.stage) + 1
   return (
     <div>
       <div className="flex gap-1" aria-hidden>
@@ -290,7 +288,7 @@ function ProgressStrip({ r }: { r: RefCase }) {
         ))}
       </div>
       <p className="mt-1.5 text-[13px] text-ink-muted">
-        ขั้นที่ {Math.min(done, ACK_STEPS.length)} จาก {ACK_STEPS.length} · <span className="font-semibold text-ink">{branch ? STAGE_TH[r.stage] : STAGE_TH[r.stage] ?? ''}</span>
+        ขั้นที่ {Math.max(done, 0)} จาก {ACK_STEPS.length} · <span className="font-semibold text-ink">{STAGE_TH[r.stage]}</span>
       </p>
     </div>
   )
@@ -312,35 +310,51 @@ function Person({ role, name, sub, muted, agency }: { role: string; name: string
   )
 }
 
-/** ขั้นการรับเรื่องเป็นตาราง (จอใหญ่ 4 คอลัมน์ มือถือ 2) — ทุกขั้นมีเวลาประทับ */
+/**
+ * ขั้นความคืบหน้า — มือถือเรียงเป็นแถว จอใหญ่ 5 คอลัมน์
+ * ครูเป็นคนบันทึกทุกขั้นเอง (ยังไม่ต่อระบบหน่วยงาน) จึงบอกด้วยว่ารู้มาทางไหน
+ */
 function AckStepper({ r }: { r: RefCase }) {
-  const at = (t: string) => [...r.events].reverse().find((e) => e.type === t)
-  const reached = ACK_STEPS.findIndex((x) => x.stage === r.stage)
+  const reached = ackIndex(r.stage)
   const branch = r.stage === 'needInfo' || r.stage === 'returned'
+  const at = (i: number) => {
+    // เหตุการณ์ของขั้นนี้ล่าสุด — นับเฉพาะหลังการเปลี่ยนหน่วยงานครั้งล่าสุด
+    const re = [...r.events].reverse().find((e) => e.type === 'reassigned')
+    const live = re ? r.events.filter((e) => e.ts >= re.ts) : r.events
+    return [...live].reverse().find((e) => ACK_STEPS[i].evs.includes(e.type))
+  }
   return (
     <div>
-      <ol className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+      <ol className="grid gap-2 sm:grid-cols-5">
         {ACK_STEPS.map((x, i) => {
-          const e = at(x.ev)
-          const done = Boolean(e)
-          const current = !branch && i === reached
+          const e = at(i)
+          const done = i <= reached
+          const next = !branch && i === reached + 1
           return (
-            <li key={x.stage} className={`rounded-xl border px-3 py-2.5 ${current ? 'border-brand-500 bg-brand-50' : 'border-surface-border'}`}>
+            <li
+              key={x.stage}
+              className={`flex items-center gap-3 rounded-xl border px-3 py-2.5 sm:block ${next ? 'border-brand-500 bg-brand-50' : 'border-surface-border'}`}
+            >
               <span
-                className="grid h-6 w-6 place-items-center rounded-full text-[12px] font-bold"
-                style={{ background: done ? '#0f172a' : current ? '#2f66f6' : '#e2e8f0', color: done || current ? '#fff' : '#64748b' }}
+                className="grid h-6 w-6 shrink-0 place-items-center rounded-full text-[12px] font-bold"
+                style={{ background: done ? '#0f172a' : next ? '#2f66f6' : '#e2e8f0', color: done || next ? '#fff' : '#64748b' }}
                 aria-hidden
               >
                 {done ? '✓' : i + 1}
               </span>
-              <p className={`mt-1.5 text-[13.5px] leading-snug ${done || current ? 'font-semibold text-ink' : 'text-ink-muted'}`}>{x.th}</p>
-              {x.stage === 'accepted' && e?.officer && <p className="text-[12.5px] text-ink-muted">{e.officer}</p>}
-              <p className="text-[12.5px] text-ink-muted">{e ? fmtTs(e.ts) : current ? 'ตอนนี้' : '—'}</p>
+              <div className="min-w-0 sm:mt-1.5">
+                <p className={`text-[13.5px] leading-snug ${done || next ? 'font-semibold text-ink' : 'text-ink-muted'}`}>{x.th}</p>
+                {x.stage === 'accepted' && r.officer && <p className="text-[12.5px] text-ink-muted">{r.officer}</p>}
+                <p className="text-[12.5px] text-ink-muted">
+                  {e ? `${fmtTs(e.ts)}${e.via ? ` · ${VIA_TH[e.via]}` : ''}` : done ? 'ข้ามขั้น' : next ? 'ขั้นถัดไป' : '—'}
+                </p>
+              </div>
             </li>
           )
         })}
       </ol>
       {branch && <p className="mt-2 rounded-xl bg-surface-muted px-3 py-2 text-[14px] font-semibold text-ink">↳ {STAGE_TH[r.stage]}</p>}
+      <p className="mt-2 text-[12.5px] text-ink-muted">ยังไม่เชื่อมระบบของหน่วยงาน — ครูบันทึกความคืบหน้าเองเมื่อได้ข่าวจากหน่วยงาน</p>
     </div>
   )
 }
@@ -361,7 +375,7 @@ function ActionSheet({
   student?: Student
   log: Log
   by: string
-  ev: (e: Omit<RefEvent, 'ts' | 'by'> & { by?: string }, toast?: string) => void
+  ev: (e: Omit<RefEvent, 'ts' | 'by'> & { by?: string; ts?: number }, toast?: string) => void
   done: () => void
   onReferMore: () => void
   push: (m: string) => void
@@ -374,6 +388,7 @@ function ActionSheet({
     [student, r.provinceKey, r.need, r.toAgencyId],
   )
   const [pick, setPick] = useState<string>()
+  const [via, setVia] = useState<RefVia>('phone')
 
   if (sheet === 'consent' && student)
     return (
@@ -392,6 +407,8 @@ function ActionSheet({
       </>
     )
 
+  if (sheet === 'update') return <UpdateSheet r={r} ev={ev} done={done} />
+
   if (sheet === 'contact')
     return (
       <>
@@ -400,10 +417,13 @@ function ActionSheet({
           {r.toAgency?.contact ?? '—'}
           {r.officer && <span className="block text-[14px] text-ink-muted">เจ้าหน้าที่: {r.officer}</span>}
         </p>
+        <Label>ติดต่อทางไหน</Label>
+        <ViaChips value={via} onPick={setVia} />
         <Label>คุยแล้วได้ความว่าอย่างไร</Label>
         <textarea value={note} onChange={(e) => setNote(e.target.value)} rows={3} className={textareaCls} placeholder="เช่น เจ้าหน้าที่รับปากจะรับเรื่องภายในวันนี้" />
+        <p className="mt-1 text-[12.5px] text-ink-muted">ถ้าหน่วยงานรับเรื่องหรือมีผลแล้ว ใช้ปุ่ม "อัปเดตความคืบหน้า" แทน เพื่อให้ขั้นเลื่อนตาม</p>
         <div className="mt-4">
-          <PrimaryBtn onClick={() => { ev({ type: 'contacted', note: note.trim() || undefined }, 'บันทึกการติดต่อแล้ว'); done() }}>บันทึกการติดต่อ</PrimaryBtn>
+          <PrimaryBtn onClick={() => { ev({ type: 'contacted', via, note: note.trim() || undefined }, 'บันทึกการติดต่อแล้ว'); done() }}>บันทึกการติดต่อ</PrimaryBtn>
         </div>
       </>
     )
@@ -413,7 +433,7 @@ function ActionSheet({
       <>
         <h3 className="text-[18px] font-bold text-ink">Escalate ระดับ {nextLevel}</h3>
         <p className="mt-1 text-[14px] text-ink-muted">
-          {nextLevel === 1 ? 'เกิน SLA' : nextLevel === 2 ? 'ค้างเกิน 48 ชม.' : 'ค้างเกิน 72 ชม.'} — ระบบจะ{ESC_TH[nextLevel]} พร้อมสรุปเคสและเวลาที่ค้าง
+          {nextLevel === 1 ? 'เกิน SLA' : nextLevel === 2 ? 'ค้างเกิน 48 ชม.' : 'ค้างเกิน 72 ชม.'} — {ESC_TH[nextLevel]} (โทรหรือทำหนังสือ) แล้วบันทึกไว้ที่นี่ · ใช้ข้อความสรุปด้านล่างได้
         </p>
         <div className="mt-3 rounded-xl bg-surface-muted px-3.5 py-3 text-[14px] text-ink">
           “การส่งต่อ {r.needTh} ของ {r.childName} ส่งถึง {r.toName} เมื่อ {r.sentTs ? fmtTs(r.sentTs) : '—'} · <SlaText sla={r.sla} />”
@@ -437,7 +457,7 @@ function ActionSheet({
     return (
       <>
         <h3 className="text-[18px] font-bold text-ink">เปลี่ยนหน่วยงาน</h3>
-        <p className="mt-1 text-[14px] text-ink-muted">{r.toName} จะถูกแจ้งว่าเรื่องถูกย้าย เวลา SLA เริ่มนับใหม่ที่หน่วยงานใหม่ · ความยินยอมเดิมใช้ต่อได้ถ้าครอบคลุม</p>
+        <p className="mt-1 text-[14px] text-ink-muted">อย่าลืมแจ้ง {r.toName} ว่าย้ายเรื่องแล้ว และส่งเรื่องถึงหน่วยงานใหม่ · กำหนดรับเรื่องเริ่มนับใหม่ · ความยินยอมเดิมใช้ต่อได้ถ้าครอบคลุม</p>
         <div className="mt-3 space-y-1.5">
           {alts.map(({ agency: a, why }) => (
             <button
@@ -460,10 +480,8 @@ function ActionSheet({
             disabled={!pick}
             onClick={() => {
               const a = alts.find((x) => x.agency.id === pick)!.agency
-              const now = Date.now()
-              log.addRefEvent(r.id, { type: 'reassigned', ts: now, by, toAgencyId: a.id, toAgencyName: a.th })
-              log.addRefEvent(r.id, { type: 'received', ts: now + 1, by: 'ระบบ' })
-              push(`ย้ายการส่งต่อไป ${a.th} แล้ว`)
+              log.addRefEvent(r.id, { type: 'reassigned', ts: Date.now(), by, toAgencyId: a.id, toAgencyName: a.th })
+              push(`ย้ายการส่งต่อไป ${a.th} แล้ว — แจ้งหน่วยงานใหม่ แล้วกลับมาอัปเดตเมื่อรับเรื่อง`)
               done()
             }}
           >
@@ -580,60 +598,134 @@ function ActionSheet({
   )
 }
 
-/** เดโมเท่านั้น — ไม่มีระบบหน่วยงานจริงให้ต่อ จึงให้กดแทนปลายทางเพื่อดูว่าครูจะเห็นอะไร
- *  ติดป้ายชัดว่าเป็นการจำลอง และพับไว้ไม่ให้ปนกับงานจริงของครู */
-function AgencySimulator({ r, log }: { r: RefCase; log: Log }) {
-  const [outcome, setOutcome] = useState<OutcomeKey>('granted')
-  const add = (type: RefEvent['type'], extra: Partial<RefEvent> = {}) =>
-    log.addRefEvent(r.id, { type, ts: Date.now(), by: r.officer ?? r.toName, ...extra })
-  const btn = 'rounded-lg border border-dashed border-ink-faint bg-white px-3 py-2.5 text-[13.5px] font-medium text-ink'
-  const st = r.stage
+const VIA_ITEMS = (Object.keys(VIA_TH) as RefVia[]).map((k) => ({ key: k, th: VIA_TH[k] }))
+
+function ViaChips({ value, onPick }: { value: RefVia; onPick: (v: RefVia) => void }) {
+  return <Chips items={VIA_ITEMS} value={value} onPick={onPick} />
+}
+
+type UpdateKey = 'accepted' | 'started' | 'needInfo' | 'outcome' | 'returned'
+
+const UPDATE_TH: Record<UpdateKey, string> = {
+  accepted: 'หน่วยงานรับเรื่องแล้ว',
+  started: 'เริ่มดำเนินการแล้ว',
+  needInfo: 'หน่วยงานขอข้อมูลเพิ่ม',
+  outcome: 'ได้ผลแล้ว',
+  returned: 'หน่วยงานไม่รับเรื่อง',
+}
+
+/**
+ * ครูบันทึกความคืบหน้าเอง — ยังไม่ต่อระบบหน่วยงาน ครูได้ข่าวทางโทรศัพท์/หนังสือ/พบตัว
+ * แล้วมากดที่นี่ เลือกได้เฉพาะสถานะที่ไปข้างหน้าจากตอนนี้ และข้ามขั้นได้
+ * (เช่น โทรไปแล้วรู้ว่าหน่วยงานทำเสร็จแล้ว ก็บันทึกผลได้เลย)
+ */
+function UpdateSheet({
+  r,
+  ev,
+  done,
+}: {
+  r: RefCase
+  ev: (e: Omit<RefEvent, 'ts' | 'by'> & { by?: string; ts?: number }, toast?: string) => void
+  done: () => void
+}) {
+  const idx = ackIndex(r.stage)
+  const options: UpdateKey[] =
+    r.stage === 'needInfo'
+      ? ['started', 'outcome']
+      : idx <= 0
+        ? ['accepted', 'started', 'outcome', 'returned']
+        : idx === 1
+          ? ['started', 'needInfo', 'outcome']
+          : idx === 2
+            ? ['needInfo', 'outcome']
+            : ['outcome']
+  const [key, setKey] = useState<UpdateKey>(options[0])
+  const [via, setVia] = useState<RefVia>('phone')
+  const [officer, setOfficer] = useState(r.officer ?? '')
+  // ค่าเริ่มต้นตามด้านที่ส่งต่อ — ส่งต่อสุขภาพก็เริ่มที่ "เข้ารับการรักษาแล้ว"
+  const [outcome, setOutcome] = useState<OutcomeKey>(NEED_OUTCOME[r.need])
+  const [note, setNote] = useState('')
+  const needNote = key === 'needInfo' || key === 'returned'
+  const askOfficer = !r.officer && (key === 'accepted' || key === 'started' || key === 'outcome')
+  const by = r.officer || officer.trim() || r.toName
+
+  const save = () => {
+    const now = Date.now()
+    const off = officer.trim() || undefined
+    const extra = note.trim() || undefined
+    // ข้ามขั้นรับเรื่อง = หน่วยงานรับไปแล้วโดยปริยาย บันทึกไว้ให้นาฬิกากำหนดดำเนินการเริ่มนับ
+    if (idx <= 0 && (key === 'started' || key === 'outcome')) ev({ type: 'accepted', ts: now - 2, by: r.toName, officer: off, via })
+    if (key === 'accepted') ev({ type: 'accepted', by: r.toName, officer: off, via, note: extra }, `บันทึกแล้ว — ${r.toName} รับเรื่อง`)
+    else if (key === 'started') ev({ type: 'started', by, via, note: extra }, 'บันทึกแล้ว — กำลังดำเนินการ')
+    else if (key === 'needInfo') ev({ type: 'needInfo', by, via, note: extra }, 'บันทึกแล้ว — หน่วยงานขอข้อมูลเพิ่ม')
+    else if (key === 'returned') ev({ type: 'returned', by: r.toName, via, note: extra }, `บันทึกแล้ว — ${r.toName} ไม่รับเรื่อง`)
+    else {
+      // ห้ามประทับเวลาอนาคต — เหตุการณ์ที่ครูกดตามมาจะเรียงก่อนแล้วถูกกลืน
+      ev({ type: 'done', ts: now - 1, by })
+      ev({ type: 'outcome', by, via, outcome, note: `${OUTCOME[outcome].th}${extra ? ` — ${extra}` : ''}` }, 'บันทึกผลแล้ว — ประเมินว่าช่วยเด็กได้จริงไหม')
+    }
+    done()
+  }
+
   return (
-    <details className="mt-8 rounded-2xl border-2 border-dashed border-surface-border bg-surface-muted/40 px-4 py-3">
-      <summary className="cursor-pointer text-[14px] font-semibold text-ink-muted">🧪 จำลองฝั่งหน่วยงานผู้รับ (สำหรับเดโมเท่านั้น)</summary>
-      <p className="mt-2 text-[13px] text-ink-muted">กดแทน {r.toName} เพื่อดูว่าหน้าจอของครูเปลี่ยนอย่างไร — ระบบจริงหน่วยงานจะกดจากฝั่งตัวเอง</p>
-      <div className="mt-3 flex flex-wrap gap-2">
-        {(st === 'sent' || st === 'received') && (
-          <button type="button" className={btn} onClick={() => add('viewed', { by: r.toName })}>เจ้าหน้าที่เปิดดู</button>
-        )}
-        {(st === 'sent' || st === 'received' || st === 'viewed') && (
-          <>
-            <button type="button" className={btn} onClick={() => add('accepted', { by: r.toName, officer: 'คุณอามีนะห์ ส.' })}>รับเคส + มอบหมายเจ้าหน้าที่</button>
-            <button type="button" className={btn} onClick={() => add('returned', { by: r.toName, note: 'ไม่อยู่ในอำนาจหน้าที่ แนะนำให้ส่ง อบต. ในพื้นที่' })}>ไม่รับเรื่อง</button>
-          </>
-        )}
-        {st === 'accepted' && <button type="button" className={btn} onClick={() => add('started')}>เริ่มดำเนินการ</button>}
-        {st === 'inProgress' && (
-          <button type="button" className={btn} onClick={() => add('needInfo', { note: 'ขอสำเนาทะเบียนบ้านและเบอร์ผู้ปกครองล่าสุด' })}>ขอข้อมูลเพิ่ม</button>
-        )}
-        {(st === 'inProgress' || st === 'accepted') && (
-          <>
-            <select value={outcome} onChange={(e) => setOutcome(e.target.value as OutcomeKey)} className="rounded-lg border border-surface-border bg-white px-2 py-2.5 text-[13.5px]" aria-label="ผลที่จะส่งกลับ">
-              {(Object.keys(OUTCOME) as OutcomeKey[]).map((k) => (
-                <option key={k} value={k}>{OUTCOME[k].th}</option>
-              ))}
-            </select>
-            <button
-              type="button"
-              className={btn}
-              onClick={() => {
-                const now = Date.now()
-                // ห้ามประทับเวลาอนาคต — เหตุการณ์ที่ครูกดตามมาจะเรียงก่อนแล้วถูกกลืน
-                log.addRefEvent(r.id, { type: 'done', ts: now - 1, by: r.officer ?? r.toName })
-                log.addRefEvent(r.id, { type: 'outcome', ts: now, by: r.officer ?? r.toName, outcome, note: OUTCOME[outcome].th })
-              }}
+    <>
+      <h3 className="text-[18px] font-bold text-ink">อัปเดตความคืบหน้า</h3>
+      <p className="mt-1 text-[14px] text-ink-muted">ได้ข่าวจาก {r.toName} แล้วบันทึกไว้ที่นี่ — ตอนนี้: {STAGE_TH[r.stage]}</p>
+
+      <Label>ตอนนี้เป็นอย่างไร</Label>
+      <div className="space-y-1.5">
+        {options.map((k) => (
+          <button
+            key={k}
+            type="button"
+            onClick={() => setKey(k)}
+            aria-pressed={key === k}
+            className="flex w-full items-center gap-3 rounded-xl border px-3.5 py-3 text-left"
+            style={{ borderColor: key === k ? '#2f66f6' : '#e2e8f0', background: key === k ? '#eef3ff' : '#fff' }}
+          >
+            <span
+              className="grid h-5 w-5 shrink-0 place-items-center rounded-full border-2"
+              style={{ borderColor: key === k ? '#2f66f6' : '#94a3b8' }}
+              aria-hidden
             >
-              เสร็จ + ส่งผลกลับ
-            </button>
-          </>
-        )}
-        {r.local && ['sent', 'received', 'viewed', 'accepted', 'inProgress'].includes(st) && (
-          <>
-            <button type="button" className={btn} onClick={() => log.shiftRef(r.id, 20)}>⏩ เลื่อนเวลา +20 ชม.</button>
-            <button type="button" className={btn} onClick={() => log.shiftRef(r.id, 30)}>⏩ +30 ชม.</button>
-          </>
-        )}
+              {key === k && <span className="h-2.5 w-2.5 rounded-full bg-brand-500" />}
+            </span>
+            <span className="text-[15px] font-semibold text-ink">{UPDATE_TH[k]}</span>
+          </button>
+        ))}
       </div>
-    </details>
+
+      {key === 'outcome' && (
+        <>
+          <Label>ผลเป็นอย่างไร</Label>
+          <Chips items={(Object.keys(OUTCOME) as OutcomeKey[]).map((k) => ({ key: k, th: OUTCOME[k].th }))} value={outcome} onPick={setOutcome} />
+        </>
+      )}
+
+      {askOfficer && (
+        <>
+          <Label>เจ้าหน้าที่ผู้รับผิดชอบ (ถ้าทราบ)</Label>
+          <input value={officer} onChange={(e) => setOfficer(e.target.value)} className={inputCls} placeholder="เช่น คุณอามีนะห์ ส. 08x-xxx-xxxx" />
+        </>
+      )}
+
+      <Label>ทราบทางไหน</Label>
+      <ViaChips value={via} onPick={setVia} />
+
+      <Label>{key === 'needInfo' ? 'หน่วยงานขอข้อมูลอะไร' : key === 'returned' ? 'เหตุผลที่ไม่รับ' : 'บันทึกเพิ่ม (ไม่บังคับ)'}</Label>
+      <textarea
+        value={note}
+        onChange={(e) => setNote(e.target.value)}
+        rows={2}
+        className={textareaCls}
+        placeholder={key === 'needInfo' ? 'เช่น สำเนาทะเบียนบ้าน เบอร์ผู้ปกครองล่าสุด' : key === 'returned' ? 'เช่น ไม่อยู่ในอำนาจหน้าที่ แนะนำให้ส่ง อบต.' : 'เช่น นัดเยี่ยมบ้านวันศุกร์นี้'}
+      />
+
+      <div className="mt-4">
+        <PrimaryBtn disabled={needNote && note.trim().length < 4} onClick={save}>
+          บันทึกความคืบหน้า
+        </PrimaryBtn>
+      </div>
+    </>
   )
 }

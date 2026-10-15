@@ -77,7 +77,6 @@ export function useRefCases(
         ? stored
         : [
             { type: 'sent', ts: l.createdTs, by: l.fromName },
-            { type: 'received', ts: l.createdTs + 1, by: 'ระบบ' },
             ...stored,
           ]
       out.push(

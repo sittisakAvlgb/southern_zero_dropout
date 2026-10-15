@@ -5,7 +5,7 @@ import { NEED_LABEL } from '@/data/referrals'
 import { NEED_TO_KIND } from '@/data/agencies'
 import { reasonFor } from '@/data/dropReasons'
 import { suggestAgencies } from '@/lib/planOps'
-import type { ConsentRecord, HandoffType, LocalReferral } from '@/lib/caseLog'
+import type { ConsentRecord, HandoffType, LocalReferral, RefVia } from '@/lib/caseLog'
 import {
   acceptSlaHours,
   CONSENT_META,
@@ -14,6 +14,7 @@ import {
   readiness,
   SCOPE_OPTIONS,
   sharePreview,
+  VIA_TH,
   type ConsentView,
 } from '@/lib/refOps'
 import { byOf, schoolOf, type Log } from './useRefCases'
@@ -98,6 +99,8 @@ export function CreateReferral({
   const [phase, setPhase] = useState<'form' | 'sending' | 'done' | 'draft' | 'error'>('form')
   const [refId, setRefId] = useState('')
   const [err, setErr] = useState<string>()
+  // ยังไม่ต่อระบบหน่วยงาน — ครูส่งเรื่องเองทางช่องทางปกติ แล้วบันทึกว่าส่งทางไหน
+  const [via, setVia] = useState<RefVia>('letter')
 
   const top = options[0]
   const ready = readiness({ reason, student: s, consent, historyCount })
@@ -129,10 +132,7 @@ export function CreateReferral({
       if (typeof navigator !== 'undefined' && navigator.onLine === false) return setPhase('error')
       const ref = makeRef()
       const now = Date.now()
-      log.addRef(ref, [
-        { type: 'sent', ts: now, by: ref.fromName },
-        { type: 'received', ts: now + 1, by: 'ระบบ' },
-      ])
+      log.addRef(ref, [{ type: 'sent', ts: now, by: ref.fromName, via }])
       log.add({ childId: s.id, by, date: isoIn(0), mode: 'note', note: `ส่งต่อ ${ref.toAgencyName} — ${NEED_LABEL[need].th}`, refId: ref.id })
       setRefId(ref.id)
       setPhase('done')
@@ -151,7 +151,7 @@ export function CreateReferral({
     return (
       <div className="grid place-items-center py-16 text-center" role="status">
         <span className="h-10 w-10 animate-spin rounded-full border-4 border-brand-100 border-t-brand-500" />
-        <p className="mt-4 text-[15px] font-semibold text-ink">กำลังส่งเรื่องถึง {agency?.th}…</p>
+        <p className="mt-4 text-[15px] font-semibold text-ink">กำลังบันทึกการส่งต่อ…</p>
       </div>
     )
   if (phase === 'error')
@@ -171,11 +171,13 @@ export function CreateReferral({
         <div className={`rounded-2xl p-4 ${phase === 'done' ? 'bg-green-50' : 'bg-amber-50'}`}>
           {phase === 'done' ? (
             <>
-              <p className="text-[17px] font-bold text-green-700">✓ ส่งต่อสำเร็จ และหน่วยงานได้รับแจ้งแล้ว</p>
+              <p className="text-[17px] font-bold text-green-700">✓ บันทึกการส่งต่อแล้ว</p>
               <p className="mt-2 text-[14.5px] text-ink">
-                {agency?.th} ต้องรับเคสภายใน <b>{slaH} ชั่วโมง</b> · โดยปกติตอบรับใน {Math.round(agency?.avgAcceptHours ?? 24)} ชั่วโมง
+                แจ้ง {agency?.th} ทาง<b>{VIA_TH[via]}</b> · ติดต่อ: {agency?.contact ?? '—'}
               </p>
-              <p className="mt-1 text-[14px] text-ink-muted">สถานะตอนนี้: รอหน่วยงานรับเรื่อง · ระบบจะเตือนคุณถ้าใกล้เกินกำหนด</p>
+              <p className="mt-1 text-[14px] text-ink-muted">
+                เมื่อหน่วยงานรับเรื่องแล้ว กลับมากด "อัปเดตความคืบหน้า" · ถ้าเกิน {slaH} ชั่วโมงยังไม่รับ ระบบจะเตือนให้คุณโทรถาม
+              </p>
             </>
           ) : (
             <>
@@ -430,8 +432,11 @@ export function CreateReferral({
             <Row k="ข้อมูลที่ส่ง" v={shared.map((k) => SCOPE_OPTIONS.find((o) => o.key === k)?.th).join(' · ')} />
             <Row k="ความยินยอม" v={`${CONSENT_META[consent.state].icon} ${CONSENT_META[consent.state].th}${consent.record ? ` · ${consent.record.giver} · หมดอายุ ${consent.record.expires}` : ''}`} />
           </dl>
+          <p className="mb-2 mt-4 text-[13.5px] font-semibold text-ink">ส่งเรื่องถึงหน่วยงานทางไหน</p>
+          <Chips items={(Object.keys(VIA_TH) as RefVia[]).map((k) => ({ key: k, th: VIA_TH[k] }))} value={via} onPick={setVia} />
           <p className="mt-3 rounded-xl bg-brand-50 px-3.5 py-2.5 text-[14px] text-ink">
-            หลังส่ง {agency.th} ต้องรับเคสภายใน <b>{slaH} ชั่วโมง</b> — ถ้าเกินกำหนด ระบบจะเตือนคุณทันที และเสนอ Escalate เมื่อค้างเกิน 48 และ 72 ชั่วโมงหลังส่ง
+            ระบบยังไม่ส่งเรื่องถึงหน่วยงานให้อัตโนมัติ — ส่งทางช่องทางที่เลือก ({agency.contact ?? 'ติดต่อหน่วยงาน'}) แล้วกด "อัปเดตความคืบหน้า" เมื่อหน่วยงานรับเรื่อง ·
+            ถ้าเกิน <b>{slaH} ชั่วโมง</b> ระบบจะเตือนให้คุณโทรถาม และเสนอ Escalate เมื่อค้างเกิน 48 และ 72 ชั่วโมง
           </p>
         </>
       )}
@@ -446,7 +451,7 @@ export function CreateReferral({
         <div className="mt-5 flex gap-2">
           {idx > 0 && <GhostBtn onClick={() => go(STEPS[idx - 1].k)}>ย้อนกลับ</GhostBtn>}
           <PrimaryBtn onClick={next}>
-            {step === 'confirm' ? 'ยืนยันส่งต่อ' : step === 'ready' ? (ready.ready ? 'ถัดไป' : 'ถัดไป: ขอความยินยอม') : 'ถัดไป'}
+            {step === 'confirm' ? 'บันทึกการส่งต่อ' : step === 'ready' ? (ready.ready ? 'ถัดไป' : 'ถัดไป: ขอความยินยอม') : 'ถัดไป'}
           </PrimaryBtn>
         </div>
       )}
