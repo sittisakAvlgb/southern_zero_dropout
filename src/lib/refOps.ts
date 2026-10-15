@@ -39,12 +39,13 @@ export type RefStage =
  * ไม่มี "ระบบได้รับ/เจ้าหน้าที่เปิดดู" ซึ่งต้องรอสัญญาณจากระบบปลายทาง
  * needInfo/returned เป็นทางแยก ไม่อยู่ในแถบ
  */
-export const ACK_STEPS: { stage: RefStage; th: string; evs: RefEventType[] }[] = [
-  { stage: 'sent', th: 'ส่งเรื่อง', evs: ['sent', 'reassigned'] },
-  { stage: 'accepted', th: 'หน่วยงานรับเรื่อง', evs: ['accepted'] },
-  { stage: 'inProgress', th: 'ดำเนินการ', evs: ['started', 'infoSent'] },
-  { stage: 'outcome', th: 'ได้ผลแล้ว', evs: ['outcome'] },
-  { stage: 'closed', th: 'ปิดการส่งต่อ', evs: ['closed'] },
+/** `short` ใช้บนแถบขั้น — 5 คอลัมน์บนจอมือถือกว้างช่องละ ~65px ชื่อเต็มจะตกบรรทัด */
+export const ACK_STEPS: { stage: RefStage; th: string; short: string; evs: RefEventType[] }[] = [
+  { stage: 'sent', th: 'ส่งเรื่อง', short: 'ส่งเรื่อง', evs: ['sent', 'reassigned'] },
+  { stage: 'accepted', th: 'หน่วยงานรับเรื่อง', short: 'รับเรื่อง', evs: ['accepted'] },
+  { stage: 'inProgress', th: 'ดำเนินการ', short: 'ดำเนินการ', evs: ['started', 'infoSent'] },
+  { stage: 'outcome', th: 'ได้ผลแล้ว', short: 'ได้ผล', evs: ['outcome'] },
+  { stage: 'closed', th: 'ปิดการส่งต่อ', short: 'ปิดเรื่อง', evs: ['closed'] },
 ]
 
 /** ขั้นบนแถบที่ผ่านมาแล้วล่าสุด (-1 = ยังไม่ส่ง) — ครูข้ามขั้นได้ เช่น โทรไปแล้วได้ผลเลย */

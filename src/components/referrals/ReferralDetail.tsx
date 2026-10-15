@@ -321,21 +321,35 @@ function Stepper({ r }: { r: RefCase }) {
           const next = !branch && i === reached + 1
           const e = at(i)
           return (
-            <li key={x.stage} className="relative flex flex-col items-center px-0.5 text-center">
-              {i > 0 && <span className={`absolute right-1/2 top-[13px] h-0.5 w-full ${done ? 'bg-ink' : 'bg-surface-border'}`} aria-hidden />}
+            <li key={x.stage} className="relative flex flex-col items-center text-center">
+              {/* เส้นเชื่อมจากขั้นก่อนหน้า — z-0 ให้วงกลม (z-10) ทับเสมอ เดิมเส้นของช่องถัดไปลากทับตัวเลข */}
+              {i > 0 && (
+                <span className={`absolute right-1/2 top-[15px] z-0 h-[3px] w-full rounded-full ${done ? 'bg-ink' : 'bg-surface-border'}`} aria-hidden />
+              )}
               <span
-                className="relative grid h-7 w-7 place-items-center rounded-full text-[12.5px] font-bold"
+                className="relative z-10 grid h-8 w-8 place-items-center rounded-full text-[13px] font-bold"
                 style={{
-                  background: done ? '#0f172a' : '#fff',
-                  color: done ? '#fff' : next ? '#2f66f6' : '#64748b',
+                  background: done ? '#0f172a' : next ? '#eef3ff' : '#fff',
+                  color: done ? '#fff' : next ? '#1d4ed8' : '#64748b',
                   boxShadow: done ? undefined : `inset 0 0 0 2px ${next ? '#2f66f6' : '#cbd5e1'}`,
                 }}
                 aria-hidden
               >
-                {done ? '✓' : i + 1}
+                {done ? (
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M5 12.5l4.5 4.5L19 7.5" />
+                  </svg>
+                ) : (
+                  i + 1
+                )}
               </span>
-              <span className={`mt-1.5 text-[12.5px] leading-tight ${done || next ? 'font-semibold text-ink' : 'text-ink-muted'}`}>{x.th}</span>
-              <span className="mt-0.5 text-[12px] leading-tight text-ink-muted">{e ? fmtTs(e.ts).split(' ').slice(0, 2).join(' ') : done ? 'ข้าม' : ''}</span>
+              <span className={`mt-2 whitespace-nowrap text-[13px] leading-tight ${next ? 'font-bold text-brand-700' : done ? 'font-semibold text-ink' : 'text-ink-muted'}`}>
+                {x.short}
+              </span>
+              <span className="mt-0.5 whitespace-nowrap text-[12px] leading-tight text-ink-muted">
+                {e ? fmtTs(e.ts).split(' ').slice(0, 2).join(' ') : done ? 'ข้าม' : next ? 'ถัดไป' : ' '}
+              </span>
+              <span className="sr-only">{done ? 'ผ่านแล้ว' : next ? 'ขั้นถัดไป' : 'ยังไม่ถึง'}</span>
             </li>
           )
         })}
