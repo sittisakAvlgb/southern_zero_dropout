@@ -49,6 +49,9 @@ export const thSBP: Dict = {
   'nav.section.system': 'ระบบ',
 
   'top.search': 'ค้นหาจังหวัด อำเภอ ตำบล สถานศึกษา หรือเด็ก',
+  'top.searchTeacher': 'ค้นหานักเรียน (ชื่อหรือรหัส)',
+  'top.searchShort': 'ค้นหา',
+  'top.searchTeacherShort': 'ค้นหานักเรียน',
   'top.role': 'ผู้ใช้งานระบบ',
 
   // ── Geography ─────────────────────────────────────────────
@@ -480,6 +483,9 @@ export const enSBP: Dict = {
   'nav.section.system': 'System',
 
   'top.search': 'Search province, district, tambon, provider or child',
+  'top.searchTeacher': 'Find a student (name or ID)',
+  'top.searchShort': 'Search',
+  'top.searchTeacherShort': 'Find a student',
   'top.role': 'Signed in as',
 
   'geo.province': 'Province',
@@ -906,6 +912,9 @@ export const ms: Dict = {
   'nav.section.system': 'Sistem',
 
   'top.search': 'Cari wilayah, daerah, mukim, sekolah atau anak',
+  'top.searchTeacher': 'Cari murid (nama atau ID)',
+  'top.searchShort': 'Cari',
+  'top.searchTeacherShort': 'Cari murid',
   'top.lastUpdated': 'Kemas kini terakhir',
   'top.realtime': 'Data demonstrasi',
   'top.synced': 'Data disegerakkan',

@@ -124,6 +124,8 @@ export function TopBar({ onToggleSidebar }: { onToggleSidebar: () => void }) {
   }, [cases, oosc, referrals, th])
 
   const alertTotal = alerts.reduce((s, a) => s + a.n, 0)
+  const teacher = user?.role === 'teacher'
+  const searchLabel = t(teacher ? 'top.searchTeacher' : 'top.search')
   const go = (to: string) => {
     setBellOpen(false)
     setProfileOpen(false)
@@ -151,16 +153,22 @@ export function TopBar({ onToggleSidebar }: { onToggleSidebar: () => void }) {
         </div>
       )}
 
-      {/* Search */}
+      {/* Search — ครูหาเด็กของตัวเองเป็นหลัก ข้อความจึงบอกแค่นั้น (ข้อความยาว ๆ ถูกตัดจนอ่านไม่ออก)
+          ปุ่มลัดอยู่บรรทัดเดียวเสมอ และซ่อนเมื่อแถบแคบ — เดิมตก "Ctrl / K" เป็นสองบรรทัด */}
       <motion.button
         onClick={() => setSearchOpen(true)}
         whileTap={{ scale: 0.99 }}
-        className="group flex min-w-0 flex-1 items-center gap-2.5 rounded-xl border border-surface-border bg-surface-muted px-3.5 py-2.5 text-left text-sm text-ink-faint transition-all hover:border-brand-300 hover:bg-white lg:mx-auto lg:max-w-sm"
-        aria-label={t('top.search')}
+        className="group flex h-11 min-w-0 flex-1 items-center gap-2.5 rounded-xl border border-surface-border bg-surface-muted px-3.5 text-left text-[14px] text-ink-muted transition-colors hover:border-brand-300 hover:bg-white lg:mx-auto lg:max-w-md"
+        aria-label={searchLabel}
+        aria-keyshortcuts="Control+K"
       >
-        <IconSearch width={18} height={18} />
-        <span className="truncate">{t('top.search')}</span>
-        <kbd className="ml-auto hidden rounded border border-surface-border bg-white px-1.5 py-0.5 text-[10px] text-ink-faint md:block">
+        <IconSearch width={18} height={18} className="shrink-0" />
+        {/* ความยาวตามที่ว่างจริง — ข้อความที่ถูกตัดกลางคำ ("ค้นหานัก…") อ่านไม่ออกสำหรับครูสูงวัย
+            มือถือปุ่มเหลือราว 130px · 640–1279px ราว 220px · จอกว้างจึงแสดงเต็มพร้อมปุ่มลัด */}
+        <span className="min-w-0 flex-1 truncate sm:hidden">{t('top.searchShort')}</span>
+        <span className="hidden min-w-0 flex-1 truncate sm:block xl:hidden">{teacher ? t('top.searchTeacherShort') : searchLabel}</span>
+        <span className="hidden min-w-0 flex-1 truncate xl:block">{searchLabel}</span>
+        <kbd className="hidden shrink-0 whitespace-nowrap rounded-md border border-surface-border bg-white px-2 py-0.5 font-sans text-[12px] font-semibold text-ink-muted xl:block">
           Ctrl K
         </kbd>
       </motion.button>

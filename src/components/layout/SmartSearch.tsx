@@ -230,7 +230,9 @@ export function SmartSearch({ onClose }: { onClose: () => void }) {
             value={q}
             onChange={(e) => setQ(e.target.value)}
             placeholder={
-              th ? 'พิมพ์ชื่ออำเภอ ตำบล โรงเรียน เด็ก หรือชื่อหน้า' : 'District, tambon, school, child or page'
+              user?.role === 'teacher'
+                ? th ? 'พิมพ์ชื่อหรือรหัสนักเรียน หรือชื่อหน้า' : 'Student name or ID, or a page'
+                : th ? 'พิมพ์ชื่ออำเภอ ตำบล โรงเรียน เด็ก หรือชื่อหน้า' : 'District, tambon, school, child or page'
             }
             className="flex-1 bg-transparent py-4 text-sm outline-none placeholder:text-ink-faint"
           />
