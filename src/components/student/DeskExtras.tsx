@@ -285,8 +285,8 @@ export function buildSummary(fc: FollowCase, entries: CaseLogEntry[], obs: strin
   const date = new Date().toLocaleDateString('th-TH', { day: 'numeric', month: 'long', year: 'numeric' })
   const text = [`สรุปเคส — ${s.name}`, `จัดทำโดย ${by} · ${date}`, '', ...sections.flatMap(([h, xs]) => [h, ...xs.map((x) => `  • ${x}`), ''])].join('\n')
   const html = `<!doctype html><html lang="th"><head><meta charset="utf-8"><title>สรุปเคส ${esc(s.name)}</title>
-<link href="https://fonts.googleapis.com/css2?family=Bai+Jamjuree:wght@600;700&family=IBM+Plex+Sans+Thai+Looped:wght@500;600&display=swap" rel="stylesheet">
-<style>body{font-family:'IBM Plex Sans Thai Looped',sans-serif;font-weight:500;color:#0f172a;max-width:720px;margin:24px auto;padding:0 16px;font-size:14px;line-height:1.55}
+<link href="https://fonts.googleapis.com/css2?family=Bai+Jamjuree:wght@600;700&family=Noto+Sans+Thai+Looped:wght@500;600&display=swap" rel="stylesheet">
+<style>body{font-family:'Noto Sans Thai Looped',sans-serif;font-weight:500;color:#0f172a;max-width:720px;margin:24px auto;padding:0 16px;font-size:14px;line-height:1.55}
 h1,h2{font-family:'Bai Jamjuree',sans-serif}h1{font-size:20px;margin:0}p.meta{color:#475569;margin:4px 0 16px}h2{font-size:15px;margin:14px 0 4px;border-bottom:1px solid #e2e8f0;padding-bottom:2px}
 ul{margin:0;padding-left:18px}.pdpa{margin-top:20px;font-size:12px;color:#475569;border-top:1px solid #e2e8f0;padding-top:8px}
 @media print{body{margin:0}}</style></head><body>

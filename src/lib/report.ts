@@ -352,10 +352,10 @@ export function downloadXls(r: ReportDef) {
 export function reportDocument(r: ReportDef): string {
   return `<!doctype html><html lang="th"><head><meta charset="utf-8" />
 <title>${html(r.title)}</title>
-<link href="https://fonts.googleapis.com/css2?family=Bai+Jamjuree:wght@600;700&family=IBM+Plex+Sans+Thai+Looped:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/css2?family=Bai+Jamjuree:wght@600;700&family=Noto+Sans+Thai+Looped:wght@400;500;600;700&display=swap" rel="stylesheet" />
 <style>
   *{box-sizing:border-box}
-  body{margin:0;font-family:'IBM Plex Sans Thai Looped',Tahoma,sans-serif;color:#0f172a;background:#f6f8fc}
+  body{margin:0;font-family:'Noto Sans Thai Looped',Tahoma,sans-serif;color:#0f172a;background:#f6f8fc}
   .page{max-width:900px;margin:0 auto;padding:28px 32px;background:#fff}
   h1,h2,h3{font-family:'Bai Jamjuree',sans-serif}
   h1{font-size:22px;margin:0 0 4px;color:#0f2a6b}

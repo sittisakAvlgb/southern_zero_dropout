@@ -44,7 +44,7 @@ regional level**; anything that says "ทั้งประเทศ / 77 จั
   `src/i18n/translations.ts` (base) + `src/i18n/sbp.ts` (product vocabulary,
   `th` / `en` / `ms`). Page-local prose may use the file's existing
   `th ? 'ไทย' : 'EN'` idiom — match whatever the file already does.
-- Fonts switch by `<body class="lang-th|lang-en">`: **IBM Plex Sans Thai Looped** (TH body) + **Bai Jamjuree** (TH h1–h3) /
+- Fonts switch by `<body class="lang-th|lang-en">`: **Noto Sans Thai Looped** (TH body) + **Bai Jamjuree** (TH h1–h3) /
   **Ubuntu** (EN/MS). Defined in `index.css` + `tailwind.config.js`.
 
 ## Roles and permissions — read before touching anything auth-shaped

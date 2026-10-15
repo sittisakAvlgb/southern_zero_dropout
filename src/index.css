@@ -16,19 +16,19 @@ body {
 }
 
 /* Runtime language → font switch */
-/* เนื้อความใช้ IBM Plex Sans Thai Looped — ตัวมีหัว (ครูที่อายุมากอ่านข้อความยาวได้ง่ายกว่า
-   ตัวไม่มีหัว และแยก ด/ต บ/ป ภ/ถ ได้ชัด) แต่เส้นตรงขอบคมกว่า Sarabun ออกแบบมาสำหรับจอ
-   หัวข้อ (h1–h3) ใช้ Bai Jamjuree ตัวไม่มีหัวทรงเรขาคณิต เข้าชุดกับ Plex
+/* เนื้อความใช้ Noto Sans Thai Looped — ตัวมีหัว (ครูที่อายุมากอ่านข้อความยาวได้ง่ายกว่า
+   ตัวไม่มีหัว และแยก ด/ต บ/ป ภ/ถ ได้ชัด) เส้นสะอาด ออกแบบมาสำหรับจอ อ่านง่ายที่ตัวเล็ก
+   หัวข้อ (h1–h3) ใช้ Bai Jamjuree ตัวไม่มีหัวทรงเรขาคณิต
    ห้ามทำให้ตัวหนังสือเล็กลง — กติกาของโปรเจกต์ */
 body.lang-th,
 body.lang-th input,
 body.lang-th button,
 body.lang-th textarea,
 body.lang-th select {
-  font-family: 'IBM Plex Sans Thai Looped', 'Sarabun', sans-serif;
-  /* Plex ตัวไทยเตี้ยกว่า Sarabun ราว 5% ที่ px เท่ากัน (ความสูง น 56 กับ 59 ที่ 100px)
-     ขยายชดเชยให้เท่าเดิม แทนการไล่แก้ขนาดทุกจุด — x-height ของ Plex 0.52 × 59/56 ≈ 0.548 */
-  font-size-adjust: 0.548;
+  font-family: 'Noto Sans Thai Looped', 'Sarabun', sans-serif;
+  /* Noto ตัวไทยเตี้ยกว่า Sarabun ราว 3% ที่ px เท่ากัน (ความสูง น 57 กับ 59 ที่ 100px)
+     ขยายชดเชยให้เท่าเดิม แทนการไล่แก้ขนาดทุกจุด — x-height ของ Noto 0.54 × 59/57 ≈ 0.559 */
+  font-size-adjust: 0.559;
   /* น้ำหนัก 400 เส้นบางเกินไปบน Windows/Android ที่ 13–15px — ใช้ 500 เป็นค่าตั้งต้น
      ให้เส้นคมชัด ตัวหนา (600/700) ยังต่างจากเนื้อความชัดเจน */
   font-weight: 500;
@@ -43,7 +43,7 @@ body.lang-th select {
 body.lang-th h1,
 body.lang-th h2,
 body.lang-th h3 {
-  font-family: 'Bai Jamjuree', 'IBM Plex Sans Thai Looped', sans-serif;
+  font-family: 'Bai Jamjuree', 'Noto Sans Thai Looped', sans-serif;
   font-size-adjust: none;
 }
 
