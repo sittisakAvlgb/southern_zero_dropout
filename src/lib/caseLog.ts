@@ -339,6 +339,11 @@ export function useCaseLog(userKey: string | undefined) {
     setState({ ...state, entries: state.entries.filter((e) => e.id !== id) })
   }, [])
 
+  /** แก้บันทึกของตัวเอง — ข้อความหรือวันที่ที่พิมพ์ผิด (id เดิม เวลาสร้างเดิม) */
+  const updateEntry = useCallback((id: string, patch: Partial<Omit<CaseLogEntry, 'id' | 'childId' | 'by'>>) => {
+    setState({ ...state, entries: state.entries.map((e) => (e.id === id ? { ...e, ...patch } : e)) })
+  }, [])
+
   const setFollowUpDone = useCallback((id: string, done: boolean) => {
     setState({
       ...state,
@@ -422,7 +427,7 @@ export function useCaseLog(userKey: string | undefined) {
     setState({ ...state, consents: { ...state.consents, [childId]: rec } })
   }, [])
 
-  return { ...current, add, remove, setFollowUpDone, setOwner, clearChild, markStep, savePlan, addRef, addRefEvent, shiftRef, saveConsent, addObservation, updateObservation, saveGoal, clearAll }
+  return { ...current, add, remove, updateEntry, setFollowUpDone, setOwner, clearChild, markStep, savePlan, addRef, addRefEvent, shiftRef, saveConsent, addObservation, updateObservation, saveGoal, clearAll }
 }
 
 // ── reading the log back onto a child ────────────────────────

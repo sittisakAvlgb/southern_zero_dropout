@@ -71,6 +71,14 @@ export function TeacherStudentDesk() {
   const id = params.get('id') ?? list[0]?.s.id
   const fc = list.find((c) => c.s.id === id) ?? list[0]
   const childId = fc?.s.id ?? ''
+  // ปักเด็กที่เปิดอยู่ไว้ใน URL — ไม่งั้นพอบันทึกแล้วรายการเรียงใหม่ หน้าจะกระโดดไปเด็กคนแรกคนใหม่
+  useEffect(() => {
+    if (childId && !params.get('id')) {
+      const next = new URLSearchParams(params)
+      next.set('id', childId)
+      setParams(next, { replace: true })
+    }
+  }, [childId, params, setParams])
   const entries = useMemo(() => log.entries.filter((e) => e.childId === childId), [log.entries, childId])
   const obs = log.observations[childId] ?? []
 
@@ -78,6 +86,7 @@ export function TeacherStudentDesk() {
   const [logMode, setLogMode] = useState<'contact' | 'visit' | null>(null)
   const [picking, setPicking] = useState(false)
   const noteRef = useRef<HTMLInputElement>(null)
+  const composerRef = useRef<HTMLTextAreaElement>(null)
   const [tab, setTab] = useState<Tab>('care')
   const [summaryOpen, setSummaryOpen] = useState(false)
 
@@ -206,7 +215,18 @@ export function TeacherStudentDesk() {
         )}
       </section>
     ),
-    timeline: <StudentTimeline fc={fc} entries={entries} log={log} mayAct={mayAct} onLogContact={() => setSheet({ sheet: 'outcome', mode: 'contact' })} />,
+    timeline: (
+      <StudentTimeline
+        fc={fc}
+        entries={entries}
+        log={log}
+        mayAct={mayAct}
+        by={by}
+        composerRef={composerRef}
+        onVisit={() => setLogMode('visit')}
+        onLogContact={() => setSheet({ sheet: 'outcome', mode: 'contact' })}
+      />
+    ),
     trend: <Trend fc={fc} />,
     team: <Team fc={fc} entries={entries} me={by} />,
     related: <Related fc={fc} entries={entries} mayAct={mayAct} onVisit={() => setLogMode('visit')} />,
@@ -291,12 +311,7 @@ export function TeacherStudentDesk() {
               </div>
             </div>
           )}
-          {tab === 'timeline' && (
-            <div className="space-y-4">
-              {sec.note}
-              {sec.timeline}
-            </div>
-          )}
+          {tab === 'timeline' && <div className="space-y-4">{sec.timeline}</div>}
           {tab === 'school' && (
             <div className="grid items-start gap-4 lg:grid-cols-2">
               {sec.attendance}
@@ -326,10 +341,12 @@ export function TeacherStudentDesk() {
           </BarBtn>
           <BarBtn
             onClick={() => {
+              // แท็บไทม์ไลน์ใช้ช่องบันทึกของไทม์ไลน์ แท็บอื่นพาไปบันทึกสั้นในแท็บดูแลช่วยเหลือ
+              const target = tab === 'timeline' ? composerRef : noteRef
               if (tab !== 'care' && tab !== 'timeline') setTab('care')
               window.setTimeout(() => {
-                noteRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
-                noteRef.current?.focus()
+                target.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+                target.current?.focus()
               }, 120)
             }}
           >

@@ -579,6 +579,20 @@ export interface XItem {
   by: string
   who: 'school' | 'agency' | 'system'
   refId?: string
+  /** บันทึกของครูที่อยู่เบื้องหลังแถวนี้ — ใช้แก้/ลบ และบอกชนิด (ติดต่อ เยี่ยมบ้าน ฯลฯ) */
+  entryId?: string
+  mode?: CaseLogEntry['mode']
+}
+
+/** เวลาที่ใช้เรียงบันทึกของครู — บันทึกย้อนหลัง (เช่น เมื่อวาน) ต้องไปอยู่วันที่เกิดจริง ไม่ใช่วันที่พิมพ์ */
+export function entryWhen(e: CaseLogEntry): number {
+  const created = Number(e.id.split('-')[1]) || 0
+  const d = new Date(e.date)
+  if (!created) return d.getTime()
+  const c = new Date(created)
+  const sameDay = c.getFullYear() === d.getFullYear() && c.getMonth() === d.getMonth() && c.getDate() === d.getDate()
+  // วันเดียวกันใช้เวลาที่บันทึก · วันอื่นวางไว้ช่วงสายของวันนั้น (ไม่รู้เวลาจริง)
+  return sameDay ? created : new Date(d.getFullYear(), d.getMonth(), d.getDate(), 10).getTime()
 }
 
 /** " · ทางโทรศัพท์" — บอกว่าครูรู้มาจากไหน เพราะไม่มีสัญญาณจากระบบหน่วยงาน */
@@ -612,7 +626,7 @@ export function crossTimeline(refs: RefCase[], entries: CaseLogEntry[], student:
     for (const e of r.events)
       out.push({ ts: e.ts, th: EV_TH[e.type](e, r), by: e.by, who: e.type === 'received' ? 'system' : SCHOOL_EVENTS.includes(e.type) ? 'school' : 'agency', refId: r.id })
   // บันทึกที่เป็นเงาของการส่งต่อ (refId / referral) มีเหตุการณ์ของตัวเองอยู่แล้วด้านบน
-  for (const e of entries) if (!e.referral && !e.refId) out.push({ ts: Number(e.id.split('-')[1]) || new Date(e.date).getTime(), th: e.note, by: e.by, who: 'school' })
+  for (const e of entries) if (!e.referral && !e.refId) out.push({ ts: entryWhen(e), th: e.note, by: e.by, who: 'school', entryId: e.id, mode: e.mode })
   for (const ev of student?.timeline ?? []) {
     if (entries.some((e) => e.date === ev.date && e.note === ev.note)) continue
     out.push({ ts: new Date(ev.date).getTime() + 9 * H, th: ev.note, by: ev.by, who: 'school' })
