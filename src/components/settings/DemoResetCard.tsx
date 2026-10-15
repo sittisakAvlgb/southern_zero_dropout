@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useAuth } from '@/auth/AuthContext'
 import { canWorkCases } from '@/auth/roles'
-import { useCaseLog } from '@/lib/caseLog'
+import { useCaseLog, logKeyOf } from '@/lib/caseLog'
 import { useToast } from '@/components/ui/Toast'
 
 /**
@@ -12,7 +12,7 @@ import { useToast } from '@/components/ui/Toast'
  */
 export function DemoResetCard() {
   const { user } = useAuth()
-  const log = useCaseLog(user?.id)
+  const log = useCaseLog(logKeyOf(user), user?.id)
   const { push } = useToast()
   const [confirm, setConfirm] = useState(false)
   if (!canWorkCases(user)) return null
@@ -20,12 +20,16 @@ export function DemoResetCard() {
     log.entries.length +
     Object.keys(log.refs).length +
     Object.keys(log.plans).length +
-    Object.values(log.observations).reduce((a, x) => a + x.length, 0)
+    Object.values(log.observations).reduce((a, x) => a + x.length, 0) +
+    Object.keys(log.requests).length
   return (
     <div className="rounded-2xl border border-surface-border bg-white p-5">
       <h3 className="text-[16px] font-bold text-ink">ข้อมูลทดสอบ</h3>
       <p className="mt-1 text-[14px] text-ink-muted">
-        ล้างทุกอย่างที่บัญชีนี้บันทึกไว้ในเบราว์เซอร์นี้ ({n} รายการ) เพื่อเริ่มทดสอบใหม่ — ข้อมูลตั้งต้นของนักเรียนไม่ถูกลบ
+        {user?.schoolKey && (user.role === 'teacher' || user.role === 'school')
+          ? `ล้างทุกอย่างที่ครูและ ผอ. ของโรงเรียนนี้บันทึกไว้ในเบราว์เซอร์นี้ (${n} รายการ รวมคำขอถึง ผอ.)`
+          : `ล้างทุกอย่างที่บัญชีนี้บันทึกไว้ในเบราว์เซอร์นี้ (${n} รายการ)`}{' '}
+        เพื่อเริ่มทดสอบใหม่ — ข้อมูลตั้งต้นของนักเรียนไม่ถูกลบ
       </p>
       <div className="mt-3 flex flex-wrap gap-2">
         {confirm ? (

@@ -3,7 +3,7 @@ import { useSearchParams } from 'react-router-dom'
 import { useScopedData } from '@/auth/scope'
 import { canWorkCases } from '@/auth/roles'
 import { useI18n } from '@/i18n/LanguageContext'
-import { applyLog, applyPlans, useCaseLog } from '@/lib/caseLog'
+import { applyLog, applyPlans, useCaseLog, logKeyOf } from '@/lib/caseLog'
 import { buildCase, milestones, PRIORITY_META, sortCases, type PlanCase, type Priority } from '@/lib/planOps'
 import { useSimulatedLoading } from '@/lib/useLoading'
 import { RISK_COLOR } from '@/lib/risk'
@@ -37,7 +37,7 @@ const dueText = (n: number) =>
 export function TeacherPlanWorkspace() {
   const { t } = useI18n()
   const { user, plans, students } = useScopedData()
-  const log = useCaseLog(user?.id)
+  const log = useCaseLog(logKeyOf(user), user?.id)
   const mayAct = canWorkCases(user)
   const loading = useSimulatedLoading(450)
   const [params, setParams] = useSearchParams()

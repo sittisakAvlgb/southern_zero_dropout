@@ -17,6 +17,7 @@ import SchoolPerformance from './pages/SchoolPerformance'
 import Student360 from './components/student/StudentRoute'
 import Reports from './pages/Reports'
 import Settings from './pages/Settings'
+import DirectorDecisions from './pages/DirectorDecisions'
 
 export default function App() {
   return (
@@ -40,6 +41,7 @@ export default function App() {
         <Route path="/plan" element={<OpportunityPlans />} />
         <Route path="/referral" element={<Referrals />} />
         <Route path="/intervention" element={<InterventionTracking />} />
+        <Route path="/decisions" element={<DirectorDecisions />} />
         <Route path="/school" element={<SchoolPerformance />} />
         <Route path="/student" element={<Student360 />} />
         <Route path="/reports" element={<Reports />} />

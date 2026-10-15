@@ -217,7 +217,7 @@ export const ROLE_NAV: Record<Role, string[]> = {
   exec: EXEC_AREAWIDE_NAV,
   obec: OBEC_NAV,
   esa: ESA_NAV,
-  school: ['/', '/oosc', '/plan', '/referral', '/intervention', '/school', '/student', '/reports', '/settings'],
+  school: ['/', '/decisions', '/oosc', '/plan', '/referral', '/intervention', '/school', '/student', '/reports', '/settings'],
   teacher: ['/', '/plan', '/referral', '/intervention', '/student', '/settings'],
   agency: ['/', '/referral', '/plan', '/oosc', '/reports', '/settings'],
 }

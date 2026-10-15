@@ -19,7 +19,7 @@ import { ESA_BY_KEY } from '@/data/esa'
 import { IconArrowRight, IconDown, IconUp } from '@/components/icons'
 import { ExecutiveBriefing } from '@/components/ai/ExecutiveBriefing'
 import { AreaCommandCenter } from '@/components/ai/AreaCommandCenter'
-import { SchoolCommandCenter } from '@/components/ai/SchoolCommandCenter'
+import { DirectorHome } from '@/components/ai/DirectorHome'
 import { TeacherWorkspace } from '@/components/ai/TeacherWorkspace'
 
 /** Shared Apex defaults — the app's type and a visible but calm entry animation. */
@@ -386,7 +386,7 @@ export default function SouthernOverview() {
       {user?.role === 'esa' ? (
         <AreaCommandCenter />
       ) : user?.role === 'school' ? (
-        <SchoolCommandCenter />
+        <DirectorHome />
       ) : user?.role === 'teacher' ? (
         <TeacherWorkspace />
       ) : (
@@ -399,7 +399,9 @@ export default function SouthernOverview() {
           guidance teacher two different totals under one label and a row of
           drill-downs their own menu bounces. */}
 
-      {user?.role !== 'teacher' && (
+      {/* ผอ. ก็จบที่นี่เช่นกัน — แผนที่ จชต. ภาพรวมรายจังหวัด และทะเบียนเด็กนอกระบบทั้งอำเภอ
+          เป็นงานของระดับพื้นที่ เคยทำให้หน้า ผอ. มี "ปัตตานี 9,422 นักเรียน" ใต้ "นักเรียนทั้งโรงเรียน 1,536" */}
+      {user?.role !== 'teacher' && user?.role !== 'school' && (
         <>
       {/* Three questions, in order: how bad, where, and what are we doing. */}
       <div className="mb-4 grid gap-3 lg:grid-cols-3">

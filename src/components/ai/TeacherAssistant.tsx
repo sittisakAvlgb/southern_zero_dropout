@@ -27,6 +27,7 @@ const MASCOT = assetUrl('ChatBot.png')
 export function TeacherAssistant({
   queue,
   todayIds,
+  fromDirector,
   name,
   th,
   mayAct,
@@ -44,6 +45,8 @@ export function TeacherAssistant({
   queue: CaseRow[]
   /** เด็กที่หน้าการช่วยเหลือนับเป็น "วันนี้ต้องติดตาม" */
   todayIds: Set<string>
+  /** งานที่ ผอ. ส่งกลับมา หรือคำถามจาก ผอ. ที่รอครูตอบ */
+  fromDirector?: (studentId: string) => { label: string; th: string; why: string } | undefined
   /** ชื่อครู ใช้ทักทาย */
   name: string
   th: boolean
@@ -279,7 +282,14 @@ export function TeacherAssistant({
               </p>
             )}
 
-            {close?.ready ? (
+            {fromDirector?.(s.id) ? (
+              // ผอ. ตัดสินใจแล้ว ทีมรออยู่ — งานนี้มาก่อนคำแนะนำของ AI
+              <div className="mt-3 rounded-xl border border-brand-200 bg-white p-3">
+                <p className="text-[12px] font-semibold text-brand-700">{th ? fromDirector(s.id)!.label : 'From the principal'}</p>
+                <p className="mt-0.5 text-[15px] font-semibold leading-snug text-ink">{fromDirector(s.id)!.th}</p>
+                <p className="mt-1 text-[12.5px] leading-snug text-ink-muted">{fromDirector(s.id)!.why}</p>
+              </div>
+            ) : close?.ready ? (
               // เห็นผล — เด็กคนนี้ดีขึ้นจนผ่านเกณฑ์ทุกข้อ แสดงเหตุผลให้ครูตรวจ
               // ก่อนกด เพราะการปิดเคสคือการบอกว่าเด็กปลอดภัยแล้ว
               <div className="mt-3 rounded-xl bg-green-50 p-3">
@@ -326,7 +336,17 @@ export function TeacherAssistant({
                       : 'Close the case'}
                 </button>
               )}
-              {!close?.ready && pick?.action && mayAct && (
+              {fromDirector?.(s.id) && mayAct && (
+                // งานจาก ผอ. มีขั้นของมันเอง (บันทึกว่าทำแล้ว · ตอบ ผอ.) อยู่ในแฟ้มเด็ก
+                <button
+                  type="button"
+                  onClick={() => onOpen(s.id)}
+                  className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl bg-brand-500 px-4 py-3 text-[15px] font-semibold text-white shadow-card transition-colors hover:bg-brand-600"
+                >
+                  {fromDirector(s.id)!.label === 'งานจาก ผอ.' ? 'เปิดงานจาก ผอ.' : 'ตอบ ผอ.'}
+                </button>
+              )}
+              {!fromDirector?.(s.id) && !close?.ready && pick?.action && mayAct && (
                 <button
                   type="button"
                   onClick={act}

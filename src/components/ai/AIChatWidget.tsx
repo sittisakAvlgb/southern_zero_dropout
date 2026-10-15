@@ -6,7 +6,7 @@ import { useAuth } from '@/auth/AuthContext'
 import { ROLE_META, canAccess, canWorkCases } from '@/auth/roles'
 import { overviewStats, scopedCases, scopedStudents } from '@/auth/scope'
 import { oosSplit } from '@/lib/oos'
-import { applyLog, useCaseLog } from '@/lib/caseLog'
+import { applyLog, useCaseLog, logKeyOf } from '@/lib/caseLog'
 import { formatNumber } from '@/lib/format'
 import { RISK_COLOR } from '@/lib/risk'
 import {
@@ -139,7 +139,7 @@ export function AIChatWidget() {
    *  จะได้ไม่ต้องตามแก้ทุกครั้งที่เพิ่มบทบาทใหม่ */
   const caseworker = canWorkCases(user) && user?.role !== 'exec'
   const chips = caseworker ? CASEWORK_CHIPS : OVERSIGHT_CHIPS
-  const caseLog = useCaseLog(user?.id)
+  const caseLog = useCaseLog(logKeyOf(user), user?.id)
 
   /** The opening message carries real numbers, so saying hello is also useful.
    *  Only built while the panel is open — it walks the scoped datasets. */

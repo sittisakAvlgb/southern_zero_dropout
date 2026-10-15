@@ -49,6 +49,7 @@ export function StudentNextStep({
     onSheet(g as Sheet)
   }
   const h = HEALTH_META[fc.health]
+  const pending = fc.support && ['new', 'seen', 'answered'].includes(fc.support.status)
   return (
     <div className="border-t border-surface-border bg-brand-50/50 px-5 py-4">
       <div className="flex items-start gap-2.5">
@@ -68,6 +69,11 @@ export function StudentNextStep({
             {fc.sla.text}
             {' · '}ติดต่อล่าสุด: <span className="font-semibold text-ink">{lastContact ?? 'ยังไม่มีบันทึก'}</span>
           </p>
+          {pending && (
+            <p className="mt-1 text-[13.5px] font-semibold text-ink">
+              คำขอถึง ผอ.: {fc.support!.status === 'new' ? 'รอ ผอ. เปิดอ่าน' : fc.support!.status === 'seen' ? 'ผอ. รับเรื่องแล้ว กำลังพิจารณา' : 'ตอบ ผอ. แล้ว รอตัดสินใจ'}
+            </p>
+          )}
         </div>
       </div>
       <div className="mt-3 flex flex-wrap gap-2 pl-0 sm:pl-[38px]">
@@ -84,6 +90,12 @@ export function StudentNextStep({
             <button type="button" onClick={() => onSheet({ sheet: 'ask' })} className="rounded-xl border border-surface-border bg-white px-4 py-2.5 text-[14px] font-medium text-ink">
               ถาม AI
             </button>
+            {/* ครูขอได้ทุกเมื่อที่ช่วยเองแล้วติด — มีคำขอค้างอยู่ก็กดดูสถานะแทนการส่งซ้ำ */}
+            {fc.open && n.kind !== 'directive' && n.kind !== 'replyDirector' && (
+              <button type="button" onClick={() => onSheet({ sheet: 'support', mode: 'request' })} className="rounded-xl border border-surface-border bg-white px-4 py-2.5 text-[14px] font-medium text-ink">
+                {pending ? 'ดูคำขอถึง ผอ.' : 'ขอการสนับสนุนจาก ผอ.'}
+              </button>
+            )}
           </>
         )}
         <button type="button" onClick={onExport} className="rounded-xl border border-surface-border bg-white px-4 py-2.5 text-[14px] font-medium text-ink">
@@ -132,7 +144,7 @@ export function StudentTimeline({
   const [draft, setDraft] = useState('')
   const [confirmDel, setConfirmDel] = useState<string>()
 
-  const counts = { all: items.length, school: 0, agency: 0, system: 0 }
+  const counts = { all: items.length, school: 0, director: 0, agency: 0, system: 0 }
   for (const x of items) counts[x.who] += 1
   const filtered = filter === 'all' ? items : items.filter((x) => x.who === filter)
   const shown = all ? filtered : filtered.slice(0, 12)
@@ -170,7 +182,7 @@ export function StudentTimeline({
       <div className="px-5 py-4">
         {items.length > 0 && (
           <div className="mb-4 flex flex-wrap gap-1.5" role="group" aria-label="กรองไทม์ไลน์">
-            {(['all', 'school', 'agency', 'system'] as const)
+            {(['all', 'school', 'director', 'agency', 'system'] as const)
               .filter((k) => k === 'all' || counts[k] > 0)
               .map((k) => (
                 <button
@@ -191,6 +203,9 @@ export function StudentTimeline({
           {shown.map((x, i) => {
             const e = x.entryId ? byId.get(x.entryId) : undefined
             const isNew = e && e.id === fresh
+            // แก้/ลบได้เฉพาะบันทึกของตัวเอง — ประวัติต้องบอกได้ว่าใครบันทึกอะไร
+            // บันทึกของคำขอถึง ผอ. เป็นหลักฐานการตัดสินใจ แก้ไม่ได้ทั้งสองฝ่าย
+            const editable = mayAct && e && !e.requestId && (!by || e.by === by)
             return (
               <li key={x.entryId ?? `${x.ts}-${i}`} className="relative pb-4 pl-5 last:pb-0">
                 <span
@@ -201,7 +216,7 @@ export function StudentTimeline({
                   <p className="flex flex-wrap items-center gap-x-1.5 text-[12.5px] text-ink-faint">
                     <span>{fmtTs(x.ts).replace(/ \d\d:\d\d$/, '')}</span>
                     <span>·</span>
-                    <span>{x.who === 'school' ? x.by : x.who === 'agency' ? `หน่วยงาน · ${x.by}` : 'ระบบ'}</span>
+                    <span>{x.who === 'school' ? x.by : x.who === 'director' ? `ผอ. · ${x.by}` : x.who === 'agency' ? `หน่วยงาน · ${x.by}` : 'ระบบ'}</span>
                     {x.mode && MODE_TH[x.mode] && (
                       <span className="rounded-md bg-surface-muted px-1.5 py-0.5 text-[12px] font-semibold text-ink-muted">{MODE_TH[x.mode]}</span>
                     )}
@@ -244,7 +259,7 @@ export function StudentTimeline({
                           {e.followUpDone ? `✓ ทำตามนัด ${e.followUpDate} แล้ว` : `☐ นัด ${e.followUpDate} — กดเมื่อทำแล้ว`}
                         </button>
                       )}
-                      {mayAct && confirmDel !== e.id && (
+                      {editable && confirmDel !== e.id && (
                         <>
                           <button
                             type="button"
@@ -262,7 +277,7 @@ export function StudentTimeline({
                           </button>
                         </>
                       )}
-                      {mayAct && confirmDel === e.id && (
+                      {editable && confirmDel === e.id && (
                         <span className="flex items-center gap-3">
                           <span className="text-ink">ลบบันทึกนี้?</span>
                           <button
@@ -299,7 +314,7 @@ export function StudentTimeline({
   )
 }
 
-const WHO_TH = { all: 'ทั้งหมด', school: 'โรงเรียน', agency: 'หน่วยงาน', system: 'ระบบ' } as const
+const WHO_TH = { all: 'ทั้งหมด', school: 'โรงเรียน', director: 'ผอ.', agency: 'หน่วยงาน', system: 'ระบบ' } as const
 const MODE_TH: Partial<Record<CaseLogEntry['mode'], string>> = { contact: 'ติดต่อผู้ปกครอง', visit: 'เยี่ยมบ้าน', talk: 'คุยกับนักเรียน' }
 
 type Kind = 'note' | 'contact' | 'talk'

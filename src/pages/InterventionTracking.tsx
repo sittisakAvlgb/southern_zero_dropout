@@ -57,7 +57,7 @@ function OversightTracking() {
   const th = lang === 'th'
   const toast = useToast()
   const nav = useNavigate()
-  const { cases: scopedCases, user } = useScopedData()
+  const { cases: scopedCases, students, user } = useScopedData()
 
   /** Seeded from the URL so the area dashboard's pipeline cards can link
    *  straight to the cases they count — "9 ยังไม่มีเจ้าของเคส" that opened the
@@ -174,6 +174,14 @@ function OversightTracking() {
    *  control cannot explain itself, and a reviewer cannot tell a withheld
    *  feature from a missing one. See `canWorkCases()`. */
   const mayAct = canWorkCases(user)
+  // ผอ. ไม่เลื่อนขั้น รับเคส หรือบันทึกเยี่ยมบ้านแทนครู — ปุ่มเหล่านี้กลายเป็น "พิจารณา"
+  // ที่พาไปมุมมองตัดสินใจของเด็กคนนั้น (มอบหมาย · เตือน · ตัดสินใจคำขอ)
+  const director = user?.role === 'school'
+  const rowActs = mayAct && !director
+  const decideFor = (c: CaseRecord) => {
+    const sid = students.find((s) => s.name === c.studentName)?.id
+    nav(sid ? `/decisions?open=${sid}` : '/decisions')
+  }
 
   const patch = (c: CaseRecord, p: Partial<CaseRecord>, msg: string) => {
     if (!mayAct) {
@@ -505,8 +513,9 @@ function OversightTracking() {
                 pn={pn}
                 active={openId === c.id}
                 onOpen={() => setOpenId(c.id)}
-                mayAct={mayAct}
+                mayAct={rowActs}
                 onPrimary={() => (c.owner ? advance(c) : takeCase(c))}
+                onDecide={director ? () => decideFor(c) : undefined}
               />
             ))}
           </div>
@@ -532,7 +541,8 @@ function OversightTracking() {
         th={th}
         t={t}
         pn={pn}
-        mayAct={mayAct}
+        mayAct={rowActs}
+        onDecide={director ? () => openCase && decideFor(openCase) : undefined}
         onTake={() => openCase && takeCase(openCase)}
         onAdvance={() => openCase && advance(openCase)}
         onVisit={() => openCase && recordVisit(openCase)}
@@ -725,6 +735,7 @@ function CaseRow({
   onOpen,
   mayAct,
   onPrimary,
+  onDecide,
 }: {
   c: CaseRecord
   index: number
@@ -735,6 +746,8 @@ function CaseRow({
   onOpen: () => void
   mayAct: boolean
   onPrimary: () => void
+  /** ผอ.: ไปตัดสินใจ/มอบหมาย แทนการลงมือเอง */
+  onDecide?: () => void
 }) {
   const done = c.stage === 'resolved'
   return (
@@ -793,6 +806,10 @@ function CaseRow({
           <IconCheck width={12} height={12} />
           {t('stage.resolved')}
         </span>
+      ) : onDecide ? (
+        <Button size="sm" variant="secondary" onClick={onDecide}>
+          {th ? 'พิจารณา' : 'Review'}
+        </Button>
       ) : (
         mayAct && (
           <Button size="sm" variant={c.owner ? 'secondary' : 'primary'} onClick={onPrimary}>
@@ -822,6 +839,7 @@ function CaseDrawer({
   t,
   pn,
   mayAct,
+  onDecide,
   onTake,
   onAdvance,
   onVisit,
@@ -837,6 +855,7 @@ function CaseDrawer({
   t: (k: string) => string
   pn: (k: string) => string
   mayAct: boolean
+  onDecide?: () => void
   onTake: () => void
   onAdvance: () => void
   onVisit: () => void
@@ -1014,6 +1033,10 @@ function CaseDrawer({
               <IconCheck width={16} height={16} />
               {t('stage.resolved')}
             </p>
+          ) : onDecide ? (
+            <Button variant="primary" icon={<IconArrowRight width={14} height={14} />} onClick={onDecide}>
+              {th ? 'พิจารณาในมุมมอง ผอ. — ตัดสินใจ · มอบหมาย · เตือน' : 'Review as principal'}
+            </Button>
           ) : !mayAct ? null : (
             <>
               {!c.owner ? (

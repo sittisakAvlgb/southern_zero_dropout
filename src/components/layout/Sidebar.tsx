@@ -5,6 +5,7 @@ import { useI18n } from '@/i18n/LanguageContext'
 import { useAuth } from '@/auth/AuthContext'
 import { canAccess, ROLE_META } from '@/auth/roles'
 import { useScopedData } from '@/auth/scope'
+import { logKeyOf, useCaseLog, waitsOnDirector } from '@/lib/caseLog'
 import { roleIcon } from '@/components/auth/roleIcon'
 import { LogoutDialog } from '@/components/auth/LogoutDialog'
 import { navLabelKey, NAV_ITEMS } from './navItems'
@@ -26,6 +27,7 @@ export function Sidebar({
   const th = lang === 'th'
   const { cases, students } = useScopedData()
   const [confirmOut, setConfirmOut] = useState(false)
+  const caseLog = useCaseLog(logKeyOf(user), user?.id)
 
   const visible = NAV_ITEMS.filter((n) => !user || canAccess(user, n.to))
   const meta = ROLE_META[user?.role ?? 'exec']
@@ -36,6 +38,9 @@ export function Sidebar({
   const badges: Record<string, { n: number; color: string }> = {}
   if (urgent > 0) badges['/intervention'] = { n: urgent, color: '#dc2626' }
   if (highRisk > 0 && canAccess(user, '/student')) badges['/student'] = { n: highRisk, color: '#f97316' }
+  // คำขอจากครูที่รอ ผอ. — ตัวเลขเดียวกับ "ต้องตัดสินใจวันนี้" ในหน้าเรื่องที่ต้องตัดสินใจ
+  const waiting = Object.values(caseLog.requests).filter(waitsOnDirector).length
+  if (waiting > 0 && canAccess(user, '/decisions')) badges['/decisions'] = { n: waiting, color: '#dc2626' }
 
   return (
     <aside

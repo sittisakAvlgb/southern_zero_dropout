@@ -5,7 +5,7 @@ import type { OpportunityPlan, Pathway, PlanStepStatus } from '@/types'
 import { useI18n } from '@/i18n/LanguageContext'
 import { useScopedData } from '@/auth/scope'
 import { canWorkCases } from '@/auth/roles'
-import { applyPlans, useCaseLog } from '@/lib/caseLog'
+import { applyPlans, useCaseLog, logKeyOf } from '@/lib/caseLog'
 import { TeacherPlanWorkspace } from '@/components/plans/TeacherPlanWorkspace'
 import { DirectOnlyNotice } from '@/components/auth/DirectOnlyNotice'
 import { PageHeader, Breadcrumb } from '@/components/ui/PageHeader'
@@ -78,7 +78,7 @@ function OversightPlans() {
 
   // ขั้นที่ติ๊กเสร็จบันทึกถาวรใน caseLog — เดิมเก็บใน React state ของหน้า
   // (extraDone) รีโหลดแล้วหายหมด และหน้าอื่นไม่เคยเห็น
-  const log = useCaseLog(user?.id)
+  const log = useCaseLog(logKeyOf(user), user?.id)
 
   const [openId, setOpenId] = useState<string | null>(null)
   const [closing, setClosing] = useState(false)

@@ -21,6 +21,7 @@ import { Skeleton } from '@/components/ui/Skeleton'
 import { assetUrl } from '@/lib/asset'
 import { byOf, type Log } from '@/components/referrals/useRefCases'
 import { Chips, Drawer, GhostBtn, inputCls, isoIn, Label, PrimaryBtn, Section, textareaCls } from '@/components/referrals/ui'
+import { DirectiveDoneSheet, ReplyDirectorSheet, RequestSupportSheet, SupportStatus } from '@/components/support/TeacherSupportSheets'
 
 const MASCOT = assetUrl('ChatBot.png')
 
@@ -28,6 +29,7 @@ export type Sheet =
   | { sheet: 'outcome'; mode: 'contact' | 'visit' | 'followUp' }
   | { sheet: 'schedule'; method?: string }
   | { sheet: 'close' | 'reopen' | 'escalate' | 'ask' }
+  | { sheet: 'support'; mode: 'request' | 'reply' | 'done'; reqId?: string }
 
 export const SLA_TONE = { breach: '#dc2626', near: '#ea580c', ok: '#475569', done: '#16a34a' } as const
 
@@ -177,6 +179,12 @@ export function FollowCaseDetail({
           )}
         </dl>
       </div>
+
+      {c.support && !['done', 'rejected'].includes(c.support.status) && (
+        <div className="mt-3">
+          <SupportStatus req={c.support.req} />
+        </div>
+      )}
 
       {/* ── 3. AI สรุป ───────────────────────── */}
       <div className="mt-3 rounded-2xl border-2 border-brand-200 bg-brand-50/50 p-4">
@@ -448,6 +456,8 @@ function ActionSheet({
   const [esc, setEsc] = useState<string>()
   const [newOwner, setNewOwner] = useState('')
   const [q, setQ] = useState<string>()
+  // มีคำขอค้างตั้งแต่ตอนเปิด sheet — ไม่ใช่คำขอที่เพิ่งส่งในแผ่นนี้ (ซึ่งต้องเห็นข้อความยืนยันก่อน)
+  const [hadPending] = useState(() => Boolean(c.support && !['done', 'rejected'].includes(c.support.status)))
 
   // ── ผลหลังบันทึก — ถามต่อทันทีว่าจะนัดครั้งหน้าเมื่อไร ──
   if (saved)
@@ -666,11 +676,20 @@ function ActionSheet({
       </div>
     )
 
+  if (sheet.sheet === 'support') {
+    const req = (sheet.reqId ? log.requests[sheet.reqId] : undefined) ?? c.support?.req
+    if (sheet.mode === 'reply' && req) return <ReplyDirectorSheet req={req} by={by} log={log} push={push} done={done} />
+    if (sheet.mode === 'done' && req) return <DirectiveDoneSheet req={req} by={by} log={log} push={push} done={done} />
+    // มีคำขอค้างอยู่แล้ว — แสดงสถานะแทนการส่งซ้ำ
+    if (hadPending && c.support) return <SupportStatus req={c.support.req} />
+    return <RequestSupportSheet c={c} entries={entries} by={by} log={log} push={push} done={done} />
+  }
+
   if (sheet.sheet === 'escalate') {
     const opts = [
       ...(s.caseOwner && s.caseOwner !== by ? ['เตือนผู้รับผิดชอบ'] : []),
       'แจ้งหัวหน้างานแนะแนว',
-      'แจ้ง ผอ.โรงเรียน',
+      'ขอการสนับสนุนจาก ผอ.',
       'เปลี่ยนผู้รับผิดชอบ',
       'ส่งต่อหน่วยงาน',
     ]
@@ -693,6 +712,8 @@ function ActionSheet({
             disabled={!esc || (esc === 'เปลี่ยนผู้รับผิดชอบ' && newOwner.trim().length < 2)}
             onClick={() => {
               if (esc === 'ส่งต่อหน่วยงาน') return go({ href: `/referral?child=${s.id}` })
+              // ผอ. ต้องรู้ว่าครูต้องการอะไร — ไปที่ฟอร์มคำขอ ไม่ใช่แค่บันทึกว่า "แจ้งแล้ว"
+              if (esc === 'ขอการสนับสนุนจาก ผอ.') return go({ sheet: 'support', mode: 'request' })
               if (esc === 'เปลี่ยนผู้รับผิดชอบ') log.setOwner(s.id, newOwner.trim())
               const what = esc === 'เปลี่ยนผู้รับผิดชอบ' ? `เปลี่ยนผู้รับผิดชอบเป็น ${newOwner.trim()}` : esc!
               add({ mode: 'note', note: `Escalate: ${what} — ${c.reasons[0] ?? c.sla.text}`, escalation: what })

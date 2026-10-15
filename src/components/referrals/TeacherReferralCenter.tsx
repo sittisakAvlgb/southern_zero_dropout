@@ -4,7 +4,7 @@ import type { AgencyKind, ReferralNeed } from '@/types'
 import { useScopedData } from '@/auth/scope'
 import { canWorkCases } from '@/auth/roles'
 import { useI18n } from '@/i18n/LanguageContext'
-import { applyLog, useCaseLog } from '@/lib/caseLog'
+import { applyLog, useCaseLog, logKeyOf } from '@/lib/caseLog'
 import { needsAgency } from '@/lib/recommend'
 import { useSimulatedLoading } from '@/lib/useLoading'
 import { RISK_COLOR } from '@/lib/risk'
@@ -36,7 +36,7 @@ const BUCKETS: Bucket[] = ['breach', 'near', 'returned', 'review', 'consent', 'a
 export function TeacherReferralCenter() {
   const { t } = useI18n()
   const { user, students, referrals } = useScopedData()
-  const log = useCaseLog(user?.id)
+  const log = useCaseLog(logKeyOf(user), user?.id)
   const mayAct = canWorkCases(user)
   const loading = useSimulatedLoading(450)
   const [params, setParams] = useSearchParams()

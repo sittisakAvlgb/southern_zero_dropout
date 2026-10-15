@@ -180,6 +180,15 @@ export function scopedOosc(user: User | null): OoscRecord[] {
     const rows = OOSC.filter((r) => ids.has(r.id))
     return orSample(rows, OOSC, 10)
   }
+  if (user.role === 'school') {
+    // ผอ. เห็นเฉพาะเด็กที่โรงเรียนเป็นคนแจ้ง (PDPA — ตัดสินใจร่วมกับเจ้าของงาน 15 ต.ค. 2569)
+    // เด็กที่ อบต. ผู้นำศาสนา หรือสาธารณสุขพบ เป็นงานของหน่วยงานนั้นและระดับพื้นที่
+    // ไม่ใช่ของโรงเรียน — เดิม ผอ. เห็นทั้งอำเภอ 117 คน พร้อมแผนและการส่งต่อของทุกคน
+    // ข้อจำกัด: ระเบียนยังไม่มีรหัสโรงเรียนผู้แจ้ง จึงใช้ "โรงเรียนแจ้ง + อำเภอของโรงเรียน"
+    // (นำร่องมีหนึ่งโรงเรียนต่ออำเภอ) — ข้อมูลจริงต้องเพิ่ม reportingSchoolKey แล้วกรองด้วยตัวนั้น
+    // ห้ามเติมตัวอย่าง (orSample) ไม่งั้นชื่อเด็กของที่อื่นจะกลับมาบนหน้านี้
+    return OOSC.filter((r) => r.source === 'schoolReport' && inTerritory(user, r))
+  }
   return orSample(OOSC.filter((r) => inTerritory(user, r)), OOSC, 14)
 }
 

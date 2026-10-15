@@ -15,7 +15,7 @@ import { closability, needsAgency } from './recommend'
 import { riskLevel } from './risk'
 import { FOLLOW_UP_SLA_DAYS } from './teacherOps'
 import { crossTimeline, type RefCase, type XItem } from './refOps'
-import { isScheduleOnly, type CaseLogEntry } from './caseLog'
+import { DIRECTOR_ACT_TH, isScheduleOnly, requestStatus, type CaseLogEntry, type RequestStatus, type SupportRequest } from './caseLog'
 
 const D = 86400000
 
@@ -52,12 +52,17 @@ export const STALE_DAYS = 5
 
 export type NextKind =
   | 'contact' | 'visit' | 'logVisit' | 'reassess' | 'followUp' | 'refer' | 'agency' | 'plan' | 'close' | 'reopen'
+  /** ผอ. ตัดสินใจแล้ว action กลับมาที่ครู */
+  | 'directive'
+  /** ผอ. ขอข้อมูลเพิ่มก่อนตัดสินใจ */
+  | 'replyDirector'
 
 /** สิ่งที่ปุ่มทำ — sheet ในหน้า หรือไปหน้าอื่นที่ทำเรื่องนั้นอยู่แล้ว */
 export type Go =
   | { sheet: 'outcome'; mode: 'contact' | 'visit' | 'followUp' }
   | { sheet: 'schedule'; method?: string }
   | { sheet: 'close' | 'reopen' | 'escalate' }
+  | { sheet: 'support'; mode: 'request' | 'reply' | 'done'; reqId?: string }
   | { href: string }
 
 export interface NextAction {
@@ -94,6 +99,8 @@ export interface FollowCase {
   next: NextAction
   secondary: { th: string; go: Go }[]
   escalated?: CaseLogEntry
+  /** คำขอสนับสนุนจาก ผอ. ล่าสุด — ทั้งที่รอ ผอ. และที่ action อยู่ที่ครู */
+  support?: { req: SupportRequest; status: RequestStatus }
   summary: { situation: string; risk: string; change: string; recommend: string }
   /** เคสปิดแล้วแต่ความเสี่ยงกลับมา */
   relapse: boolean
@@ -119,6 +126,8 @@ export function buildFollowCase(input: {
   lastLogged?: string
   refs: RefCase[]
   hasPlan: boolean
+  /** คำขอสนับสนุนจาก ผอ. ของเด็กคนนี้ */
+  requests?: SupportRequest[]
   today?: Date
 }): FollowCase {
   const { s, record, entries, refs, hasPlan } = input
@@ -167,9 +176,18 @@ export function buildFollowCase(input: {
   const doneToday = input.lastLogged === todayIso
   const escalated = entries.find((e) => e.escalation)
 
+  // ── คำขอถึง ผอ. ── action ที่ ผอ. ส่งกลับมาคือ "สิ่งที่ต้องทำต่อ" ของครูทันที
+  const reqs = [...(input.requests ?? [])].sort((a, b) => b.ts - a.ts)
+  const active = reqs.map((req) => ({ req, status: requestStatus(req) })).find((x) => !['done', 'rejected'].includes(x.status))
+  const support = active ?? (reqs[0] ? { req: reqs[0], status: requestStatus(reqs[0]) } : undefined)
+  const directive = active?.status === 'withTeacher' ? active.req.decisions.at(-1) : undefined
+  const infoAsked = active?.status === 'needInfo' ? active.req.decisions.at(-1) : undefined
+
   // ── ทำไมต้องดู ──
   const reasons: string[] = []
   if (open) {
+    if (directive?.next) reasons.push(`ผอ. อนุมัติแล้ว: ${directive.next.th} · กำหนด ${fmtDate(directive.next.due)}`)
+    if (infoAsked) reasons.push(`ผอ. ขอข้อมูลเพิ่ม: ${infoAsked.reason}`)
     if (s.riskLevel === 'critical') reasons.push(`ความเสี่ยงระดับวิกฤต ${s.riskScore}/100`)
     if (breached) reasons.push(`เกิน SLA ${slaOverDays} วัน — ไม่มีการอัปเดต ${updatedDaysAgo} วัน`)
     if (refLate) reasons.push(`${refLate.toName} ${refLate.sla.text}`)
@@ -195,7 +213,7 @@ export function buildFollowCase(input: {
         ? 'sla'
         : rising
           ? 'rising'
-          : followDue || refMine
+          : followDue || refMine || directive || infoAsked
             ? 'due'
             : stale
               ? 'stale'
@@ -227,6 +245,17 @@ export function buildFollowCase(input: {
       return relapse
         ? { kind: 'reopen', th: 'พิจารณาเปิดเคสอีกครั้ง', whyTh: `ความเสี่ยงกลับมาที่ระดับ${LEVEL_TH[s.riskLevel]} (${s.riskScore}/100)`, cta: 'เปิดเคสอีกครั้ง', go: { sheet: 'reopen' } }
         : { kind: 'followUp', th: 'ปิดเคสแล้ว — ติดตามห่าง ๆ', whyTh: 'ความเสี่ยงยังอยู่ในระดับที่ปลอดภัย', cta: 'บันทึกผลติดตาม', go: { sheet: 'outcome', mode: 'followUp' } }
+    // งานที่ ผอ. ส่งกลับมามาก่อนงานอื่น — ผอ. ตัดสินใจให้แล้ว ทีมรออยู่
+    if (infoAsked && active)
+      return { kind: 'replyDirector', th: 'ตอบ ผอ. — ขอข้อมูลเพิ่มก่อนตัดสินใจ', whyTh: infoAsked.reason, cta: 'ตอบ ผอ.', go: { sheet: 'support', mode: 'reply', reqId: active.req.id } }
+    if (directive?.next && active)
+      return {
+        kind: 'directive',
+        th: directive.next.th,
+        whyTh: `ผอ. ${directive.acts.length ? directive.acts.map((a) => DIRECTOR_ACT_TH[a]).join(' · ') : 'ตัดสินใจแล้ว'}${directive.next.support.length ? ` · ทีมช่วย: ${directive.next.support.join(', ')}` : ''} · กำหนด ${fmtDate(directive.next.due)}`,
+        cta: 'บันทึกว่าทำแล้ว',
+        go: { sheet: 'support', mode: 'done', reqId: active.req.id },
+      }
     if (refMine) return { kind: 'agency', th: refMine.next.th, whyTh: refMine.next.whyTh || `การส่งต่อไป ${refMine.toName}`, cta: 'ดูการส่งต่อ', go: { href: `/referral?ref=${refMine.id}` } }
     if (refLate) return { kind: 'agency', th: `ติดตามสถานะกับ ${refLate.toName}`, whyTh: `ส่งต่อไปแล้วแต่หน่วยงานยังไม่ตอบรับ · ${refLate.sla.text}`, cta: 'ติดตามหน่วยงาน', go: { href: `/referral?ref=${refLate.id}` } }
     // นัดเยี่ยมบ้านไว้แล้ว — ถึงวันก็บันทึกผล ยังไม่ถึงก็ไม่ต้องให้นัดซ้ำ
@@ -267,6 +296,9 @@ export function buildFollowCase(input: {
   const secondary: FollowCase['secondary'] = []
   // ครูอาจรู้ปัญหาใหม่ก่อนคะแนนจะขยับ — เปิดเคสที่ปิดแล้วได้เสมอ ประวัติเดิมยังอยู่
   if (!open && !relapse) secondary.push({ th: 'เปิดเคสอีกครั้ง', go: { sheet: 'reopen' } })
+  // ครูขอการสนับสนุนได้เมื่อช่วยเองแล้วติด — ไม่ใช่ส่งเคสทิ้ง ครูยังเป็นเจ้าของเคส
+  const stuckEnough = breached || stale || Boolean(refLate) || s.parentContact === 'unreachable' || (high && rising)
+  if (open && !active && stuckEnough) secondary.push({ th: 'ขอการสนับสนุนจาก ผอ.', go: { sheet: 'support', mode: 'request' } })
   if (open && (breached || stale || refLate)) secondary.push({ th: 'Escalate', go: { sheet: 'escalate' } })
   if (open && next.go && !('sheet' in next.go && next.go.sheet === 'schedule')) secondary.push({ th: 'นัดติดตาม', go: { sheet: 'schedule' } })
   if (open && needsAgency(s) && next.kind !== 'refer' && next.kind !== 'agency') secondary.push({ th: 'ส่งต่อหน่วยงาน', go: { href: `/referral?child=${s.id}` } })
@@ -318,6 +350,7 @@ export function buildFollowCase(input: {
     next,
     secondary: secondary.slice(0, 2),
     escalated,
+    support,
     summary,
     relapse,
   }
@@ -363,6 +396,8 @@ export function insightOf(today: FollowCase[]): string {
     plan: 'เด็กเสี่ยงสูงที่ยังไม่มีแผน',
     close: 'เคสที่ดีขึ้นแล้วรอประเมินปิด',
     reopen: 'เคสที่ปิดแล้วแต่ความเสี่ยงกลับมา',
+    directive: 'งานที่ ผอ. อนุมัติและส่งกลับมา',
+    replyDirector: 'คำถามจาก ผอ. ที่ยังไม่ได้ตอบ',
   }
   return n >= 2 ? `${n} ใน ${today.length} เคสวันนี้ติดที่${what[k]} — เริ่มจากตรงนี้จะเคลียร์ได้มากที่สุด` : `งานวันนี้กระจายกัน เริ่มจากเคสบนสุดซึ่งสำคัญที่สุด`
 }

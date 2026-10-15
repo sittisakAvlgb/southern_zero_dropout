@@ -12,6 +12,7 @@ import {
   IconReport,
   IconSchool,
   IconSettings,
+  IconShield,
   IconStudent,
   IconTambon,
 } from '../icons'
@@ -29,6 +30,8 @@ export interface NavItem {
    *  menu kept calling it "ภาพรวมชายแดนใต้" anyway, which promised a
    *  different page than the one that opens. */
   teacherLabelKey?: string
+  /** Used instead for a school director — the page is the school's day, not the area's. */
+  schoolLabelKey?: string
   icon: (p: { width?: number; height?: number }) => ReactNode
   section: 'monitor' | 'design' | 'action' | 'system'
 }
@@ -40,6 +43,7 @@ export function navLabelKey(
   user: { esaKey?: string; role?: string } | null,
 ): string {
   if (user?.role === 'teacher' && item.teacherLabelKey) return item.teacherLabelKey
+  if (user?.role === 'school' && item.schoolLabelKey) return item.schoolLabelKey
   return user?.esaKey && item.esaLabelKey ? item.esaLabelKey : item.labelKey
 }
 
@@ -51,6 +55,7 @@ export const NAV_ITEMS: NavItem[] = [
     labelKey: 'nav.overview',
     esaLabelKey: 'nav.overview.esa',
     teacherLabelKey: 'nav.overview.teacher',
+    schoolLabelKey: 'nav.overview.school',
     icon: IconOverview,
     section: 'monitor',
   },
@@ -62,6 +67,7 @@ export const NAV_ITEMS: NavItem[] = [
   { to: '/cause', labelKey: 'nav.cause', icon: IconCause, section: 'monitor' },
   { to: '/plan', labelKey: 'nav.plan', icon: IconPathway, section: 'design' },
   { to: '/referral', labelKey: 'nav.referral', icon: IconReferral, section: 'design' },
+  { to: '/decisions', labelKey: 'nav.decisions', icon: IconShield, section: 'action' },
   { to: '/intervention', labelKey: 'nav.intervention', icon: IconIntervention, section: 'action' },
   { to: '/school', labelKey: 'nav.school', icon: IconSchool, section: 'action' },
   { to: '/student', labelKey: 'nav.student', icon: IconStudent, section: 'action' },
@@ -76,6 +82,8 @@ export const NAV_BY_PATH: Record<string, NavItem> = Object.fromEntries(
 /** compact set for the mobile bottom bar (AI lives in the floating chat widget) */
 export const BOTTOM_NAV: NavItem[] = [
   NAV_ITEMS.find((n) => n.to === '/')!,
+  // ผอ. จัดการเรื่องเร่งด่วนจากมือถือ — เมนูนี้มีเฉพาะ ผอ. บัญชีอื่นถูกกรองออกตามสิทธิ์
+  NAV_ITEMS.find((n) => n.to === '/decisions')!,
   NAV_ITEMS.find((n) => n.to === '/oosc')!,
   NAV_ITEMS.find((n) => n.to === '/plan')!,
   NAV_ITEMS.find((n) => n.to === '/referral')!,

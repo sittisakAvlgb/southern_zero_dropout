@@ -1,6 +1,6 @@
 import { useMemo } from 'react'
 import { useScopedData } from '@/auth/scope'
-import { applyLog, applyPlans, lastLoggedMap, useCaseLog } from '@/lib/caseLog'
+import { applyLog, applyPlans, lastLoggedMap, useCaseLog, logKeyOf } from '@/lib/caseLog'
 import { buildFollowCase, sortFollow, type FollowCase } from '@/lib/followOps'
 import { useRefCases } from '@/components/referrals/useRefCases'
 
@@ -11,7 +11,7 @@ import { useRefCases } from '@/components/referrals/useRefCases'
  */
 export function useFollowCases() {
   const { user, students, cases, referrals, plans } = useScopedData()
-  const log = useCaseLog(user?.id)
+  const log = useCaseLog(logKeyOf(user), user?.id)
   const now = useMemo(() => Date.now(), [log]) // eslint-disable-line react-hooks/exhaustive-deps
   const roster = useMemo(() => students.map((s) => applyLog(s, log)), [students, log])
   const refs = useRefCases(user, roster, referrals, log, now)
@@ -30,6 +30,7 @@ export function useFollowCases() {
           lastLogged: lastLogged[s.id],
           refs: refs.filter((r) => r.childId === s.id),
           hasPlan: planned.has(s.id),
+          requests: Object.values(log.requests).filter((r) => r.childId === s.id),
         }),
       )
       return { list: sortFollow(list) }

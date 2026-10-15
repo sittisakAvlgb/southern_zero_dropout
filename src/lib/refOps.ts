@@ -597,7 +597,8 @@ export interface XItem {
   ts: number
   th: string
   by: string
-  who: 'school' | 'agency' | 'system'
+  /** director = บันทึกของ ผอ. — อยู่ในไทม์ไลน์เดียวกับครู แค่บอกที่มาให้ต่างกัน */
+  who: 'school' | 'director' | 'agency' | 'system'
   refId?: string
   /** บันทึกของครูที่อยู่เบื้องหลังแถวนี้ — ใช้แก้/ลบ และบอกชนิด (ติดต่อ เยี่ยมบ้าน ฯลฯ) */
   entryId?: string
@@ -646,7 +647,7 @@ export function crossTimeline(refs: RefCase[], entries: CaseLogEntry[], student:
     for (const e of r.events)
       out.push({ ts: e.ts, th: EV_TH[e.type](e, r), by: e.by, who: e.type === 'received' ? 'system' : SCHOOL_EVENTS.includes(e.type) ? 'school' : 'agency', refId: r.id })
   // บันทึกที่เป็นเงาของการส่งต่อ (refId / referral) มีเหตุการณ์ของตัวเองอยู่แล้วด้านบน
-  for (const e of entries) if (!e.referral && !e.refId) out.push({ ts: entryWhen(e), th: e.note, by: e.by, who: 'school', entryId: e.id, mode: e.mode })
+  for (const e of entries) if (!e.referral && !e.refId) out.push({ ts: entryWhen(e), th: e.note, by: e.by, who: e.role === 'director' ? 'director' : 'school', entryId: e.id, mode: e.mode })
   for (const ev of student?.timeline ?? []) {
     if (entries.some((e) => e.date === ev.date && e.note === ev.note)) continue
     out.push({ ts: new Date(ev.date).getTime() + 9 * H, th: ev.note, by: ev.by, who: 'school' })

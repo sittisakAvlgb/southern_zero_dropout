@@ -109,6 +109,126 @@ export interface CaseLogEntry {
   /** บันทึกนี้เกิดจากการส่งต่อใน refs — ให้งานของครูนับว่าช่วยแล้ว
    *  แต่ timeline ข้ามหน่วยงานไม่แสดงซ้ำ */
   refId?: string
+  /** ผู้บันทึกเป็น ผอ. — ไทม์ไลน์เดียวของเด็กแยกที่มาได้ว่า "ผอ." โดยไม่ต้องมีไทม์ไลน์ของ ผอ. แยก */
+  role?: 'director'
+  /** บันทึกนี้เป็นส่วนหนึ่งของคำขอสนับสนุนจาก ผอ. ใด */
+  requestId?: string
+}
+
+// ── คำขอสนับสนุนจาก ผอ. ──────────────────────────────────────
+//
+// ครูไม่ได้ "ส่งเคสให้ ผอ." — ครูยังเป็นเจ้าของเคสเสมอ สิ่งที่ส่งขึ้นไปคือคำขอว่า
+// ต้องการให้ ผอ. ช่วยอะไร (คน · ทรัพยากร · อำนาจตัดสินใจ · การประสานที่สูงกว่าครู)
+// ผอ. ตัดสินใจแล้ว action กลับมาที่ครูพร้อมผู้รับผิดชอบ ทีมช่วย และกำหนดวัน
+
+export type SupportReason = 'people' | 'resource' | 'parent' | 'referral' | 'complex' | 'sla' | 'meeting' | 'other'
+
+/** สิ่งที่ ผอ. ทำได้ — ไม่มี "โทรผู้ปกครอง" เพราะนั่นเป็นงานของครู */
+export type DirectorAct =
+  | 'homeVisitTeam' // อนุมัติทีมเยี่ยมบ้าน
+  | 'addGuidance' // เพิ่มครูแนะแนวเข้าทีม
+  | 'community' // ประสานผู้นำชุมชน / อสม.
+  | 'coordinator' // มอบหมายผู้ประสาน
+  | 'resource' // อนุมัติทรัพยากร
+  | 'referral' // อนุมัติการส่งต่อหน่วยงาน
+  | 'meeting' // เรียกประชุมทีม (Case Conference)
+  | 'owner' // เปลี่ยนผู้รับผิดชอบหลัก
+  | 'escalate' // ยกระดับไปเขตพื้นที่ / อำเภอ
+
+export type DirectorVerdict = 'approve' | 'reject' | 'needInfo' | 'sendBack'
+
+export interface SupportDecision {
+  ts: number
+  /** ผู้ตัดสินใจ */
+  by: string
+  verdict: DirectorVerdict
+  acts: DirectorAct[]
+  /** เหตุผลของการตัดสินใจ — บังคับกรอก */
+  reason: string
+  /** action ที่กลับไปหาครู — ไม่มีเมื่อขอข้อมูลเพิ่มหรือไม่อนุมัติ */
+  next?: {
+    th: string
+    owner: string
+    support: string[]
+    /** YYYY-MM-DD */
+    due: string
+  }
+  meetingDate?: string
+  newOwner?: string
+  resource?: string
+  escalateTo?: string
+}
+
+export interface SupportRequest {
+  id: string
+  childId: string
+  childName: string
+  ts: number
+  /** ครูผู้ขอ */
+  by: string
+  reasons: SupportReason[]
+  /** สรุปสั้น ๆ ของเคส */
+  summary: string
+  /** สิ่งที่ครูทำแล้ว — ดึงจากบันทึกให้ ครูติ๊กออกหรือเพิ่มได้ */
+  tried: string[]
+  /** สิ่งที่ต้องการจาก ผอ. */
+  ask: string
+  seenTs?: number
+  seenBy?: string
+  decisions: SupportDecision[]
+  /** ครูตอบเมื่อ ผอ. ขอข้อมูลเพิ่ม */
+  replies: { ts: number; by: string; text: string }[]
+  /** ครูทำ action ที่ ผอ. ส่งกลับมาแล้ว */
+  doneTs?: number
+  doneNote?: string
+}
+
+/** สถานะของคำขอ — คำนวณจากเหตุการณ์ ไม่เก็บซ้ำ ครูกับ ผอ. จึงเห็นตรงกันเสมอ
+ *  new = ยังไม่มีใครเปิด · seen = ผอ. รับเรื่องแล้ว · needInfo = ผอ. ขอข้อมูลเพิ่ม
+ *  answered = ครูตอบแล้ว รอ ผอ. · withTeacher = ผอ. ตัดสินใจแล้ว action อยู่ที่ครู
+ *  done = ครูทำตามแล้ว · rejected = ไม่อนุมัติ */
+export type RequestStatus = 'new' | 'seen' | 'needInfo' | 'answered' | 'withTeacher' | 'done' | 'rejected'
+
+export function requestStatus(r: SupportRequest): RequestStatus {
+  const last = r.decisions.at(-1)
+  if (!last) return r.seenTs ? 'seen' : 'new'
+  if (last.verdict === 'needInfo') return r.replies.some((x) => x.ts > last.ts) ? 'answered' : 'needInfo'
+  if (last.verdict === 'reject' && !last.next) return 'rejected'
+  if (r.doneTs && r.doneTs > last.ts) return 'done'
+  return last.next ? 'withTeacher' : 'done'
+}
+
+/** คำขอที่ยังรอ ผอ. ทำอะไรสักอย่าง */
+export const waitsOnDirector = (r: SupportRequest) => ['new', 'seen', 'answered'].includes(requestStatus(r))
+
+export const SUPPORT_REASON_TH: Record<SupportReason, string> = {
+  people: 'ต้องการคนช่วยเพิ่ม',
+  resource: 'ต้องการอนุมัติทรัพยากร',
+  parent: 'ต้องการช่วยประสานผู้ปกครอง',
+  referral: 'ต้องการส่งต่อหน่วยงาน',
+  complex: 'เคสซับซ้อน',
+  sla: 'เคสเกิน SLA',
+  meeting: 'ต้องการประชุมทีม',
+  other: 'อื่น ๆ',
+}
+
+export const DIRECTOR_ACT_TH: Record<DirectorAct, string> = {
+  homeVisitTeam: 'อนุมัติทีมเยี่ยมบ้าน',
+  addGuidance: 'เพิ่มครูแนะแนวเข้าทีม',
+  community: 'ประสานผู้นำชุมชน / อสม.',
+  coordinator: 'มอบหมายผู้ประสาน',
+  resource: 'อนุมัติทรัพยากร',
+  referral: 'อนุมัติการส่งต่อหน่วยงาน',
+  meeting: 'เรียกประชุมทีม (Case Conference)',
+  owner: 'เปลี่ยนผู้รับผิดชอบหลัก',
+  escalate: 'ยกระดับไปเขตพื้นที่ / อำเภอ',
+}
+
+export const VERDICT_TH: Record<DirectorVerdict, string> = {
+  approve: 'อนุมัติ',
+  reject: 'ไม่อนุมัติ',
+  needInfo: 'ขอข้อมูลเพิ่ม',
+  sendBack: 'ส่งกลับให้ครูพร้อมคำแนะนำ',
 }
 
 // ── การส่งต่อ ────────────────────────────────────────────────
@@ -249,9 +369,11 @@ interface LogState {
   observations: Record<string, Observation[]>
   /** เป้าหมายการช่วยเหลือ childId → เป้าหมายที่ครูยืนยัน */
   goals: Record<string, CareGoal>
+  /** คำขอสนับสนุนจาก ผอ. requestId → คำขอ */
+  requests: Record<string, SupportRequest>
 }
 
-const EMPTY: LogState = { entries: [], owners: {}, steps: {}, plans: {}, refs: {}, refEvents: {}, consents: {}, observations: {}, goals: {} }
+const EMPTY: LogState = { entries: [], owners: {}, steps: {}, plans: {}, refs: {}, refEvents: {}, consents: {}, observations: {}, goals: {}, requests: {} }
 
 // ── the store ────────────────────────────────────────────────
 let scope = 'anon'
@@ -278,6 +400,7 @@ function read(who: string): LogState {
       consents: obj(parsed.consents) as LogState['consents'],
       observations: obj(parsed.observations) as LogState['observations'],
       goals: obj(parsed.goals) as LogState['goals'],
+      requests: obj(parsed.requests) as LogState['requests'],
     }
   } catch {
     // a private window, cleared site data, or a half-written value — an empty
@@ -304,15 +427,62 @@ function setState(next: LogState) {
   emit()
 }
 
-/** Point the store at an account. Called on every render of the hook, so a
+/** Point the store at a log. Called on every render of the hook, so a
  *  sign-out followed by a different sign-in reloads that account's own log
- *  rather than leaking the previous one. */
-function useScopeTo(who: string) {
+ *  rather than leaking the previous one.
+ *
+ *  `legacy` is the per-account key this log used before it became per-school:
+ *  the first time a school log is opened empty, the teacher's earlier work is
+ *  carried over instead of silently disappearing. */
+function useScopeTo(who: string, legacy?: string) {
   if (!loaded || scope !== who) {
     scope = who
     state = read(who)
     loaded = true
   }
+  // ย้ายครั้งเดียวต่อบัญชี แบบรวม (ไม่ทับ) — ครูกับ ผอ. ใช้ key โรงเรียนเดียวกัน store จึงไม่โหลดใหม่
+  // ตอนสลับบัญชี การย้ายต้องเช็กทุกครั้งที่บัญชีเปลี่ยน ไม่ใช่เฉพาะตอน key เปลี่ยน
+  if (legacy && legacy !== who && !migrated.has(legacy)) {
+    migrated.add(legacy)
+    let raw: string | null = null
+    try {
+      raw = localStorage.getItem(keyFor(legacy))
+    } catch {
+      raw = null
+    }
+    if (raw) {
+      const old = read(legacy)
+      const ids = new Set(state.entries.map((e) => e.id))
+      state = {
+        entries: [...state.entries, ...old.entries.filter((e) => !ids.has(e.id))].sort((a, b) => entryTs(b) - entryTs(a)),
+        owners: { ...old.owners, ...state.owners },
+        steps: { ...old.steps, ...state.steps },
+        plans: { ...old.plans, ...state.plans },
+        refs: { ...old.refs, ...state.refs },
+        refEvents: { ...old.refEvents, ...state.refEvents },
+        consents: { ...old.consents, ...state.consents },
+        observations: { ...old.observations, ...state.observations },
+        goals: { ...old.goals, ...state.goals },
+        requests: { ...old.requests, ...state.requests },
+      }
+      write()
+      try {
+        localStorage.removeItem(keyFor(legacy))
+      } catch {
+        // ลบไม่ได้ก็ไม่เป็นไร — migrated กันการรวมซ้ำในรอบนี้แล้ว และ id ซ้ำถูกกรองทิ้ง
+      }
+    }
+  }
+}
+const migrated = new Set<string>()
+
+/** บันทึกเคสเป็นของโรงเรียน ไม่ใช่ของบัญชี — ครูกับ ผอ. ต้องเห็นไทม์ไลน์เดียวกันของเด็ก
+ *  (ฟิลด์ `by` ยังบอกว่าใครบันทึก) บัญชีที่ไม่ผูกโรงเรียน เช่น หน่วยงานหรือระดับพื้นที่
+ *  ยังเก็บแยกตามบัญชีเหมือนเดิม */
+export function logKeyOf(user: { id: string; role?: string; schoolKey?: string } | null | undefined): string | undefined {
+  if (!user) return undefined
+  if ((user.role === 'teacher' || user.role === 'school') && user.schoolKey) return `school:${user.schoolKey}`
+  return user.id
 }
 
 function subscribe(cb: () => void) {
@@ -324,9 +494,9 @@ function subscribe(cb: () => void) {
 
 const snapshot = () => state
 
-export function useCaseLog(userKey: string | undefined) {
+export function useCaseLog(userKey: string | undefined, legacyKey?: string) {
   const who = userKey ?? 'anon'
-  useScopeTo(who)
+  useScopeTo(who, legacyKey)
   const current = useSyncExternalStore(subscribe, snapshot, snapshot)
 
   const add = useCallback((entry: Omit<CaseLogEntry, 'id'>) => {
@@ -370,7 +540,8 @@ export function useCaseLog(userKey: string | undefined) {
     delete observations[childId]
     const goals = { ...state.goals }
     delete goals[childId]
-    setState({ ...state, entries: state.entries.filter((e) => e.childId !== childId), owners, steps, plans, refs, consents, observations, goals })
+    const requests = Object.fromEntries(Object.entries(state.requests).filter(([, r]) => r.childId !== childId))
+    setState({ ...state, entries: state.entries.filter((e) => e.childId !== childId), owners, steps, plans, refs, consents, observations, goals, requests })
   }, [])
 
   const markStep = useCallback((stepId: string, mark: PlanStepMark) => {
@@ -427,7 +598,67 @@ export function useCaseLog(userKey: string | undefined) {
     setState({ ...state, consents: { ...state.consents, [childId]: rec } })
   }, [])
 
-  return { ...current, add, remove, updateEntry, setFollowUpDone, setOwner, clearChild, markStep, savePlan, addRef, addRefEvent, shiftRef, saveConsent, addObservation, updateObservation, saveGoal, clearAll }
+  // ── คำขอสนับสนุนจาก ผอ. ── ทุกขั้นลงไทม์ไลน์เดียวของเด็กด้วย (บันทึกงานเอกสาร ไม่นับเป็นการติดต่อเด็ก)
+  const stamp = (childId: string, by: string, note: string, requestId: string, director: boolean) => {
+    const id = `log-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`
+    const d = new Date()
+    const date = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+    const e: CaseLogEntry = { id, childId, mode: 'note', date, note, by, escalation: 'ผอ.', requestId, ...(director ? { role: 'director' as const } : {}) }
+    return e
+  }
+
+  const requestSupport = useCallback((r: Omit<SupportRequest, 'id' | 'ts' | 'decisions' | 'replies'>) => {
+    const id = `req-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`
+    const req: SupportRequest = { ...r, id, ts: Date.now(), decisions: [], replies: [] }
+    const e = stamp(r.childId, r.by, `ขอการสนับสนุนจาก ผอ.: ${r.ask}`, id, false)
+    setState({ ...state, requests: { ...state.requests, [id]: req }, entries: [e, ...state.entries] })
+    return id
+  }, [])
+
+  /** ผอ. เปิดอ่าน — ครูเห็นว่า "ผอ. รับเรื่องแล้ว" ไม่ต้องเดา */
+  const markSeen = useCallback((id: string, by: string) => {
+    const r = state.requests[id]
+    if (!r || r.seenTs) return
+    const e = stamp(r.childId, by, 'ผอ. รับเรื่องแล้ว', id, true)
+    setState({ ...state, requests: { ...state.requests, [id]: { ...r, seenTs: Date.now(), seenBy: by } }, entries: [e, ...state.entries] })
+  }, [])
+
+  const decide = useCallback((id: string, d: Omit<SupportDecision, 'ts'>, note: string) => {
+    const r = state.requests[id]
+    if (!r) return
+    const dec: SupportDecision = { ...d, ts: Date.now() }
+    const e = stamp(r.childId, d.by, note, id, true)
+    // ผอ. เปลี่ยนผู้รับผิดชอบหลัก = เจ้าของเคสเปลี่ยนจริง ไม่ใช่แค่ข้อความ
+    const owners = d.newOwner ? { ...state.owners, [r.childId]: d.newOwner } : state.owners
+    setState({
+      ...state,
+      owners,
+      requests: { ...state.requests, [id]: { ...r, seenTs: r.seenTs ?? Date.now(), seenBy: r.seenBy ?? d.by, decisions: [...r.decisions, dec], doneTs: undefined, doneNote: undefined } },
+      entries: [e, ...state.entries],
+    })
+  }, [])
+
+  const replyRequest = useCallback((id: string, by: string, text: string) => {
+    const r = state.requests[id]
+    if (!r) return
+    const e = stamp(r.childId, by, `ตอบ ผอ.: ${text}`, id, false)
+    setState({ ...state, requests: { ...state.requests, [id]: { ...r, replies: [...r.replies, { ts: Date.now(), by, text }] } }, entries: [e, ...state.entries] })
+  }, [])
+
+  /** ครูทำ action ที่ ผอ. ส่งกลับมาแล้ว — นับเป็นการลงมือจริง (ไม่ใช่งานเอกสาร) */
+  const completeDirective = useCallback((id: string, by: string, note: string) => {
+    const r = state.requests[id]
+    if (!r) return
+    const lastNext = r.decisions.at(-1)?.next
+    const e: CaseLogEntry = {
+      ...stamp(r.childId, by, `ทำตามที่ ผอ. อนุมัติแล้ว: ${lastNext?.th ?? ''}${note ? ` — ${note}` : ''}`, id, false),
+      escalation: undefined,
+      result: note || 'ดำเนินการแล้ว',
+    }
+    setState({ ...state, requests: { ...state.requests, [id]: { ...r, doneTs: Date.now(), doneNote: note } }, entries: [e, ...state.entries] })
+  }, [])
+
+  return { ...current, add, remove, updateEntry, setFollowUpDone, setOwner, clearChild, markStep, savePlan, addRef, addRefEvent, shiftRef, saveConsent, addObservation, updateObservation, saveGoal, clearAll, requestSupport, markSeen, decide, replyRequest, completeDirective }
 }
 
 // ── reading the log back onto a child ────────────────────────

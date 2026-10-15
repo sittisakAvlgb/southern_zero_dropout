@@ -15,6 +15,7 @@ import { useScopedData } from '@/auth/scope'
 import { useFollowCases } from '@/components/followup/useFollowCases'
 import { isScheduleOnly } from '@/lib/caseLog'
 import { consentFromVisit } from '@/lib/refOps'
+import { DirectorStudentPanel } from '@/components/support/DirectorStudentPanel'
 import { StudentNextStep, StudentTimeline } from '@/components/followup/StudentFollow'
 import { FollowCaseDetail, type Sheet } from '@/components/followup/FollowCaseDetail'
 import {
@@ -22,6 +23,7 @@ import {
   lastContact,
   lastVisit,
   useCaseLog,
+  logKeyOf,
   type ContactOutcome,
   type FamilyProfile,
   type LogMode,
@@ -140,7 +142,7 @@ export default function Student360() {
   /** Work this account has recorded, read back from the persisted log rather
    *  than from page state — a call logged here survives a reload, which is the
    *  difference between a demo gesture and something a teacher can rely on. */
-  const log = useCaseLog(user?.id)
+  const log = useCaseLog(logKeyOf(user), user?.id)
   /** which logging form is open, if any */
   const [logMode, setLogMode] = useState<LogMode | null>(null)
   /** เคสติดตามของเด็กทุกคน — ชุดเดียวกับหน้าติดตามการช่วยเหลือ */
@@ -297,10 +299,19 @@ export default function Student360() {
    *  control cannot explain itself, and a reviewer cannot tell a withheld
    *  feature from a missing one. See `canWorkCases()`. */
   const mayAct = canWorkCases(user)
-  const refuse = () => toast.push(th ? 'บัญชีระดับกำกับดูแลดูข้อมูลได้ แต่ไม่ลงมือกับเคสรายบุคคล' : 'A supervising account can read this, but not act on an individual case')
+  // ผอ. ลงมือกับเคสได้ (canWorkCases) แต่ไม่ทำงานแทนครู — ปุ่มติดต่อ/เยี่ยมบ้าน/นัด/รับเคส
+  // เป็นของครู ผอ. มีบันทึกของ ผอ. และการตัดสินใจในหน้าเรื่องที่ต้องตัดสินใจแทน
+  const director = user?.role === 'school'
+  const teacherActs = mayAct && !director
+  const refuse = () =>
+    toast.push(
+      director
+        ? 'งานนี้เป็นของครูผู้รับผิดชอบ — ผอ. ใช้ "บันทึกของ ผอ." หรือตัดสินใจในหน้าเรื่องที่ต้องตัดสินใจ'
+        : th ? 'บัญชีระดับกำกับดูแลดูข้อมูลได้ แต่ไม่ลงมือกับเคสรายบุคคล' : 'A supervising account can read this, but not act on an individual case',
+    )
 
   const saveLog = (s: Student, form: LogResult) => {
-    if (!mayAct) return refuse()
+    if (!teacherActs) return refuse()
     log.add({
       childId: s.id,
       mode: form.mode,
@@ -338,7 +349,7 @@ export default function Student360() {
   }
 
   const takeCase = (s: Student) => {
-    if (!mayAct) return refuse()
+    if (!teacherActs) return refuse()
     log.setOwner(s.id, actorName)
     toast.push(th ? `${s.name} — มอบหมายให้ ${actorName} แล้ว` : `${s.name} assigned to ${actorName}`)
   }
@@ -547,10 +558,11 @@ export default function Student360() {
               </div>
 
               {/* สิ่งที่ต้องทำต่อ — มาจาก followOps ตัวเดียวกับหน้าติดตามการช่วยเหลือ */}
-              {followCase && (
+              {followCase && director && <DirectorStudentPanel fc={followCase} by={actorName} log={log} />}
+              {followCase && !director && (
                 <StudentNextStep
                   fc={followCase}
-                  mayAct={mayAct}
+                  mayAct={teacherActs}
                   lastContact={myEntries.find((e) => !isScheduleOnly(e))?.date}
                   onLogContact={() => setLogMode('contact')}
                   onLogVisit={() => setLogMode('visit')}
@@ -579,7 +591,7 @@ export default function Student360() {
                         <span className="min-w-0 flex-1 text-[12px] leading-snug text-ink">
                           {th ? a.th : a.en}
                         </span>
-                        {(mayAct || a.key === 'plan') && (
+                        {(teacherActs || a.key === 'plan') && (
                           <button
                             type="button"
                             onClick={a.run}
@@ -660,7 +672,7 @@ export default function Student360() {
                           <Fact k={t('st.caseOwner')} v={selected.caseOwner} />
                           <Fact k={th ? 'ขั้นตอนของเคส' : 'Case stage'} v={t(`stage.${selected.caseStage}`)} />
                         </div>
-                        {mayAct && selected.caseOwner !== actorName && (
+                        {teacherActs && selected.caseOwner !== actorName && (
                           <Button
                             size="sm"
                             variant="ghost"
@@ -869,7 +881,7 @@ export default function Student360() {
                         : t('hv.arriveHint')
                     }
                     action={
-                      mayAct ? (
+                      teacherActs ? (
                         <Button
                           size="sm"
                           variant="secondary"
@@ -997,7 +1009,7 @@ export default function Student360() {
                           <IconHome width={22} height={22} />
                         </span>
                         <p className="text-sm font-semibold text-ink">{t('hv.noVisit')}</p>
-                        {mayAct && (
+                        {teacherActs && (
                           <Button size="sm" variant="primary" onClick={() => setLogMode('visit')}>
                             {t('iv.visit')}
                           </Button>
@@ -1013,7 +1025,7 @@ export default function Student360() {
                   fc={followCase}
                   entries={myEntries}
                   log={log}
-                  mayAct={mayAct}
+                  mayAct={teacherActs}
                   onLogContact={() => setLogMode('contact')}
                 />
               )}
@@ -1029,7 +1041,7 @@ export default function Student360() {
           entries={myEntries}
           log={log}
           user={user}
-          mayAct={mayAct}
+          mayAct={teacherActs}
           initial={followSheet}
           closeAfter
           onClose={() => setFollowSheet(null)}

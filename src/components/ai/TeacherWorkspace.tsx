@@ -12,7 +12,7 @@ import { formatNumber } from '@/lib/format'
 import { RISK_COLOR } from '@/lib/risk'
 import { GRADE_LABEL } from '@/lib/schoolOps'
 import { buildTeacherOps, matchesTask, type TaskFilter } from '@/lib/teacherOps'
-import { applyLog, lastLoggedMap, applyPlans, openFollowUps, useCaseLog } from '@/lib/caseLog'
+import { applyLog, lastLoggedMap, applyPlans, openFollowUps, useCaseLog, logKeyOf, isScheduleOnly } from '@/lib/caseLog'
 import { useFollowCases } from '@/components/followup/useFollowCases'
 import { buildSystemPrompt, localAnswer, streamAnswer } from '@/lib/ai'
 import { AnimatedCounter } from '@/components/ui/AnimatedCounter'
@@ -45,7 +45,7 @@ export function TeacherWorkspace() {
   const toast = useToast()
   const { user, schools, students, cases, referrals, plans } = useScopedData()
 
-  const log = useCaseLog(user?.id)
+  const log = useCaseLog(logKeyOf(user), user?.id)
   /** บัญชีระดับกำกับดูแล (สพฐ. ส่วนกลาง / ศอ.บต.) อ่านคำแนะนำได้ แต่ไม่ลงมือ
    *  แทนเจ้าของเคส — AI ต้องไม่กลายเป็นทางลัดข้ามด่านสิทธิ์ */
   const mayAct = canWorkCases(user)
@@ -105,18 +105,25 @@ export function TeacherWorkspace() {
   )
   const queue = useMemo(() => {
     const open = ops.rows.filter((r) => r.stage !== 'returned' && r.stage !== 'resolved')
-    const urgent = open.filter((r) => todayIds.has(r.student.id))
+    // งานที่ ผอ. ตัดสินใจแล้ว (ทีมรออยู่) หรือ ผอ. รอคำตอบ ขึ้นหัวคิวเสมอ
+    const fromDir = new Set(
+      ('list' in follow ? follow.list : []).filter((c) => c.next.kind === 'directive' || c.next.kind === 'replyDirector').map((c) => c.s.id),
+    )
+    const urgent = open
+      .filter((r) => todayIds.has(r.student.id))
+      .sort((a, b) => Number(fromDir.has(b.student.id)) - Number(fromDir.has(a.student.id)))
     // เคสที่เข้าเกณฑ์ปิดได้ต่อท้ายคิว — ไม่งั้นเด็กที่ดีขึ้นแล้ว (เสี่ยงต่ำ
     // ติดต่อได้ ไม่เลยกำหนด) จะไม่เคยขึ้นมาในคิวเลย และขั้น "เห็นผล → ปิด
     // เคส" จะไม่มีวันเกิดบนหน้านี้ งานที่ค้างยังมาก่อนเสมอ
     return [...urgent, ...open.filter((r) => r.closable && !todayIds.has(r.student.id))]
-  }, [ops.rows, todayIds])
+  }, [ops.rows, todayIds, follow])
 
   /** สิ่งที่ช่วยไปแล้วล่าสุด — บันทึกของครูมาก่อน ไม่มีค่อยใช้ timeline เดิม
    *  ครูต้องเห็นตรงนี้ ไม่งั้นจะไม่รู้ว่าทำไมคำแนะนำเปลี่ยน หรือเผลอโทรซ้ำ */
   const lastDone = (childId: string) => {
+    // งานเอกสาร (คำขอถึง ผอ. · การตัดสินใจของ ผอ. · นัด) ไม่ใช่ "ช่วยไปแล้ว"
     const mine = log.entries
-      .filter((e) => e.childId === childId)
+      .filter((e) => e.childId === childId && !isScheduleOnly(e))
       .sort((a, b) => b.date.localeCompare(a.date))[0]
     const today = new Date()
     const t0 = Date.UTC(today.getFullYear(), today.getMonth(), today.getDate())
@@ -131,7 +138,11 @@ export function TeacherWorkspace() {
           ? th ? `ตั้งนัดติดตามวันที่ ${mine.followUpDate}` : `Follow-up set for ${mine.followUpDate}`
           : mine.mode === 'visit'
             ? th ? 'เยี่ยมบ้านแล้ว' : 'Home visit made'
-            : th ? 'ติดต่อผู้ปกครองแล้ว' : 'Guardian contacted'
+            : mine.mode === 'contact'
+              ? th ? 'ติดต่อผู้ปกครองแล้ว' : 'Guardian contacted'
+              : mine.mode === 'talk'
+                ? th ? 'คุยกับนักเรียนแล้ว' : 'Talked with the student'
+                : mine.note
       return { text: what, daysAgo: ago(mine.date), by: mine.by }
     }
     const seeded = roster.find((st) => st.id === childId)?.timeline
@@ -382,6 +393,11 @@ export function TeacherWorkspace() {
       <TeacherAssistant
         queue={queue}
         todayIds={todayIds}
+        fromDirector={(id) => {
+          const c = 'list' in follow ? follow.list.find((x) => x.s.id === id) : undefined
+          if (!c || (c.next.kind !== 'directive' && c.next.kind !== 'replyDirector')) return undefined
+          return { label: c.next.kind === 'directive' ? 'งานจาก ผอ.' : 'ผอ. ขอข้อมูลเพิ่ม', th: c.next.th, why: c.next.whyTh }
+        }}
         name={(user?.ownerName ?? user?.name ?? '').replace(/^ครู(แนะแนว)?\s*/, '')}
         th={th}
         mayAct={mayAct}
