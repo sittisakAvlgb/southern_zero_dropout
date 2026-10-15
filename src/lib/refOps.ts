@@ -434,24 +434,24 @@ export function buildRefCase(input: {
       if (escalation > 0 && handled >= escalation)
         return {
           th: handled === 1 ? `ติดต่อ ${toName} แล้ว — รอหน่วยงานรับเรื่อง` : `Escalate ระดับ ${handled} แล้ว — รอ ${toName} รับเรื่อง`,
-          whyTh: `${sla.text} · หน่วยงานรับเรื่องแล้วกดอัปเดต · ถ้ายังเงียบ ยกระดับต่อหรือเปลี่ยนหน่วยงานได้`,
+          whyTh: `หน่วยงานรับเรื่องแล้วกดอัปเดต · ถ้ายังเงียบ ยกระดับต่อหรือเปลี่ยนหน่วยงานได้`,
           actions: handled >= 2 ? ['update', 'reassign'] : ['update', 'escalate'],
         }
-      if (escalation >= 3) return { th: 'ค้างเกิน 72 ชั่วโมงแล้ว — พิจารณาเปลี่ยนหน่วยงาน', whyTh: `${toName} ยังไม่รับเรื่อง · ${sla.text}`, actions: ['reassign', 'escalate'] }
-      if (escalation === 2) return { th: 'ค้างเกิน 48 ชั่วโมงแล้ว — Escalate ไปหัวหน้าหน่วยงาน', whyTh: `${toName} ยังไม่รับเรื่อง · ${sla.text}`, actions: ['escalate', 'contact'] }
-      if (escalation === 1) return { th: `เกินกำหนดรับเรื่องแล้ว — โทรถาม ${toName}`, whyTh: `${sla.rule} · ${sla.text}`, actions: ['contact', 'update'] }
+      if (escalation >= 3) return { th: 'ค้างเกิน 72 ชั่วโมงแล้ว — พิจารณาเปลี่ยนหน่วยงาน', whyTh: `${toName} ยังไม่รับเรื่อง — ย้ายไปหน่วยงานที่รับเร็วกว่า หรือแจ้งผู้บริหารระดับจังหวัด`, actions: ['reassign', 'escalate'] }
+      if (escalation === 2) return { th: 'ค้างเกิน 48 ชั่วโมงแล้ว — Escalate ไปหัวหน้าหน่วยงาน', whyTh: `${toName} ยังไม่รับเรื่อง — แจ้งหัวหน้าหน่วยงานให้เร่งรับเรื่อง`, actions: ['escalate', 'contact'] }
+      if (escalation === 1) return { th: `เกินกำหนดรับเรื่องแล้ว — โทรถาม ${toName}`, whyTh: 'ถามว่าได้รับเรื่องหรือยัง ติดขัดอะไร แล้วบันทึกการติดต่อ', actions: ['contact', 'update'] }
       return {
         th: `รอ ${toName} รับเรื่องภายใน ${fmtHours(sla.hoursLeft)}`,
         whyTh:
           sla.level === 'near'
-            ? `ใกล้ครบกำหนด — โทรยืนยันกับหน่วยงาน · ${sla.text}`
+            ? `ใกล้ครบกำหนด — โทรยืนยันกับหน่วยงาน`
             : 'เมื่อหน่วยงานรับเรื่องแล้ว (ทางโทรศัพท์ หนังสือ หรือพบตัว) กดอัปเดตความคืบหน้า',
         actions: sla.level === 'near' ? ['contact', 'update'] : ['update', 'contact'],
       }
     }
     if (stage === 'accepted' && sla.level !== 'breach')
       return { th: `${toName} รับเรื่องแล้ว${officer ? ` · ${officer}` : ''} — รอเริ่มดำเนินการ`, whyTh: 'ได้ข่าวจากหน่วยงานเมื่อไร กดอัปเดตความคืบหน้า', actions: ['update', 'followUp'] }
-    if (sla.level === 'breach') return { th: `${toName} เกินกำหนดดำเนินการ`, whyTh: sla.text, actions: ['contact', 'update', 'escalate'] }
+    if (sla.level === 'breach') return { th: `${toName} เกินกำหนดดำเนินการ`, whyTh: 'โทรถามความคืบหน้า แล้วอัปเดต หรือ Escalate ถ้ายังติดขัด', actions: ['contact', 'update', 'escalate'] }
     return { th: `${toName} กำลังดำเนินการ${officer ? ` · ${officer}` : ''}`, whyTh: 'นัดติดตามไว้ แล้วกดอัปเดตเมื่อได้ผล', actions: ['update', 'followUp'] }
   })()
   // โหมดภายใน: ครูอาจได้ข่าวจากหน่วยงานได้ทุกเมื่อ — เคสที่ยังเปิดอยู่ต้องมีปุ่มอัปเดตเสมอ

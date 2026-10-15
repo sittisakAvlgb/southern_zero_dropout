@@ -1,11 +1,10 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useState, type ReactNode } from 'react'
 import type { Student } from '@/types'
 import type { User } from '@/auth/roles'
 import { NEED_TO_KIND } from '@/data/agencies'
 import { suggestAgencies } from '@/lib/planOps'
 import type { OutcomeKey, RefEvent, RefVia } from '@/lib/caseLog'
 import { useToast } from '@/components/ui/Toast'
-import { IconAgency, IconUser } from '@/components/icons'
 import {
   ACK_STEPS,
   ackIndex,
@@ -83,7 +82,6 @@ export function ReferralDetail({
       <div className="mt-1 flex flex-wrap items-center gap-1.5 text-[12.5px]">
         <span className="font-semibold text-ink">{r.needTh}</span>
         <span className="text-ink-muted">→ {r.toName}</span>
-        <BucketBadge b={r.bucket} />
         {r.urgent && <span className="rounded-full bg-red-50 px-2 py-0.5 font-bold text-red-700">เร่งด่วน</span>}
       </div>
     </>
@@ -96,143 +94,164 @@ export function ReferralDetail({
       </Drawer>
     )
 
+  const sameOwner = r.caseOwner === r.referralOwner
+  const sharedOpts = SCOPE_OPTIONS.filter((o) => r.share.includes(o.key))
+  const slaTint = SLA_COLOR[r.sla.level]
+
   return (
     <Drawer label={r.childName} head={head} onClose={onClose}>
-      {/* ── สถานะตอนนี้: ความคืบหน้า + ขั้นถัดไป + SLA ในการ์ดเดียว ─────── */}
-      <section className={`rounded-2xl border-2 p-4 ${r.sla.level === 'breach' ? 'border-red-200' : 'border-surface-border'}`}>
-        <ProgressStrip r={r} />
-        <p className="mt-3 text-[13px] font-semibold text-ink-muted">ขั้นถัดไป</p>
-        <p className="mt-0.5 text-[18px] font-bold leading-snug text-ink">{r.next.th}</p>
-        {r.next.whyTh && <p className="mt-1 text-[14px] leading-snug text-ink-muted">{r.next.whyTh}</p>}
-        {r.sla.clock !== 'none' && (
-          <p className="mt-2 text-[14px]">
-            <SlaText sla={r.sla} />
-            <span className="text-ink-muted">
-              {' · '}
+      {/* ── การ์ดสถานะ: ตอนนี้อยู่ขั้นไหน · เวลา · ต้องทำอะไรต่อ ─────────
+          รวมความคืบหน้าไว้ในการ์ดเดียว ไม่แยกตารางขั้นอีกส่วน (เดิมซ้ำกันสองที่) */}
+      <section className="overflow-hidden rounded-2xl border border-surface-border bg-white shadow-card">
+        <div className="flex flex-wrap items-center justify-between gap-2 px-4 pt-4">
+          <p className="text-[14px] font-semibold text-ink">{STAGE_TH[r.stage]}</p>
+          {r.sla.clock !== 'none' && (
+            <span className="rounded-full px-2.5 py-1 text-[13px] font-bold" style={{ background: `${slaTint}14`, color: slaTint }}>
+              <SlaText sla={r.sla} />
+            </span>
+          )}
+        </div>
+        {r.stage !== 'draft' && (
+          <div className="px-2 pb-1 pt-4 sm:px-4">
+            <Stepper r={r} />
+          </div>
+        )}
+
+        <div className="mt-3 border-t border-surface-border bg-surface-muted/40 px-4 py-4">
+          <p className="text-[13px] font-semibold text-ink-muted">ขั้นถัดไป</p>
+          <p className="mt-0.5 text-[18px] font-bold leading-snug text-ink">{r.next.th}</p>
+          {r.next.whyTh && <p className="mt-1 text-[14px] leading-snug text-ink-muted">{r.next.whyTh}</p>}
+          {r.sla.rule && r.sla.clock !== 'none' && (
+            <p className="mt-1 text-[13px] text-ink-muted">
               {r.sla.rule}
               {r.escalated > 0 && ` · Escalate แล้วระดับ ${r.escalated}`}
-            </span>
-          </p>
-        )}
-        {mayAct && r.stage === 'draft' && consentOk && (
-          <div className="mt-3">
-            <PrimaryBtn
-              onClick={() => {
-                ev({ type: 'sent', by: r.fromName })
-                push(`บันทึกการส่งต่อแล้ว — แจ้ง ${r.toName} แล้วกลับมาอัปเดตเมื่อหน่วยงานรับเรื่อง`)
-              }}
-            >
-              ได้รับความยินยอมแล้ว — ส่งต่อเลย
-            </PrimaryBtn>
-          </div>
-        )}
-        {mayAct && r.next.actions.length > 0 && !(r.stage === 'draft' && consentOk) && (
-          <div className="mt-3 flex flex-wrap gap-2">
-            {r.next.actions.map((a, i) => (
-              <button
-                key={a}
-                type="button"
-                onClick={() => act(a)}
-                className={
-                  i === 0
-                    ? 'flex-1 rounded-xl bg-brand-500 px-4 py-3 text-[14.5px] font-semibold text-white shadow-card sm:flex-none'
-                    : 'flex-1 rounded-xl border border-surface-border bg-white px-4 py-3 text-[14.5px] font-medium text-ink sm:flex-none'
-                }
-              >
-                {ACTION_TH[a]}
-              </button>
-            ))}
-          </div>
-        )}
-        {!mayAct && <p className="mt-2 text-[13px] text-ink-muted">บัญชีนี้ดูได้อย่างเดียว</p>}
-        {r.outcome && (
-          <div className="mt-3 rounded-xl bg-surface-muted/60 px-3.5 py-2.5">
-            <p className="text-[13px] font-semibold text-ink-muted">ผลจากหน่วยงาน</p>
-            <p className={`text-[15px] font-bold ${r.outcome.ok === 'no' ? 'text-red-700' : 'text-ink'}`}>
-              {r.outcome.ok === 'ok' ? '✓' : r.outcome.ok === 'warn' ? '⚠' : '✕'} {r.outcome.th}
             </p>
-            <p className="text-[13px] text-ink-muted">{r.outcome.reviewed ? 'ครูประเมินและปิดการส่งต่อแล้ว' : 'รอครูประเมินว่าช่วยเด็กได้จริงไหม'}</p>
-          </div>
-        )}
-      </section>
+          )}
 
-      {/* ── ความคืบหน้า: ตารางขั้น พร้อมเวลา ─────────────────────── */}
-      <Section title="ความคืบหน้า">
-        <AckStepper r={r} />
-      </Section>
-
-      {/* ── คน: การ์ดคนละช่อง ───────────────────────────────── */}
-      <Section title="ใครรับผิดชอบ">
-        <div className="grid gap-2 sm:grid-cols-2">
-          <Person role="เจ้าของเคส" name={r.caseOwner} />
-          <Person role="ผู้ส่งต่อ" name={r.referralOwner} sub={r.fromName} />
-          <Person role="หน่วยงานผู้รับ" name={r.toName} sub={r.toAgency?.contact} agency />
-          <Person role="เจ้าหน้าที่ผู้รับผิดชอบ" name={r.officer ?? 'ยังไม่ได้มอบหมาย'} muted={!r.officer} />
-        </div>
-        <p className="mt-2 text-[13.5px] text-ink">
-          <span className="font-semibold">รูปแบบ:</span>{' '}
-          {r.handoff === 'joint' ? 'A · ช่วยเหลือร่วมกัน — โรงเรียนยังเป็นเจ้าของเคส' : 'B · ส่งมอบความรับผิดชอบหลัก — โรงเรียนติดตามผล'}
-        </p>
-      </Section>
-
-      {/* ── ความยินยอม + ข้อมูลที่ส่ง: บรรทัดสรุป รายละเอียดกดดู ─────── */}
-      <Section title="ความยินยอมและข้อมูลที่ส่ง">
-        <div className="rounded-2xl border border-surface-border p-4">
-          <div className="flex flex-wrap items-center gap-2">
-            <ConsentBadge state={r.consent.state} daysLeft={r.consent.daysLeft} />
-            {r.consent.record && (
-              <span className="text-[14px] text-ink">
-                {r.consent.record.giver} · หมดอายุ {r.consent.record.expires}
-                {r.consent.daysLeft !== undefined && r.consent.daysLeft >= 0 && <span className="text-ink-muted"> (อีก {r.consent.daysLeft} วัน)</span>}
-              </span>
-            )}
-          </div>
-          <p className="mb-1.5 mt-3 text-[13px] font-semibold text-ink-muted">หน่วยงานเห็นข้อมูล</p>
-          <div className="flex flex-wrap gap-1.5">
-            {SCOPE_OPTIONS.map((o) => {
-              const on = r.share.includes(o.key)
-              return (
-                <span key={o.key} className={`rounded-lg px-2.5 py-1 text-[13.5px] ${on ? 'bg-surface-muted font-medium text-ink' : 'text-ink-faint line-through'}`}>
-                  {on ? '✓ ' : ''}
-                  {o.th.split(' (')[0]}
-                </span>
-              )
-            })}
-          </div>
-          <div className="mt-3 flex flex-wrap gap-4 text-[14px] font-semibold">
-            <button type="button" onClick={() => setMore((v) => (v === 'consent' ? null : 'consent'))} className="text-brand-700">
-              {more === 'consent' ? 'ซ่อนรายละเอียดความยินยอม' : 'รายละเอียดความยินยอม'}
-            </button>
-            <button type="button" onClick={() => setMore((v) => (v === 'data' ? null : 'data'))} className="text-brand-700">
-              {more === 'data' ? 'ซ่อนข้อมูลที่ส่ง' : 'ดูข้อมูลที่ส่งจริง'}
-            </button>
-            {mayAct && (r.consent.state !== 'granted' || r.stage === 'draft') && (
-              <button type="button" onClick={() => setSheet('consent')} className="text-brand-700">
-                บันทึกความยินยอม
-              </button>
-            )}
-          </div>
-          {more === 'consent' && (
+          {mayAct && r.stage === 'draft' && consentOk && (
             <div className="mt-3">
-              <ConsentSummary c={r.consent} />
+              <PrimaryBtn
+                onClick={() => {
+                  ev({ type: 'sent', by: r.fromName })
+                  push(`บันทึกการส่งต่อแล้ว — แจ้ง ${r.toName} แล้วกลับมาอัปเดตเมื่อหน่วยงานรับเรื่อง`)
+                }}
+              >
+                ได้รับความยินยอมแล้ว — ส่งต่อเลย
+              </PrimaryBtn>
             </div>
           )}
-          {more === 'data' && (
-            <ul className="mt-3 divide-y divide-surface-border rounded-xl border border-surface-border">
-              {SCOPE_OPTIONS.filter((o) => r.share.includes(o.key)).map((o) => (
-                <li key={o.key} className="px-3.5 py-2.5">
-                  <p className="text-[13px] font-semibold text-ink-muted">{o.th}</p>
-                  <p className="text-[14px] text-ink">{sharePreview(student, o.key, r.reason, history)}</p>
-                </li>
+          {mayAct && r.next.actions.length > 0 && !(r.stage === 'draft' && consentOk) && (
+            <div className="mt-3 flex flex-wrap gap-2">
+              {r.next.actions.map((a, i) => (
+                <button
+                  key={a}
+                  type="button"
+                  onClick={() => act(a)}
+                  className={
+                    i === 0
+                      ? 'w-full rounded-xl bg-brand-500 px-4 py-3 text-[15px] font-semibold text-white shadow-card sm:w-auto'
+                      : 'grow whitespace-nowrap rounded-xl border border-surface-border bg-white px-4 py-3 text-[14.5px] font-medium text-ink sm:grow-0'
+                  }
+                >
+                  {ACTION_TH[a]}
+                </button>
               ))}
-            </ul>
+            </div>
+          )}
+          {!mayAct && <p className="mt-2 text-[13px] text-ink-muted">บัญชีนี้ดูได้อย่างเดียว</p>}
+
+          {r.outcome && (
+            <div className="mt-3 rounded-xl border border-surface-border bg-white px-3.5 py-2.5">
+              <p className="text-[13px] font-semibold text-ink-muted">ผลจากหน่วยงาน</p>
+              <p className={`text-[15px] font-bold ${r.outcome.ok === 'no' ? 'text-red-700' : 'text-ink'}`}>
+                {r.outcome.ok === 'ok' ? '✓' : r.outcome.ok === 'warn' ? '⚠' : '✕'} {r.outcome.th}
+              </p>
+              <p className="text-[13px] text-ink-muted">{r.outcome.reviewed ? 'ครูประเมินและปิดการส่งต่อแล้ว' : 'รอครูประเมินว่าช่วยเด็กได้จริงไหม'}</p>
+            </div>
           )}
         </div>
+      </section>
+
+      {/* ── รายละเอียด: แถวหัวข้อ–ค่า ในการ์ดเดียว แทนการ์ดคนละช่อง 4 ใบ ── */}
+      <Section title="รายละเอียดการส่งต่อ">
+        <dl className="divide-y divide-surface-border rounded-2xl border border-surface-border">
+          <DRow k="หน่วยงาน">
+            <p className="font-semibold">{r.toName}</p>
+            {r.toAgency?.contact && <p className="text-[13.5px] text-ink-muted">{r.toAgency.contact}</p>}
+          </DRow>
+          <DRow k="เจ้าหน้าที่">
+            {r.officer ? <span className="font-semibold">{r.officer}</span> : <span className="text-ink-muted">ยังไม่ทราบ — ใส่ได้ตอนอัปเดตความคืบหน้า</span>}
+          </DRow>
+          <DRow k="ฝั่งโรงเรียน">
+            {sameOwner ? (
+              <p>
+                <span className="font-semibold">{r.caseOwner}</span> <span className="text-ink-muted">· เจ้าของเคสและผู้ส่งต่อ</span>
+              </p>
+            ) : (
+              <>
+                <p>
+                  <span className="font-semibold">{r.caseOwner}</span> <span className="text-ink-muted">· เจ้าของเคส</span>
+                </p>
+                <p>
+                  <span className="font-semibold">{r.referralOwner}</span> <span className="text-ink-muted">· ผู้ส่งต่อ</span>
+                </p>
+              </>
+            )}
+            <p className="text-[13.5px] text-ink-muted">{r.fromName}</p>
+          </DRow>
+          <DRow k="รูปแบบ">{r.handoff === 'joint' ? 'ช่วยเหลือร่วมกัน — โรงเรียนยังเป็นเจ้าของเคส' : 'ส่งมอบความรับผิดชอบหลัก — โรงเรียนติดตามผล'}</DRow>
+          <DRow k="ความยินยอม">
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+              <ConsentBadge state={r.consent.state} daysLeft={r.consent.daysLeft} />
+              {r.consent.record && (
+                <span className="text-[14px] text-ink-muted">
+                  {r.consent.record.giver} · ถึง {r.consent.record.expires}
+                </span>
+              )}
+            </div>
+            <div className="mt-1.5 flex flex-wrap gap-x-4 text-[14px] font-semibold">
+              <button type="button" onClick={() => setMore((v) => (v === 'consent' ? null : 'consent'))} className="text-brand-700">
+                {more === 'consent' ? 'ซ่อนรายละเอียด' : 'ดูรายละเอียด'}
+              </button>
+              {mayAct && (r.consent.state !== 'granted' || r.stage === 'draft') && (
+                <button type="button" onClick={() => setSheet('consent')} className="text-brand-700">
+                  บันทึกความยินยอม
+                </button>
+              )}
+            </div>
+            {more === 'consent' && (
+              <div className="mt-2">
+                <ConsentSummary c={r.consent} />
+              </div>
+            )}
+          </DRow>
+          <DRow k="ข้อมูลที่ส่ง">
+            <p>
+              {sharedOpts.map((o) => o.th.split(' (')[0]).join(' · ')}{' '}
+              <span className="text-ink-muted">
+                ({sharedOpts.length} จาก {SCOPE_OPTIONS.length} หมวด)
+              </span>
+            </p>
+            <button type="button" onClick={() => setMore((v) => (v === 'data' ? null : 'data'))} className="mt-1 text-[14px] font-semibold text-brand-700">
+              {more === 'data' ? 'ซ่อน' : 'ดูสิ่งที่หน่วยงานเห็นจริง'}
+            </button>
+            {more === 'data' && (
+              <ul className="mt-2 divide-y divide-surface-border rounded-xl border border-surface-border">
+                {sharedOpts.map((o) => (
+                  <li key={o.key} className="px-3.5 py-2.5">
+                    <p className="text-[13px] font-semibold text-ink-muted">{o.th}</p>
+                    <p className="text-[14px] text-ink">{sharePreview(student, o.key, r.reason, history)}</p>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </DRow>
+        </dl>
       </Section>
 
       {/* ── หลายหน่วยงาน เคสเดียว ─────────────── */}
       {siblings.length > 0 && (
-        <Section title={`ส่งต่อหน่วยงานอื่นของ ${r.childName} ด้วย · ${siblings.length}`}>
+        <Section title={`ส่งต่อหน่วยงานอื่นด้วย · ${siblings.length}`}>
           <ul className="divide-y divide-surface-border rounded-2xl border border-surface-border">
             {siblings.map((x) => (
               <li key={x.id}>
@@ -241,11 +260,11 @@ export function ReferralDetail({
                     <p className="text-[14.5px] font-semibold text-ink">
                       {x.needTh} → {x.toName}
                     </p>
-                    <p className="text-[13px]">
+                    <p className="mt-0.5 text-[13px]">
                       <BucketBadge b={x.bucket} /> <SlaText sla={x.sla} className="text-[13px]" />
                     </p>
                   </div>
-                  <span className="text-[13px] font-semibold text-brand-700">เปิด</span>
+                  <span className="shrink-0 text-[14px] font-semibold text-brand-700">เปิด ›</span>
                 </button>
               </li>
             ))}
@@ -253,109 +272,79 @@ export function ReferralDetail({
         </Section>
       )}
 
-      {/* ── timeline ข้ามหน่วยงาน — จุดสีเดียว ใครทำบอกด้วยคำ ─────── */}
-      <Section title="Timeline ข้ามหน่วยงาน">
+      {/* ── ประวัติ: 5 รายการล่าสุด ที่เหลือกดดู ─────── */}
+      <Section title="ประวัติ">
         <ol className="relative ml-2 border-l-2 border-surface-border">
-          {(allTl ? tl : tl.slice(0, 8)).map((x, i) => (
+          {(allTl ? tl : tl.slice(0, 5)).map((x, i) => (
             <li key={i} className="relative pb-3 pl-4">
               <span className="absolute -left-[7px] top-1.5 h-3 w-3 rounded-full border-2 border-white" style={{ background: i === 0 ? '#0f172a' : '#94a3b8' }} />
-              <p className="text-[12.5px] text-ink-faint">
-                {fmtTs(x.ts)} · {x.who === 'school' ? 'โรงเรียน' : x.who === 'agency' ? 'หน่วยงาน' : 'ระบบ'} · {x.by}
-              </p>
               <p className={`text-[14px] leading-snug ${x.refId && x.refId !== r.id ? 'text-ink-muted' : 'text-ink'}`}>{x.th}</p>
+              <p className="text-[12.5px] text-ink-faint">
+                {fmtTs(x.ts)} · {x.by}
+              </p>
             </li>
           ))}
         </ol>
-        {tl.length > 8 && (
-          <button type="button" onClick={() => setAllTl((v) => !v)} className="text-[14px] font-semibold text-brand-700 underline">
+        {tl.length > 5 && (
+          <button type="button" onClick={() => setAllTl((v) => !v)} className="text-[14px] font-semibold text-brand-700">
             {allTl ? 'ย่อ' : `ดูทั้งหมด ${tl.length} รายการ`}
           </button>
         )}
       </Section>
-
     </Drawer>
   )
 }
 
-/** แถบความคืบหน้าแบบย่อ 5 ช่อง + ชื่อขั้นปัจจุบัน — เห็นภาพรวมในบรรทัดเดียว */
-function ProgressStrip({ r }: { r: RefCase }) {
-  const done = ackIndex(r.stage) + 1
+/** แถวหัวข้อ–ค่า — จอใหญ่เป็นสองคอลัมน์ มือถือซ้อนกัน */
+function DRow({ k, children }: { k: string; children: ReactNode }) {
   return (
-    <div>
-      <div className="flex gap-1" aria-hidden>
-        {ACK_STEPS.map((x, i) => (
-          <span key={x.stage} className={`h-1.5 flex-1 rounded-full ${i < done ? 'bg-brand-500' : 'bg-surface-muted'}`} />
-        ))}
-      </div>
-      <p className="mt-1.5 text-[13px] text-ink-muted">
-        ขั้นที่ {Math.max(done, 0)} จาก {ACK_STEPS.length} · <span className="font-semibold text-ink">{STAGE_TH[r.stage]}</span>
-      </p>
-    </div>
-  )
-}
-
-function Person({ role, name, sub, muted, agency }: { role: string; name: string; sub?: string; muted?: boolean; agency?: boolean }) {
-  // ไอคอนแทนตัวอักษรแรก — ชื่อไทยมีคำนำหน้า (ครู/คุณ) ตัวแรกจึงไม่ใช่ชื่อคน
-  return (
-    <div className="flex items-start gap-3 rounded-xl border border-surface-border px-3.5 py-3">
-      <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-surface-muted text-ink-muted" aria-hidden>
-        {agency ? <IconAgency width={17} height={17} /> : <IconUser width={17} height={17} />}
-      </span>
-      <div className="min-w-0">
-        <p className="text-[12.5px] text-ink-muted">{role}</p>
-        <p className={`text-[14.5px] leading-snug ${muted ? 'text-ink-muted' : 'font-semibold text-ink'}`}>{name}</p>
-        {sub && <p className="text-[13px] leading-snug text-ink-muted">{sub}</p>}
-      </div>
+    <div className="grid gap-0.5 px-4 py-3 sm:grid-cols-[112px_1fr] sm:gap-3">
+      <dt className="text-[13.5px] text-ink-muted">{k}</dt>
+      <dd className="min-w-0 text-[14.5px] text-ink">{children}</dd>
     </div>
   )
 }
 
 /**
- * ขั้นความคืบหน้า — มือถือเรียงเป็นแถว จอใหญ่ 5 คอลัมน์
- * ครูเป็นคนบันทึกทุกขั้นเอง (ยังไม่ต่อระบบหน่วยงาน) จึงบอกด้วยว่ารู้มาทางไหน
+ * ขั้นความคืบหน้าแบบจุดต่อเส้น 5 ขั้น — อยู่ในการ์ดสถานะ ไม่แยกเป็นตารางอีกส่วน
+ * ใต้ขั้นที่ผ่านแล้วบอกวันที่ (ช่องทางที่ครูทราบอยู่ในประวัติ) ขั้นที่ครูข้ามขึ้นว่า "ข้าม"
  */
-function AckStepper({ r }: { r: RefCase }) {
+function Stepper({ r }: { r: RefCase }) {
   const reached = ackIndex(r.stage)
   const branch = r.stage === 'needInfo' || r.stage === 'returned'
-  const at = (i: number) => {
-    // เหตุการณ์ของขั้นนี้ล่าสุด — นับเฉพาะหลังการเปลี่ยนหน่วยงานครั้งล่าสุด
-    const re = [...r.events].reverse().find((e) => e.type === 'reassigned')
-    const live = re ? r.events.filter((e) => e.ts >= re.ts) : r.events
-    return [...live].reverse().find((e) => ACK_STEPS[i].evs.includes(e.type))
-  }
+  // นับเฉพาะเหตุการณ์หลังการเปลี่ยนหน่วยงานครั้งล่าสุด
+  const re = [...r.events].reverse().find((e) => e.type === 'reassigned')
+  const live = re ? r.events.filter((e) => e.ts >= re.ts) : r.events
+  const at = (i: number) => [...live].reverse().find((e) => ACK_STEPS[i].evs.includes(e.type))
   return (
-    <div>
-      <ol className="grid gap-2 sm:grid-cols-5">
+    <>
+      <ol className="grid grid-cols-5">
         {ACK_STEPS.map((x, i) => {
-          const e = at(i)
           const done = i <= reached
           const next = !branch && i === reached + 1
+          const e = at(i)
           return (
-            <li
-              key={x.stage}
-              className={`flex items-center gap-3 rounded-xl border px-3 py-2.5 sm:block ${next ? 'border-brand-500 bg-brand-50' : 'border-surface-border'}`}
-            >
+            <li key={x.stage} className="relative flex flex-col items-center px-0.5 text-center">
+              {i > 0 && <span className={`absolute right-1/2 top-[13px] h-0.5 w-full ${done ? 'bg-ink' : 'bg-surface-border'}`} aria-hidden />}
               <span
-                className="grid h-6 w-6 shrink-0 place-items-center rounded-full text-[12px] font-bold"
-                style={{ background: done ? '#0f172a' : next ? '#2f66f6' : '#e2e8f0', color: done || next ? '#fff' : '#64748b' }}
+                className="relative grid h-7 w-7 place-items-center rounded-full text-[12.5px] font-bold"
+                style={{
+                  background: done ? '#0f172a' : '#fff',
+                  color: done ? '#fff' : next ? '#2f66f6' : '#64748b',
+                  boxShadow: done ? undefined : `inset 0 0 0 2px ${next ? '#2f66f6' : '#cbd5e1'}`,
+                }}
                 aria-hidden
               >
                 {done ? '✓' : i + 1}
               </span>
-              <div className="min-w-0 sm:mt-1.5">
-                <p className={`text-[13.5px] leading-snug ${done || next ? 'font-semibold text-ink' : 'text-ink-muted'}`}>{x.th}</p>
-                {x.stage === 'accepted' && r.officer && <p className="text-[12.5px] text-ink-muted">{r.officer}</p>}
-                <p className="text-[12.5px] text-ink-muted">
-                  {e ? `${fmtTs(e.ts)}${e.via ? ` · ${VIA_TH[e.via]}` : ''}` : done ? 'ข้ามขั้น' : next ? 'ขั้นถัดไป' : '—'}
-                </p>
-              </div>
+              <span className={`mt-1.5 text-[12.5px] leading-tight ${done || next ? 'font-semibold text-ink' : 'text-ink-muted'}`}>{x.th}</span>
+              <span className="mt-0.5 text-[12px] leading-tight text-ink-muted">{e ? fmtTs(e.ts).split(' ').slice(0, 2).join(' ') : done ? 'ข้าม' : ''}</span>
             </li>
           )
         })}
       </ol>
-      {branch && <p className="mt-2 rounded-xl bg-surface-muted px-3 py-2 text-[14px] font-semibold text-ink">↳ {STAGE_TH[r.stage]}</p>}
-      <p className="mt-2 text-[12.5px] text-ink-muted">ยังไม่เชื่อมระบบของหน่วยงาน — ครูบันทึกความคืบหน้าเองเมื่อได้ข่าวจากหน่วยงาน</p>
-    </div>
+      {branch && <p className="mx-2 mt-3 rounded-xl bg-surface-muted px-3 py-2 text-[14px] font-semibold text-ink">↳ {STAGE_TH[r.stage]}</p>}
+    </>
   )
 }
 
