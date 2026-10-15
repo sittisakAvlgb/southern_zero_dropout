@@ -8,7 +8,7 @@ import type { FollowCase } from '@/lib/followOps'
 import { LEVEL_TH } from '@/lib/followOps'
 import { RISK_COLOR } from '@/lib/risk'
 import { GRADE_LABEL } from '@/lib/schoolOps'
-import { BOTTLENECK_TH, bottlenecks, caseSummaryLine, directorInbox, execSummary, fmtDay, type BottleneckKey, type InboxItem } from '@/lib/directorOps'
+import { BOTTLENECK_TH, bottlenecks, caseSummaryLine, directorInbox, execSummary, fmtDay, teamLoad, type BottleneckKey, type InboxItem, type TeamRow } from '@/lib/directorOps'
 import { useFollowCases } from '@/components/followup/useFollowCases'
 import { StudentTimeline } from '@/components/followup/StudentFollow'
 import { byOf } from '@/components/referrals/useRefCases'
@@ -33,6 +33,16 @@ const tileTest: Record<Tile, (x: InboxItem) => boolean> = {
   sla: (x) => x.c.sla.level === 'breach',
   people: (x) => x.kind === 'noOwner' || Boolean(x.req?.reasons.some((r) => r === 'people' || r === 'parent' || r === 'meeting')),
   referral: (x) => Boolean(x.req?.reasons.includes('referral')),
+}
+
+/** เรื่องของเด็กคนหนึ่งในมุม ผอ. — ใช้รายการในกล่องถ้ามี ไม่มีก็สร้างจากเคส (ติดตามผล · ลิงก์จาก AI) */
+export function itemFor(id: string, inbox: InboxItem[], cases: FollowCase[], requests: SupportRequest[]): InboxItem | undefined {
+  const hit = inbox.find((x) => x.c.s.id === id)
+  if (hit) return hit
+  const c = cases.find((x) => x.s.id === id)
+  if (!c) return undefined
+  const req = requests.filter((r) => r.childId === id).sort((a, b) => b.ts - a.ts)[0]
+  return { kind: req ? 'request' : c.s.caseOwner ? 'stuck' : 'noOwner', c, req, why: c.because, today: false, waitedDays: 0 }
 }
 
 /** รายชื่อครูของโรงเรียน — จากผู้รับผิดชอบเคสจริง ไม่ใช่รายชื่อสมมติ */
@@ -62,6 +72,8 @@ export default function DirectorDecisions() {
   const requests = useMemo(() => Object.values(log.requests), [log.requests])
   const inbox = useMemo(() => directorInbox(cases, requests), [cases, requests])
   const team = useMemo(() => teamOf(cases), [cases])
+  const load = useMemo(() => teamLoad(cases), [cases])
+  const heavy = load.insight?.owner
   const focus = params.get('focus') as BottleneckKey | null
   const focusIds = useMemo(() => (focus ? bottlenecks(cases, requests).find((b) => b.key === focus)?.ids ?? [] : []), [focus, cases, requests])
 
@@ -76,7 +88,7 @@ export default function DirectorDecisions() {
   )
 
   const shown = tile ? inbox.filter(tileTest[tile]) : inbox
-  const opened = openId ? inbox.find((x) => x.c.s.id === openId) ?? (cases.find((c) => c.s.id === openId) ? ({ kind: 'request', c: cases.find((c) => c.s.id === openId)!, why: 'ติดตามผลการตัดสินใจ', today: false, waitedDays: 0, req: requests.filter((r) => r.childId === openId).sort((a, b) => b.ts - a.ts)[0] } as InboxItem) : undefined) : undefined
+  const opened = openId ? itemFor(openId, inbox, cases, requests) : undefined
 
   useEffect(() => {
     const next = new URLSearchParams(params)
@@ -159,7 +171,7 @@ export default function DirectorDecisions() {
           ) : (
             <div className="grid gap-3 lg:grid-cols-2">
               {shown.map((x) => (
-                <InboxCard key={`${x.kind}-${x.c.s.id}`} x={x} onOpen={() => setOpenId(x.c.s.id)} />
+                <InboxCard key={`${x.kind}-${x.c.s.id}`} x={x} heavy={heavy} onOpen={() => setOpenId(x.c.s.id)} />
               ))}
             </div>
           )}
@@ -221,16 +233,16 @@ export default function DirectorDecisions() {
         </>
       )}
 
-      {opened && <DirectorCaseDetail x={opened} by={by} team={team} log={log} push={push} onClose={() => setOpenId(null)} onOpenFile={() => nav(`/student?id=${opened.c.s.id}`)} />}
+      {opened && <DirectorCaseDetail x={opened} heavy={heavy} load={load.rows} by={by} team={team} log={log} push={push} onClose={() => setOpenId(null)} onOpenFile={() => nav(`/student?id=${opened.c.s.id}`)} />}
     </div>
   )
 }
 
 /** การ์ดสั้นให้ ผอ. อ่านเร็ว — นักเรียน ความเสี่ยง ครูเจ้าของเคส ปัญหา สิ่งที่ครูทำแล้ว สิ่งที่ครูต้องการ AI สรุป */
-function InboxCard({ x, onOpen }: { x: InboxItem; onOpen: () => void }) {
+function InboxCard({ x, heavy, onOpen }: { x: InboxItem; heavy?: string; onOpen: () => void }) {
   const { c, req } = x
   const s = c.s
-  const ai = execSummary(c, req)
+  const ai = execSummary(c, req, heavy)
   const st = req ? requestStatus(req) : undefined
   return (
     <article className="flex flex-col rounded-2xl border border-surface-border bg-white p-4">
@@ -293,8 +305,12 @@ function InboxCard({ x, onOpen }: { x: InboxItem; onOpen: () => void }) {
  * ทำไมมาถึง ผอ. → สิ่งที่ครูทำแล้ว → สิ่งที่ครูต้องการ → AI สรุป → ทางเลือก
  * → ไทม์ไลน์ → ทีม/ผู้รับผิดชอบ → การส่งต่อ → ผลลัพธ์
  */
-function DirectorCaseDetail({
+export function DirectorCaseDetail({
   x,
+  start,
+  suggestOwner,
+  heavy,
+  load,
   by,
   team,
   log,
@@ -303,6 +319,14 @@ function DirectorCaseDetail({
   onOpenFile,
 }: {
   x: InboxItem
+  /** เปิดตรงขั้นที่ AI แนะนำ — ไม่ต้องกดผ่านหน้ารายละเอียดก่อน */
+  start?: 'decide' | 'assign' | 'nudge' | 'escalate'
+  /** ครูที่ AI เสนอให้รับเคส — เลือกไว้ให้ก่อน ผอ. เปลี่ยนได้ */
+  suggestOwner?: string
+  /** ครูที่ภาระงานล้น — AI เสนอแบบเดียวกับหน้าแรก */
+  heavy?: string
+  /** ภาระงานของทีม — แสดงในตัวเลือกครู */
+  load?: TeamRow[]
   by: string
   team: string[]
   log: ReturnType<typeof useFollowCases>['log']
@@ -312,9 +336,10 @@ function DirectorCaseDetail({
 }) {
   const { c, req } = x
   const s = c.s
-  const [mode, setMode] = useState<'view' | 'decide' | 'assign'>('view')
-  const ai = useMemo(() => execSummary(c, req), [c, req])
   const st = req ? requestStatus(req) : undefined
+  const canDecide = Boolean(req && ['new', 'seen', 'answered'].includes(st!))
+  const [mode, setMode] = useState<'view' | 'decide' | 'assign'>(start === 'decide' && canDecide ? 'decide' : start && start !== 'decide' ? 'assign' : 'view')
+  const ai = useMemo(() => execSummary(c, req, heavy), [c, req, heavy])
   const entries = useMemo(() => log.entries.filter((e) => e.childId === s.id), [log.entries, s.id])
 
   // ผอ. เปิดอ่าน = รับเรื่อง ครูเห็นทันทีว่า ผอ. เห็นแล้ว
@@ -335,13 +360,13 @@ function DirectorCaseDetail({
   if (mode === 'decide' && req)
     return (
       <Drawer label={`ตัดสินใจ ${s.name}`} head={head} onBack={() => setMode('view')} onClose={onClose}>
-        <DirectorDecisionSheet c={c} req={req} by={by} team={team} log={log} push={push} done={onClose} />
+        <DirectorDecisionSheet c={c} req={req} by={by} team={team} load={load} heavy={heavy} log={log} push={push} done={onClose} />
       </Drawer>
     )
   if (mode === 'assign')
     return (
       <Drawer label={`มอบหมาย ${s.name}`} head={head} onBack={() => setMode('view')} onClose={onClose}>
-        <AssignOwnerSheet c={c} by={by} team={team} log={log} push={push} done={onClose} />
+        <AssignOwnerSheet c={c} by={by} team={team} log={log} push={push} done={onClose} start={start === 'decide' ? undefined : start} suggestOwner={suggestOwner} load={load} />
       </Drawer>
     )
 
@@ -359,7 +384,7 @@ function DirectorCaseDetail({
             </button>
           ) : !req || ['done', 'rejected'].includes(st!) ? (
             <button type="button" onClick={() => setMode('assign')} className="flex-1 rounded-xl bg-brand-500 px-4 py-3 text-[15px] font-semibold text-white">
-              {s.caseOwner ? 'เตือน / เปลี่ยนผู้รับผิดชอบ' : 'มอบหมายครู'}
+              {s.caseOwner ? 'เตือน / เปลี่ยนผู้รับผิดชอบ / Escalate' : 'มอบหมายครู'}
             </button>
           ) : null}
           <button type="button" onClick={onOpenFile} className="flex-1 rounded-xl border border-surface-border bg-white px-4 py-3 text-[15px] font-semibold text-ink">

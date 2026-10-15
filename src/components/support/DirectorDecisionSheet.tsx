@@ -7,9 +7,75 @@ import {
   type SupportRequest,
 } from '@/lib/caseLog'
 import type { FollowCase } from '@/lib/followOps'
-import { directiveFor, execSummary, fmtDay, isoIn } from '@/lib/directorOps'
+import { directiveFor, execSummary, fmtDay, isoIn, type TeamRow } from '@/lib/directorOps'
 import type { Log } from '@/components/referrals/useRefCases'
 import { Label, PrimaryBtn, inputCls, textareaCls } from '@/components/referrals/ui'
+
+/** ครูที่ว่างที่สุด (ไม่นับเจ้าของเดิม) — เคสเสี่ยงสูงน้อยสุด แล้วเคสเปิดน้อยสุด */
+export function lightestOf(load: TeamRow[] | undefined, exclude?: string): string | undefined {
+  return [...(load ?? [])].filter((r) => r.owner !== exclude).sort((a, b) => a.high - b.high || a.sla - b.sla || a.open - b.open)[0]?.owner
+}
+
+/**
+ * เลือกครูผู้รับผิดชอบ — แตะเลือกจากรายการที่บอกภาระงานของแต่ละคน ไม่ใช่ dropdown ชื่อเปล่า
+ * ผอ. เห็นทันทีว่าใครว่าง ใครงานล้น และทำไม AI แนะนำคนนี้ (ปุ่มใหญ่ ไม่ต้อง hover)
+ */
+export function OwnerPicker({
+  team,
+  load,
+  value,
+  onChange,
+  current,
+  suggest,
+  id,
+}: {
+  team: string[]
+  load?: TeamRow[]
+  value: string
+  onChange: (owner: string) => void
+  /** เจ้าของเคสเดิม — แสดงไว้ให้เทียบ แต่เลือกไม่ได้ */
+  current?: string
+  suggest?: string
+  id: string
+}) {
+  const rowOf = (n: string) => load?.find((r) => r.owner === n)
+  const names = [...new Set([...(current ? [current] : []), ...team])]
+  return (
+    <div role="radiogroup" aria-labelledby={id} className="space-y-2">
+      {names.map((n) => {
+        const r = rowOf(n)
+        const isCurrent = n === current
+        const on = value === n
+        return (
+          <button
+            key={n}
+            type="button"
+            role="radio"
+            aria-checked={on}
+            disabled={isCurrent}
+            onClick={() => onChange(n)}
+            className={`flex w-full items-center gap-3 rounded-xl border px-4 py-3 text-left disabled:cursor-not-allowed ${on ? 'border-brand-500 bg-brand-50 ring-2 ring-brand-100' : isCurrent ? 'border-surface-border bg-surface-muted/60' : 'border-surface-border bg-white hover:border-brand-300'}`}
+          >
+            <span className={`grid h-5 w-5 shrink-0 place-items-center rounded-full border-2 ${on ? 'border-brand-500' : 'border-slate-400'}`} aria-hidden>
+              {on && <span className="h-2.5 w-2.5 rounded-full bg-brand-500" />}
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                <span className="text-[15.5px] font-semibold text-ink">{n}</span>
+                {isCurrent && <span className="rounded-full bg-white px-2 py-0.5 text-[12px] font-semibold text-ink-muted ring-1 ring-surface-border">ผู้รับผิดชอบเดิม</span>}
+                {!isCurrent && n === suggest && <span className="rounded-full bg-brand-500 px-2 py-0.5 text-[12px] font-semibold text-white">AI แนะนำ</span>}
+              </span>
+              <span className="mt-0.5 block text-[13.5px] text-ink-muted">
+                {r ? `เปิดอยู่ ${r.open} เคส · เสี่ยงสูง ${r.high} · เกิน SLA ${r.sla}` : 'ยังไม่มีเคสที่รับผิดชอบ'}
+                {!isCurrent && n === suggest ? ' — ว่างที่สุดในทีม' : ''}
+              </span>
+            </span>
+          </button>
+        )
+      })}
+    </div>
+  )
+}
 
 const ACTS = Object.keys(DIRECTOR_ACT_TH) as DirectorAct[]
 const VERDICTS: DirectorVerdict[] = ['approve', 'needInfo', 'sendBack', 'reject']
@@ -29,6 +95,8 @@ export function DirectorDecisionSheet({
   req,
   by,
   team,
+  load,
+  heavy,
   log,
   push,
   done,
@@ -38,11 +106,15 @@ export function DirectorDecisionSheet({
   by: string
   /** รายชื่อครู/บุคลากรในโรงเรียน สำหรับมอบหมาย */
   team: string[]
+  /** ภาระงานของทีม — ใช้แสดงในตัวเลือกครู */
+  load?: TeamRow[]
+  /** ครูที่ภาระงานล้น — ใช้ให้ AI เสนอเหมือนการ์ดหน้าแรก */
+  heavy?: string
   log: Log
   push: (m: string) => void
   done: () => void
 }) {
-  const ai = useMemo(() => execSummary(c, req), [c, req])
+  const ai = useMemo(() => execSummary(c, req, heavy), [c, req, heavy])
   const [verdict, setVerdict] = useState<DirectorVerdict>('approve')
   const [acts, setActs] = useState<DirectorAct[]>(() => ai.options.slice(0, 2).map((o) => o.act))
   const [meetingDate, setMeetingDate] = useState(isoIn(2))
@@ -139,13 +211,8 @@ export function DirectorDecisionSheet({
           )}
           {acts.includes('owner') && (
             <>
-              <Label>ผู้รับผิดชอบหลักคนใหม่</Label>
-              <select id="dec-owner" value={newOwner} onChange={(e) => setNewOwner(e.target.value)} className={inputCls}>
-                <option value="">เลือกครู</option>
-                {team.filter((n) => n !== c.s.caseOwner).map((n) => (
-                  <option key={n} value={n}>{n}</option>
-                ))}
-              </select>
+              <p id="dec-owner-label" className="mb-1.5 mt-4 text-[14px] font-semibold text-ink">ผู้รับผิดชอบหลักคนใหม่</p>
+              <OwnerPicker id="dec-owner-label" team={team} load={load} value={newOwner} onChange={setNewOwner} current={c.s.caseOwner} suggest={lightestOf(load, c.s.caseOwner)} />
             </>
           )}
           {acts.includes('escalate') && (
@@ -211,57 +278,117 @@ export function DirectorDecisionSheet({
   )
 }
 
-/** มอบหมายครูให้เคสที่ยังไม่มีเจ้าของ / เปลี่ยนผู้รับผิดชอบเคสที่ค้างนาน — ผอ. ไม่รับเคสไปทำเอง */
-export function AssignOwnerSheet({ c, by, team, log, push, done }: { c: FollowCase; by: string; team: string[]; log: Log; push: (m: string) => void; done: () => void }) {
-  const [owner, setOwner] = useState('')
-  const [why, setWhy] = useState('')
-  const [nudge, setNudge] = useState(false)
-  const has = Boolean(c.s.caseOwner)
+/**
+ * ผอ. ขยับเคสที่ค้าง โดยไม่รับเคสไปทำเอง — สามทาง:
+ * เตือนผู้รับผิดชอบ · เปลี่ยน/มอบหมายผู้รับผิดชอบ · Escalate หน่วยงานภายนอกที่เกินกำหนด
+ * ทุกทางลงไทม์ไลน์ของเด็กพร้อมป้าย "ผอ." และเหตุผล
+ */
+export type AssignMode = 'nudge' | 'assign' | 'escalate'
+
+export function AssignOwnerSheet({
+  c,
+  by,
+  team,
+  log,
+  push,
+  done,
+  start,
+  suggestOwner,
+  load,
+}: {
+  c: FollowCase
+  by: string
+  team: string[]
+  log: Log
+  push: (m: string) => void
+  done: () => void
+  start?: AssignMode
+  suggestOwner?: string
+  load?: TeamRow[]
+}) {
+  const late = c.refs.filter((r) => r.bucket === 'breach')
+  const modes: AssignMode[] = [...(c.s.caseOwner ? (['nudge'] as const) : []), 'assign', ...(late.length ? (['escalate'] as const) : [])]
+  const [mode, setMode] = useState<AssignMode>(start && modes.includes(start) ? start : modes[0])
+  const [owner, setOwner] = useState(suggestOwner && team.includes(suggestOwner) && suggestOwner !== c.s.caseOwner ? suggestOwner : '')
+  // AI เสนอให้ย้ายแล้ว — เติมเหตุผลตั้งต้นให้ ปุ่มกดได้ทันที (ผอ. แก้ได้)
+  const [why, setWhy] = useState(
+    start === 'assign' && suggestOwner && c.s.caseOwner ? `ลดภาระของ ${c.s.caseOwner} — ย้ายให้ครูที่ว่างกว่า` : start === 'assign' && !c.s.caseOwner ? 'เคสยังไม่มีผู้รับผิดชอบ ต้องมีคนดูแลวันนี้' : '',
+  )
+  const [refId, setRefId] = useState(late[0]?.id ?? '')
+  const [level, setLevel] = useState<2 | 3>(2)
+  const MODE_TH: Record<AssignMode, string> = { nudge: 'เตือนผู้รับผิดชอบ', assign: c.s.caseOwner ? 'เปลี่ยนผู้รับผิดชอบ' : 'มอบหมายครู', escalate: 'Escalate หน่วยงาน' }
+  const ready = why.trim().length >= 3 && (mode !== 'assign' || Boolean(owner)) && (mode !== 'escalate' || Boolean(refId))
+  const ref = late.find((r) => r.id === refId)
+
+  const save = () => {
+    const stamp = (note: string) => log.add({ childId: c.s.id, mode: 'note', date: isoIn(0), by, role: 'director', escalation: 'ผอ.', note })
+    if (mode === 'assign') {
+      log.setOwner(c.s.id, owner)
+      stamp(`ผอ. มอบหมาย ${owner} เป็นผู้รับผิดชอบ — ${why.trim()}`)
+      push(`มอบหมาย ${owner} แล้ว — เคสขึ้นในงานของ ${owner}`)
+    } else if (mode === 'nudge') {
+      stamp(`ผอ. เตือน ${c.s.caseOwner}: ${why.trim()}`)
+      push(`เตือน ${c.s.caseOwner} แล้ว`)
+    } else if (ref) {
+      // เหตุการณ์จริงบนการส่งต่อ — ไทม์ไลน์ข้ามหน่วยงานและนาฬิกา SLA เห็นตรงกัน
+      log.addRefEvent(ref.id, { type: 'escalated', ts: Date.now(), by, level, note: `ผอ. ยกระดับ${level === 2 ? 'ถึงหัวหน้าหน่วยงาน' : 'ถึงระดับจังหวัด'} — ${why.trim()}` })
+      stamp(`ผอ. Escalate ${ref.toName} (${level === 2 ? 'หัวหน้าหน่วยงาน' : 'ระดับจังหวัด'}) — ${why.trim()}`)
+      push(`Escalate ${ref.toName} แล้ว`)
+    }
+    done()
+  }
+
   return (
     <div>
-      <h3 className="text-[18px] font-bold text-ink">{has ? 'เคสค้างนาน — ผอ. ทำอะไรได้' : 'มอบหมายครูผู้รับผิดชอบ'}</h3>
-      {has && (
-        <div className="mt-3 grid grid-cols-2 gap-2">
-          <button type="button" aria-pressed={nudge} onClick={() => setNudge(true)} className="rounded-xl border px-3 py-3 text-[14.5px] font-semibold" style={pill(nudge)}>
-            เตือนผู้รับผิดชอบ
+      <h3 className="text-[18px] font-bold text-ink">ผอ. ขยับเคสนี้อย่างไร</h3>
+      <p className="mt-1 text-[14px] text-ink-muted">
+        {c.s.caseOwner ? `ผู้รับผิดชอบ ${c.s.caseOwner}` : 'ยังไม่มีผู้รับผิดชอบ'} · {c.sla.text} · ไม่มีการอัปเดต {c.updatedDaysAgo} วัน
+      </p>
+      <div className={`mt-3 grid gap-2 ${modes.length === 3 ? 'grid-cols-1 sm:grid-cols-3' : 'grid-cols-2'}`} role="radiogroup" aria-label="สิ่งที่ ผอ. ทำ">
+        {modes.map((m) => (
+          <button key={m} type="button" role="radio" aria-checked={mode === m} onClick={() => setMode(m)} className="rounded-xl border px-3 py-3 text-[14.5px] font-semibold" style={pill(mode === m)}>
+            {MODE_TH[m]}
           </button>
-          <button type="button" aria-pressed={!nudge} onClick={() => setNudge(false)} className="rounded-xl border px-3 py-3 text-[14.5px] font-semibold" style={pill(!nudge)}>
-            เปลี่ยนผู้รับผิดชอบ
-          </button>
-        </div>
-      )}
-      {!nudge && (
+        ))}
+      </div>
+
+      {mode === 'assign' && (
         <>
-          <Label>ครูผู้รับผิดชอบ</Label>
-          <select id="assign-owner" value={owner} onChange={(e) => setOwner(e.target.value)} className={inputCls}>
-            <option value="">เลือกครู</option>
-            {team.filter((n) => n !== c.s.caseOwner).map((n) => (
-              <option key={n} value={n}>{n}</option>
-            ))}
-          </select>
+          <p id="assign-owner-label" className="mb-1.5 mt-4 text-[14px] font-semibold text-ink">{c.s.caseOwner ? 'ย้ายให้ใคร' : 'ครูผู้รับผิดชอบ'}</p>
+          <OwnerPicker id="assign-owner-label" team={team} load={load} value={owner} onChange={setOwner} current={c.s.caseOwner} suggest={suggestOwner ?? lightestOf(load, c.s.caseOwner)} />
         </>
       )}
-      <Label>{nudge ? 'ข้อความถึงผู้รับผิดชอบ' : 'เหตุผล'}</Label>
-      <textarea id="assign-why" value={why} onChange={(e) => setWhy(e.target.value)} rows={2} className={textareaCls} placeholder={nudge ? 'เช่น ขอให้อัปเดตเคสภายในพรุ่งนี้ ติดอะไรแจ้ง ผอ. ได้' : 'เช่น เสี่ยงสูง ต้องมีผู้ดูแลภายในวันนี้'} />
+      {mode === 'escalate' && (
+        <>
+          <Label>การส่งต่อที่เกินกำหนด</Label>
+          <select id="assign-ref" value={refId} onChange={(e) => setRefId(e.target.value)} className={inputCls}>
+            {late.map((r) => (
+              <option key={r.id} value={r.id}>{r.toName} · {r.needTh} · {r.sla.text}</option>
+            ))}
+          </select>
+          <Label>ยกระดับถึง</Label>
+          <div className="grid grid-cols-2 gap-2">
+            {([2, 3] as const).map((l) => (
+              <button key={l} type="button" aria-pressed={level === l} onClick={() => setLevel(l)} className="rounded-xl border px-3 py-3 text-[14.5px] font-semibold" style={pill(level === l)}>
+                {l === 2 ? 'หัวหน้าหน่วยงาน' : 'ระดับจังหวัด'}
+              </button>
+            ))}
+          </div>
+        </>
+      )}
+
+      <Label>{mode === 'nudge' ? 'ข้อความถึงผู้รับผิดชอบ' : 'เหตุผล'}</Label>
+      <textarea
+        id="assign-why"
+        value={why}
+        onChange={(e) => setWhy(e.target.value)}
+        rows={2}
+        className={textareaCls}
+        placeholder={mode === 'nudge' ? 'เช่น ขอให้อัปเดตเคสภายในพรุ่งนี้ ติดอะไรแจ้ง ผอ. ได้' : mode === 'escalate' ? 'เช่น ส่งเรื่องไป 9 วันยังไม่มีผู้รับเคส เด็กขาดเรียนต่อเนื่อง' : 'เช่น เสี่ยงสูง ต้องมีผู้ดูแลภายในวันนี้'}
+      />
       <div className="mt-4">
-        <PrimaryBtn
-          disabled={why.trim().length < 3 || (!nudge && !owner)}
-          onClick={() => {
-            if (!nudge) log.setOwner(c.s.id, owner)
-            log.add({
-              childId: c.s.id,
-              mode: 'note',
-              date: isoIn(0),
-              by,
-              role: 'director',
-              escalation: 'ผอ.',
-              note: nudge ? `ผอ. เตือน ${c.s.caseOwner}: ${why.trim()}` : `ผอ. มอบหมาย ${owner} เป็นผู้รับผิดชอบ — ${why.trim()}`,
-            })
-            push(nudge ? `เตือน ${c.s.caseOwner} แล้ว` : `มอบหมาย ${owner} แล้ว`)
-            done()
-          }}
-        >
-          {nudge ? 'ส่งการเตือน' : 'มอบหมาย'}
+        <PrimaryBtn disabled={!ready} onClick={save}>
+          {mode === 'nudge' ? 'ส่งการเตือน' : mode === 'escalate' ? 'Escalate' : 'มอบหมาย'}
         </PrimaryBtn>
       </div>
     </div>
