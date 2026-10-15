@@ -1,0 +1,406 @@
+<title>คู่มือครูผู้ดูแลเคส</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bai+Jamjuree:wght@600;700&family=Noto+Sans+Thai+Looped:wght@400;500;600;700&display=swap">
+<style>
+/* Layout: แผ่นคู่มือคอลัมน์เดียว อ่านลงไปตามวงจรเคส — แถบลัดด้านบน · วงจร 7 ขั้น · รายละเอียดทีละขั้น · ตารางอ่านสถานะ */
+:root {
+  --bg: #f6f8fc;
+  --paper: #ffffff;
+  --ink: #0f1b2d;
+  --muted: #46566c;
+  --line: #e2e8f2;
+  --brand: #2f66f6;
+  --brand-soft: #eef4ff;
+  --navy: #0f2a6b;
+  --ok: #15803d;   --ok-soft: #e9f7ee;
+  --watch: #a16207; --watch-soft: #fdf6dc;
+  --high: #c2410c; --high-soft: #fff0e6;
+  --crit: #b91c1c; --crit-soft: #fdecec;
+  --display: "Bai Jamjuree", "Noto Sans Thai Looped", system-ui, sans-serif;
+  --body: "Noto Sans Thai Looped", "Leelawadee UI", "Tahoma", system-ui, sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0b1324; --paper: #121c31; --ink: #e8eef8; --muted: #a9b6ca; --line: #24324d;
+    --brand: #7aa2ff; --brand-soft: #1a2a4f; --navy: #c9d8ff;
+    --ok: #4ade80; --ok-soft: #12301f; --watch: #facc15; --watch-soft: #33290b;
+    --high: #fb923c; --high-soft: #3a1f0e; --crit: #f87171; --crit-soft: #3a1414;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0b1324; --paper: #121c31; --ink: #e8eef8; --muted: #a9b6ca; --line: #24324d;
+  --brand: #7aa2ff; --brand-soft: #1a2a4f; --navy: #c9d8ff;
+  --ok: #4ade80; --ok-soft: #12301f; --watch: #facc15; --watch-soft: #33290b;
+  --high: #fb923c; --high-soft: #3a1f0e; --crit: #f87171; --crit-soft: #3a1414;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+body {
+  background: var(--bg); color: var(--ink);
+  font-family: var(--body); font-size: 17px; line-height: 1.7; font-weight: 500;
+  padding-inline: 16px; padding-block: 0 64px;
+}
+.wrap { max-width: 860px; margin: 0 auto; display: grid; gap: 40px; }
+h1, h2, h3 { font-family: var(--display); line-height: 1.3; text-wrap: balance; margin: 0; color: var(--navy); }
+h1 { font-size: clamp(30px, 6vw, 42px); }
+h2 { font-size: clamp(23px, 4vw, 28px); }
+h3 { font-size: 19px; color: var(--ink); }
+p { margin: 0; }
+.muted { color: var(--muted); }
+.label { font-size: 13px; font-weight: 700; letter-spacing: .06em; color: var(--brand); }
+kbd, .btn {
+  display: inline-block; font-family: var(--body); font-size: 15px; font-weight: 700; line-height: 1.4;
+  padding: 1px 9px; border-radius: 8px; border: 1.5px solid var(--brand); color: var(--brand);
+  background: var(--brand-soft); white-space: nowrap;
+}
+.tab { display: inline-block; font-weight: 700; border-bottom: 2.5px solid var(--brand); padding: 0 2px; }
+
+/* ── หัวคู่มือ ── */
+header.hero { padding-top: 40px; display: grid; gap: 14px; }
+.hero p.lead { font-size: 19px; max-width: 62ch; }
+.login {
+  display: flex; flex-wrap: wrap; gap: 8px 24px; padding: 14px 18px; border-radius: 14px;
+  background: var(--paper); border: 1px solid var(--line); font-size: 15.5px;
+}
+.login b { font-weight: 700; }
+.login code { font-family: var(--body); font-weight: 700; color: var(--navy); user-select: all; }
+
+nav.jump { display: flex; flex-wrap: wrap; gap: 8px; }
+nav.jump a {
+  font-size: 15px; font-weight: 600; color: var(--ink); text-decoration: none;
+  padding: 7px 14px; border-radius: 999px; border: 1px solid var(--line); background: var(--paper);
+}
+nav.jump a:hover, nav.jump a:focus-visible { border-color: var(--brand); color: var(--brand); outline: none; }
+
+section { display: grid; gap: 18px; scroll-margin-top: 16px; }
+.intro { max-width: 64ch; }
+
+/* ── วงจรเคส ── */
+.cycle { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; counter-reset: step; }
+.cycle li {
+  position: relative; background: var(--paper); border: 1px solid var(--line); border-radius: 14px;
+  padding: 14px 14px 16px; display: grid; gap: 4px; align-content: start;
+}
+.cycle li::before {
+  counter-increment: step; content: counter(step);
+  font-family: var(--display); font-weight: 700; font-size: 15px; color: var(--paper); background: var(--brand);
+  width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center;
+}
+.cycle b { font-family: var(--display); font-size: 17px; line-height: 1.35; }
+.cycle span { font-size: 14.5px; color: var(--muted); line-height: 1.5; }
+.cycle li.end::before { background: var(--ok); }
+.loop {
+  display: flex; gap: 10px; align-items: center; padding: 12px 16px; border-radius: 12px;
+  background: var(--watch-soft); color: var(--ink); font-size: 15.5px;
+}
+.loop svg { flex: none; color: var(--watch); }
+
+/* ── วันละ 10 นาที ── */
+.day { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 12px; }
+.day div { background: var(--paper); border: 1px solid var(--line); border-radius: 14px; padding: 16px; display: grid; gap: 6px; align-content: start; }
+.day .min { font-family: var(--display); font-size: 15px; font-weight: 700; color: var(--brand); }
+
+/* ── เมนู ── */
+.menus { display: grid; gap: 0; background: var(--paper); border: 1px solid var(--line); border-radius: 14px; overflow: hidden; }
+.menus > div { display: grid; grid-template-columns: minmax(150px, 210px) 1fr; gap: 6px 18px; padding: 14px 18px; border-top: 1px solid var(--line); }
+.menus > div:first-child { border-top: 0; }
+.menus dt { font-weight: 700; }
+.menus dd { margin: 0; color: var(--muted); min-width: 0; }
+@media (max-width: 560px) { .menus > div { grid-template-columns: 1fr; } }
+
+/* ── ขั้นตอนละเอียด ── */
+.stage { background: var(--paper); border: 1px solid var(--line); border-radius: 16px; padding: 20px; display: grid; gap: 14px; }
+.stage-head { display: flex; gap: 14px; align-items: baseline; flex-wrap: wrap; }
+.stage-head .n { font-family: var(--display); font-weight: 700; font-size: 30px; color: var(--brand); line-height: 1; }
+.where { font-size: 15px; color: var(--muted); }
+.where b { color: var(--ink); }
+ol.steps { margin: 0; padding-left: 1.4em; display: grid; gap: 8px; }
+ol.steps li { padding-left: 4px; }
+.see { border-left: 3px solid var(--ok); background: var(--ok-soft); padding: 10px 14px; border-radius: 0 10px 10px 0; font-size: 15.5px; }
+.see b { color: var(--ok); }
+.tip { border-left: 3px solid var(--watch); background: var(--watch-soft); padding: 10px 14px; border-radius: 0 10px 10px 0; font-size: 15.5px; }
+.tip b { color: var(--watch); }
+.warn { border-left: 3px solid var(--crit); background: var(--crit-soft); padding: 10px 14px; border-radius: 0 10px 10px 0; font-size: 15.5px; }
+.warn b { color: var(--crit); }
+
+/* ── แถบขั้นการส่งต่อ ── */
+.track { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 6px; }
+.track li { text-align: center; font-size: 14.5px; font-weight: 600; padding: 10px 4px; border-radius: 10px; background: var(--brand-soft); color: var(--navy); }
+.track li small { display: block; font-weight: 500; color: var(--muted); font-size: 12.5px; }
+@media (max-width: 560px) { .track { grid-template-columns: 1fr; } .track li { text-align: left; padding: 8px 12px; } .track li small { display: inline; margin-left: 6px; } }
+
+.sla { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 10px; }
+.sla div { border-radius: 12px; padding: 12px 14px; display: grid; gap: 2px; }
+.sla .h { font-family: var(--display); font-weight: 700; font-size: 22px; font-variant-numeric: tabular-nums; }
+.sla div:nth-child(1) { background: var(--watch-soft); } .sla div:nth-child(1) .h { color: var(--watch); }
+.sla div:nth-child(2) { background: var(--high-soft); } .sla div:nth-child(2) .h { color: var(--high); }
+.sla div:nth-child(3) { background: var(--crit-soft); } .sla div:nth-child(3) .h { color: var(--crit); }
+
+/* ── ตารางอ่านสถานะ ── */
+.tbl { overflow-x: auto; background: var(--paper); border: 1px solid var(--line); border-radius: 14px; }
+table { border-collapse: collapse; width: 100%; font-size: 15.5px; }
+th, td { text-align: left; padding: 11px 16px; border-top: 1px solid var(--line); vertical-align: top; }
+thead th { border-top: 0; font-size: 13.5px; color: var(--muted); font-weight: 700; letter-spacing: .03em; }
+td.num { font-variant-numeric: tabular-nums; white-space: nowrap; font-weight: 700; }
+.chip { display: inline-block; padding: 1px 10px; border-radius: 999px; font-size: 14px; font-weight: 700; white-space: nowrap; }
+.c-ok { background: var(--ok-soft); color: var(--ok); }
+.c-watch { background: var(--watch-soft); color: var(--watch); }
+.c-high { background: var(--high-soft); color: var(--high); }
+.c-crit { background: var(--crit-soft); color: var(--crit); }
+.c-brand { background: var(--brand-soft); color: var(--brand); }
+
+.checks { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.checks li { display: flex; gap: 10px; }
+.checks li::before { content: "✓"; color: var(--ok); font-weight: 700; flex: none; }
+
+.faq { display: grid; gap: 10px; }
+details { background: var(--paper); border: 1px solid var(--line); border-radius: 12px; padding: 12px 16px; }
+summary { font-weight: 700; cursor: pointer; }
+summary:focus-visible { outline: 2px solid var(--brand); outline-offset: 4px; border-radius: 4px; }
+details p { margin-top: 8px; color: var(--muted); }
+
+footer { font-size: 14px; color: var(--muted); border-top: 1px solid var(--line); padding-top: 16px; }
+@media (prefers-reduced-motion: no-preference) { html { scroll-behavior: smooth; } }
+</style>
+
+<div class="wrap">
+
+<header class="hero">
+  <p class="label">SOUTHERN ZERO DROPOUT · บทบาทครู / ผู้จัดการรายกรณี</p>
+  <h1>คู่มือครูผู้ดูแลเคส</h1>
+  <p class="lead">ระบบนี้ช่วยครูดูแลเด็กที่เสี่ยงหลุดจากโรงเรียน ตั้งแต่เห็นสัญญาณจนเด็กกลับมาเรียนสม่ำเสมอ ครูเห็นเฉพาะเด็กที่ตัวเองรับผิดชอบ และระบบไม่ตัดสินใจแทนครู AI เสนอได้ แต่ครูเป็นคนเลือกเสมอ</p>
+  <div class="login">
+    <span><b>บัญชีทดลอง</b> <code>teacher@zerodropout.go.th</code></span>
+    <span><b>รหัสผ่าน</b> <code>demo</code></span>
+    <span class="muted">ครูแนะแนว นูรียะ · ร.ร.สายบุรี "แจ้งประชาคาร" · เด็ก 13 คน</span>
+  </div>
+  <nav class="jump" aria-label="ไปยังหัวข้อ">
+    <a href="#cycle">วงจรเคส</a>
+    <a href="#daily">วันละ 10 นาที</a>
+    <a href="#menus">เมนู</a>
+    <a href="#steps">ทีละขั้น</a>
+    <a href="#referral">การส่งต่อ</a>
+    <a href="#status">อ่านสถานะ</a>
+    <a href="#pdpa">ข้อมูลส่วนบุคคล</a>
+    <a href="#faq">คำถามที่พบบ่อย</a>
+  </nav>
+</header>
+
+<section id="cycle">
+  <h2>วงจรของเคสหนึ่งเคส</h2>
+  <p class="intro">เด็กแต่ละคนเดินตามลำดับนี้ ขั้นไหนทำแล้ว ระบบจะเลื่อน "สิ่งที่ต้องทำต่อ" ไปขั้นถัดไปให้เอง ครูไม่ต้องจำว่าเด็กคนไหนค้างอยู่ตรงไหน</p>
+  <ol class="cycle">
+    <li><b>เห็นสัญญาณ</b><span>ขาดเรียนติดกัน คะแนนเสี่ยงขึ้น หรือครูสังเกตเอง</span></li>
+    <li><b>ติดต่อผู้ปกครอง</b><span>โทร LINE หรือฝากผู้นำชุมชน แล้วบันทึกผล</span></li>
+    <li><b>เยี่ยมบ้าน</b><span>ดูสภาพจริง ขอลายเซ็นยินยอม</span></li>
+    <li><b>วางแผน</b><span>เลือกเป้าหมาย AI เสนอลำดับขั้น ครอบครัวเห็นชอบ</span></li>
+    <li><b>ส่งต่อ</b><span>เรื่องที่เกินมือโรงเรียน เช่น ทุน สุขภาพ เอกสาร</span></li>
+    <li><b>ติดตามผล</b><span>นัดวันกลับมาดู บันทึกสิ่งที่เปลี่ยน</span></li>
+    <li class="end"><b>ปิดเคส</b><span>เมื่อครบเกณฑ์ ครูตรวจแล้วกดปิดเอง</span></li>
+  </ol>
+  <div class="loop">
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 0 1 15.5-6.2L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-15.5 6.2L3 16"/><path d="M3 21v-5h5"/></svg>
+    <span>ปิดเคสแล้วความเสี่ยงกลับมา ระบบจะดึงเด็กกลับเข้าคิว กด <span class="btn">เปิดเคสอีกครั้ง</span> ได้โดยประวัติเดิมยังอยู่ครบ</span>
+  </div>
+</section>
+
+<section id="daily">
+  <h2>วันละ 10 นาที</h2>
+  <p class="intro">ครูที่มี 15 เคสไม่ต้องเปิดทุกหน้า ทำตามสามช่วงนี้พอ</p>
+  <div class="day">
+    <div>
+      <span class="min">นาทีที่ 1–2</span>
+      <h3>เปิด เคสของฉัน</h3>
+      <p>ผู้ช่วย AI บอกว่าวันนี้มีกี่คนที่ควรตาม และยกคนที่เร่งที่สุดขึ้นมาก่อน พร้อมเหตุผลสามบรรทัด</p>
+    </div>
+    <div>
+      <span class="min">นาทีที่ 3–8</span>
+      <h3>ทำทีละคน</h3>
+      <p>กดปุ่มที่ AI แนะนำ (เช่น <span class="btn">ตั้งนัดติดตาม 7 วัน</span>) หรือ <span class="btn">เปิดแฟ้มเด็ก</span> เพื่อบันทึกผล แล้วกด <span class="btn">คนถัดไป</span></p>
+    </div>
+    <div>
+      <span class="min">นาทีที่ 9–10</span>
+      <h3>ดูงานค้างกับหน่วยงาน</h3>
+      <p>เปิด <b>ส่งต่อข้ามหน่วยงาน</b> ดูรายการที่เกิน 24 ชั่วโมงยังไม่มีคนรับ โทรถามแล้วกดอัปเดต</p>
+    </div>
+  </div>
+</section>
+
+<section id="menus">
+  <h2>เมนูทั้งหกของครู</h2>
+  <dl class="menus">
+    <div><dt>เคสของฉัน</dt><dd>หน้าแรก ผู้ช่วย AI พาทำทีละคน มีภาพรวม (เลยกำหนด · เสี่ยงเพิ่มขึ้น · ติดต่อผู้ปกครอง · ยังไม่เยี่ยมบ้าน · ปิดเคสได้) และนัดหมายที่ต้องทำ</dd></div>
+    <div><dt>ข้อมูลเด็กรายบุคคล</dt><dd>แฟ้มของเด็กหนึ่งคน ที่ที่ครูใช้มากที่สุด แบ่งสี่แท็บ: <span class="tab">ดูแลช่วยเหลือ</span> <span class="tab">ไทม์ไลน์</span> <span class="tab">การมาเรียนและการเรียน</span> <span class="tab">ครอบครัวและทีม</span></dd></div>
+    <div><dt>การช่วยเหลือ</dt><dd>รายการติดตามทุกเคส กรองได้: วันนี้ · เกิน SLA · เสี่ยงสูง · ไม่มีการอัปเดต · รอผู้ปกครอง · รอหน่วยงาน · ใกล้ปิดเคส กด <span class="btn">ดูเคส</span> เพื่อเปิดลิ้นชักสรุป</dd></div>
+    <div><dt>เส้นทางโอกาสรายบุคคล</dt><dd>แผนช่วยเหลือของเด็กแต่ละคน ดูว่าแต่ละขั้นอยู่กับใคร ครบกำหนดเมื่อไร และทวงถามเจ้าภาพได้</dd></div>
+    <div><dt>ส่งต่อข้ามหน่วยงาน</dt><dd>เรื่องที่ส่งให้ พมจ. อบจ. สาธารณสุข อำเภอ ฯลฯ เรียงตามความเร่งด่วน มีนาฬิกา SLA ทุกรายการ</dd></div>
+    <div><dt>ตั้งค่า</dt><dd>ภาษา (ไทย · English · Melayu) การแจ้งเตือน และปุ่มล้างข้อมูลทดสอบ</dd></div>
+  </dl>
+</section>
+
+<section id="steps">
+  <h2>ทำงานทีละขั้น</h2>
+  <p class="intro">ทุกขั้นเริ่มจากแฟ้มเด็ก (เมนู <b>ข้อมูลเด็กรายบุคคล</b> → เลือกเด็ก หรือกด <span class="btn">เปิดแฟ้มเด็ก</span> จากหน้าแรก) หัวแฟ้มมีแถบ <b>สิ่งที่ต้องทำต่อ</b> บอกขั้นถัดไปเสมอ</p>
+
+  <article class="stage">
+    <div class="stage-head"><span class="n">1</span><h3>บันทึกสิ่งที่ครูพบ</h3></div>
+    <p class="where">ที่ <b>แฟ้มเด็ก → <span class="tab">ดูแลช่วยเหลือ</span> → สิ่งที่ครูพบ</b></p>
+    <ol class="steps">
+      <li>ระบบเสนอข้อมูลจากทะเบียน (เช่น "+ นักเรียนขาดเรียนต่อเนื่อง 8 วัน") กดเพื่อยืนยันว่าตรงกับที่ครูเห็น</li>
+      <li>กด <span class="btn">+ เพิ่มสิ่งที่พบ</span> เพื่อพิมพ์สิ่งที่ทะเบียนไม่รู้ เช่น "ไม่มีค่ารถมาโรงเรียน แม่ตกงาน" หรือกด 🎤 พูดแทนพิมพ์</li>
+    </ol>
+    <p class="see"><b>จะเห็น</b> แนวทางที่อาจช่วยได้เปลี่ยนตามสิ่งที่ครูพบทันที เช่น ขึ้น "หาทุนค่าเดินทาง" เป็นข้อแรก</p>
+    <p class="tip"><b>เคล็ดลับ</b> สิ่งที่ครูเห็นเองสำคัญกว่าข้อมูลในทะเบียน AI ใช้ข้อความนี้ทั้งในคำแนะนำ แผน และเหตุผลที่ส่งให้หน่วยงาน</p>
+  </article>
+
+  <article class="stage">
+    <div class="stage-head"><span class="n">2</span><h3>ติดต่อผู้ปกครอง</h3></div>
+    <p class="where">ปุ่ม <span class="btn">บันทึกการติดต่อ</span> ที่หัวแฟ้มเด็ก หรือในหน้า <b>การช่วยเหลือ</b></p>
+    <ol class="steps">
+      <li>เลือกช่องทางและผล เช่น <b>ติดต่อได้</b> หรือ <b>ติดต่อไม่ได้</b> แล้วกด <span class="btn">บันทึกผล</span></li>
+      <li>ระบบถามว่า "ทำอะไรต่อ" กด <span class="btn">นัดติดตามครั้งถัดไป</span> เลือกวิธี (เช่น <b>เยี่ยมบ้าน</b>) แล้ว <span class="btn">บันทึกนัด</span></li>
+    </ol>
+    <p class="see"><b>จะเห็น</b> กำหนดติดตามเริ่มนับใหม่จากวันนี้ นัดขึ้นใน "นัดหมาย / สิ่งที่จะทำต่อ" และถ้าโทรไม่ติด AI จะเสนอให้ลองช่องทางอื่น เช่น ผ่านผู้นำชุมชนหรือ อสม.</p>
+  </article>
+
+  <article class="stage">
+    <div class="stage-head"><span class="n">3</span><h3>เยี่ยมบ้านและขอความยินยอม</h3></div>
+    <p class="where">ที่ <b>แฟ้มเด็ก → <span class="tab">ครอบครัวและทีม</span> → <span class="btn">บันทึกการเยี่ยมบ้าน</span></b></p>
+    <ol class="steps">
+      <li>ถึงบ้านแล้วกด <span class="btn">กดเมื่อถึงบ้าน</span> ระบบบันทึกเวลาให้</li>
+      <li>เลือกผู้ร่วมพูดคุย ผู้ดูแลหลัก รายได้ครัวเรือน ที่อยู่อาศัย และอุปสรรคที่พบ</li>
+      <li>ให้ผู้ปกครองเซ็นในกรอบ พิมพ์ชื่อผู้ลงนาม แล้วกด <span class="btn">บันทึกลงไทม์ไลน์</span></li>
+    </ol>
+    <p class="see"><b>จะเห็น</b> ชิปเปลี่ยนเป็น "ได้รับความยินยอมแล้ว" นัดเยี่ยมบ้านที่ค้างปิดเอง และสถานะเคสเป็น "กำลังช่วยเหลือ"</p>
+    <p class="tip"><b>สำคัญ</b> ลายเซ็นนี้คือหลักฐานความยินยอมที่หน้าส่งต่อใช้ (วันที่และชื่อผู้ลงนามจริง อายุ 1 ปี) ถ้ายังไม่มีลายเซ็น ส่งต่อได้แค่เป็นร่าง</p>
+  </article>
+
+  <article class="stage">
+    <div class="stage-head"><span class="n">4</span><h3>สร้างแผนช่วยเหลือ</h3></div>
+    <p class="where">ที่ <b>แฟ้มเด็ก → แผนและการส่งต่อ → <span class="btn">สร้างแผน</span></b></p>
+    <ol class="steps">
+      <li>ตรวจข้อมูลด้านบน (สาเหตุหลัก ปัจจัยเสี่ยง สิ่งที่ครูพบ ผลเยี่ยมบ้าน) ไม่ต้องพิมพ์ซ้ำ</li>
+      <li>เลือกเป้าหมาย เช่น <b>กลับเข้าโรงเรียนในระบบ</b> (AI ติดป้าย "AI แนะนำ" ไว้หนึ่งทาง ครูเลือกทางอื่นได้)</li>
+      <li>กด <span class="btn">ถัดไป · ให้ AI แนะนำ</span> ดูลำดับขั้น เจ้าภาพ และกำหนด แก้ได้ด้วย <span class="btn">แก้แผน</span> แล้วกด <span class="btn">เริ่มดำเนินการ</span></li>
+      <li>เมื่อครอบครัวตกลง กด <span class="btn">บันทึกว่าครอบครัวเห็นชอบ</span></li>
+    </ol>
+    <p class="see"><b>จะเห็น</b> แผนในเมนู <b>เส้นทางโอกาสรายบุคคล</b> ขั้นถัดไปบอกว่าลูกบอลอยู่ที่ใคร ถ้าอยู่ที่หน่วยงาน กด <span class="btn">ทวงถามเจ้าภาพ</span> หรือ <span class="btn">หน่วยงานทำเสร็จแล้ว</span> ถ้าติดปัญหา กด <span class="btn">ติดอุปสรรค</span></p>
+  </article>
+
+  <article class="stage">
+    <div class="stage-head"><span class="n">5</span><h3>ส่งต่อหน่วยงาน</h3></div>
+    <p class="where">จากแนวทางที่ AI เสนอ กด <span class="btn">ใช้แนวทางนี้</span> หรือ <b>แผนและการส่งต่อ → <span class="btn">พิจารณาส่งต่อ</span></b> หรือเมนู <b>ส่งต่อข้ามหน่วยงาน → <span class="btn">ส่งต่อเคสใหม่</span></b></p>
+    <ol class="steps">
+      <li><b>ปัญหา</b> ด้านที่ต้องช่วยถูกเลือกไว้แล้วตามแนวทาง เหตุผลมีสิ่งที่ครูพบอยู่แล้ว แก้ได้</li>
+      <li><b>หน่วยงาน</b> AI แนะนำพร้อมเหตุผลและสถิติการรับเรื่อง กด <span class="btn">เลือกหน่วยงานนี้</span> หรือดูทางเลือกอื่น</li>
+      <li><b>ความพร้อม</b> และ <b>ความยินยอม</b> ระบบตรวจให้ ต้องขึ้น ✓ ก่อนส่ง</li>
+      <li><b>ข้อมูลที่ส่ง</b> ค่าเริ่มต้นส่งแค่ข้อมูลพื้นฐานกับเหตุผล ติ๊กเพิ่มเฉพาะที่หน่วยงานต้องใช้จริง</li>
+      <li><b>ยืนยัน</b> เลือกช่องทางที่ส่งจริง (โทรศัพท์ · หนังสือ · พบตัว · LINE) แล้วกด <span class="btn">บันทึกการส่งต่อ</span></li>
+    </ol>
+    <p class="warn"><b>รู้ไว้</b> ระบบยังไม่ส่งเรื่องถึงหน่วยงานให้อัตโนมัติ ครูส่งทางช่องทางปกติ แล้วกลับมากด <span class="btn">อัปเดตความคืบหน้า</span> เมื่อได้ข่าว ดูขั้นต่อไปใน <a href="#referral">การส่งต่อ</a></p>
+  </article>
+
+  <article class="stage">
+    <div class="stage-head"><span class="n">6</span><h3>ติดตามผล</h3></div>
+    <p class="where">หน้า <b>การช่วยเหลือ</b> หรือแฟ้มเด็ก</p>
+    <ol class="steps">
+      <li>เมื่อถึงวันนัด เด็กจะขึ้นในคิว "วันนี้" กดบันทึกผล หรือติ๊กนัดในไทม์ไลน์ว่าทำแล้ว</li>
+      <li>เคสที่เกิน SLA และติดต่อเด็กไม่ได้ กด <span class="btn">Escalate</span> เพื่อแจ้ง ผอ. (SLA ยังไม่หายจนกว่าจะติดต่อเด็กได้จริง)</li>
+      <li>ตั้งเป้าหมาย 30 วันได้ที่ <span class="btn">ใช้เป้าหมายนี้</span> ข้อที่วัดได้ระบบวัดให้เอง</li>
+    </ol>
+    <p class="tip"><b>เคล็ดลับ</b> <span class="tab">ไทม์ไลน์</span> รวมทุกอย่างของเด็กไว้ที่เดียว (โรงเรียน หน่วยงาน ระบบ) แก้ไขหรือลบบันทึกของตัวเองได้ และกรองตามแหล่งได้</p>
+  </article>
+
+  <article class="stage">
+    <div class="stage-head"><span class="n">7</span><h3>ปิดเคส</h3></div>
+    <p class="where">เมื่อเข้าเกณฑ์ หัวแฟ้มจะขึ้นสถานะ <span class="chip c-ok">พร้อมประเมินเพื่อปิดเคส</span> กด <span class="btn">ประเมินเพื่อปิดเคส</span></p>
+    <ul class="checks">
+      <li>ความเสี่ยงลดลงอย่างน้อย 8 คะแนนในช่วง 8 สัปดาห์</li>
+      <li>คะแนนเสี่ยงปัจจุบันต่ำกว่า 70</li>
+      <li>มาเรียนเฉลี่ย 4 สัปดาห์ล่าสุดตั้งแต่ 80% ขึ้นไป</li>
+      <li>ขาดเรียนติดกันไม่เกิน 2 วัน</li>
+      <li>ติดต่อผู้ปกครองได้ตามปกติ</li>
+      <li>ไม่มีการส่งต่อที่ค้างอยู่</li>
+    </ul>
+    <p>ติ๊ก "ได้คุยกับนักเรียนและครอบครัวแล้ว" แล้วกด <span class="btn">ปิดเคส</span> ระบบไม่ปิดเคสเองทุกกรณี</p>
+  </article>
+</section>
+
+<section id="referral">
+  <h2>การส่งต่อ: ห้าขั้นและนาฬิกา</h2>
+  <p class="intro">ทุกการส่งต่อเดินตามแถบนี้ ครูเลื่อนขั้นเองด้วย <span class="btn">อัปเดตความคืบหน้า</span> เลือกได้ว่าหน่วยงานรับเรื่องแล้ว · เริ่มดำเนินการแล้ว · ขอข้อมูลเพิ่ม · ได้ผลแล้ว · ไม่รับเรื่อง และข้ามขั้นได้ถ้าได้ข่าวทีเดียวว่าเสร็จแล้ว</p>
+  <ol class="track">
+    <li>ส่งเรื่อง<small>ครูบันทึก</small></li>
+    <li>รับเรื่อง<small>ใส่ชื่อเจ้าหน้าที่</small></li>
+    <li>ดำเนินการ<small>ข้ามได้</small></li>
+    <li>ได้ผล<small>เลือกผลที่ได้</small></li>
+    <li>ปิดเรื่อง<small>ครูประเมิน</small></li>
+  </ol>
+  <h3>ถ้าหน่วยงานยังไม่รับเรื่อง</h3>
+  <div class="sla">
+    <div><span class="h">24 ชม.</span><span>ระบบเตือนให้โทรถาม</span></div>
+    <div><span class="h">48 ชม.</span><span>เสนอ Escalate ถึงหัวหน้าหน่วยงาน</span></div>
+    <div><span class="h">72 ชม.</span><span>เสนอ Escalate ระดับสูงขึ้น</span></div>
+  </div>
+  <p class="tip"><b>ปิดให้ครบวง</b> เมื่อหน่วยงานแจ้งผล กด <span class="btn">ประเมินผล</span> แล้วเลือก <span class="btn">✓ ช่วยได้ — ปิดการส่งต่อ</span> ถ้ายังไม่ได้ผลจริง เลือกติดตามต่อ เคสจะปิดไม่ได้ถ้ายังมีการส่งต่อค้าง</p>
+</section>
+
+<section id="status">
+  <h2>อ่านสถานะให้เร็ว</h2>
+  <h3>ระดับความเสี่ยง (คะแนน 0–100 สูง = เสี่ยงมาก)</h3>
+  <div class="tbl">
+    <table>
+      <thead><tr><th>คะแนน</th><th>ระดับ</th><th>ครูควรทำ</th></tr></thead>
+      <tbody>
+        <tr><td class="num">0–39</td><td><span class="chip c-ok">ปกติ</span></td><td>ติดตามห่าง ๆ</td></tr>
+        <tr><td class="num">40–69</td><td><span class="chip c-watch">เฝ้าระวัง</span></td><td>ติดต่อผู้ปกครอง ตั้งนัดติดตาม</td></tr>
+        <tr><td class="num">70–84</td><td><span class="chip c-high">เสี่ยงสูง</span></td><td>เยี่ยมบ้าน วางแผน พิจารณาส่งต่อ</td></tr>
+        <tr><td class="num">85–100</td><td><span class="chip c-crit">วิกฤต</span></td><td>ลงมือภายในวันนี้ นัดติดตามภายใน 7 วัน</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="muted">คะแนนคิดจาก การมาเรียน 30% · ผลการเรียน 25% · พฤติกรรม 15% · ครอบครัว 15% · สุขภาวะ 10% · การติดต่อผู้ปกครอง 5%</p>
+
+  <h3>สถานะของเคส</h3>
+  <div class="tbl">
+    <table>
+      <thead><tr><th>สถานะ</th><th>หมายความว่า</th></tr></thead>
+      <tbody>
+        <tr><td><span class="chip c-watch">รอผู้ปกครอง</span></td><td>ยังติดต่อผู้ปกครองไม่ได้หรือยังไม่ตอบ</td></tr>
+        <tr><td><span class="chip c-brand">กำลังช่วยเหลือ</span></td><td>เยี่ยมบ้านหรือเริ่มลงมือแล้ว</td></tr>
+        <tr><td><span class="chip c-high">เกิน SLA</span></td><td>เลยกำหนดติดตาม ไม่มีการอัปเดต</td></tr>
+        <tr><td><span class="chip c-ok">พร้อมประเมินเพื่อปิดเคส</span></td><td>ข้อมูลผ่านเกณฑ์ปิดครบ รอครูตรวจ</td></tr>
+        <tr><td><span class="chip c-ok">ปิดเคสแล้ว</span></td><td>ติดตามห่าง ๆ AI ไม่เสนอแนวทางเพิ่มจนกว่าความเสี่ยงจะกลับมา</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section id="pdpa">
+  <h2>ข้อมูลส่วนบุคคล (PDPA)</h2>
+  <ul class="checks">
+    <li>ครูเห็นเฉพาะเด็กที่ตนรับผิดชอบ บัญชีระดับพื้นที่ไม่เห็นชื่อเด็กรายคน</li>
+    <li>ส่งข้อมูลให้หน่วยงานอื่นได้เมื่อมีความยินยอม และส่งเฉพาะหมวดที่จำเป็น</li>
+    <li>ก่อนส่ง กด "ดูสิ่งที่หน่วยงานเห็นจริง" เพื่อตรวจข้อความที่จะออกไป</li>
+    <li>ความยินยอมหมดอายุใน 1 ปี ระบบเตือนเมื่อเหลือไม่ถึง 30 วัน</li>
+    <li><span class="btn">สรุปเคส / ส่งออก</span> มีข้อความเตือน PDPA กำกับ ส่งต่อใน LINE เฉพาะคนที่เกี่ยวข้อง</li>
+  </ul>
+</section>
+
+<section id="faq">
+  <h2>คำถามที่พบบ่อย</h2>
+  <div class="faq">
+    <details><summary>บันทึกแล้วคะแนนเสี่ยงไม่เปลี่ยน</summary><p>คะแนนมาจากข้อมูลการมาเรียนและผลการเรียน จะขยับเมื่อข้อมูลรอบใหม่เข้ามา ไม่ใช่ทันทีที่ครูบันทึก</p></details>
+    <details><summary>ไม่อยากใช้คำแนะนำของ AI ข้อนี้</summary><p>กด "รายละเอียด" ที่แนวทางนั้น แล้วเลือก "ไม่ใช้คำแนะนำนี้" ระบบจะไม่เสนอซ้ำ และบันทึกเหตุผลลงไทม์ไลน์</p></details>
+    <details><summary>ใช้บนมือถือได้ไหม</summary><p>ได้ทุกหน้า แฟ้มเด็กบนมือถือมีแถบติดล่าง [บันทึกผล] [เพิ่ม Note] [ถาม AI] การพูดแทนพิมพ์ใช้ได้ใน Chrome หรือ Edge</p></details>
+    <details><summary>ค้นหาเด็กเร็ว ๆ</summary><p>ช่องค้นหาด้านบน (หรือกด Ctrl K) พิมพ์ชื่อหรือรหัสนักเรียน</p></details>
+    <details><summary>ข้อมูลที่บันทึกหายเมื่อเปลี่ยนเครื่อง</summary><p>ในเดโมนี้ข้อมูลเก็บในเบราว์เซอร์เครื่องที่ใช้ ระบบจริงจะเก็บที่เซิร์ฟเวอร์</p></details>
+    <details><summary>อยากเริ่มทดสอบใหม่</summary><p>ตั้งค่า → ข้อมูลทดสอบ → ล้างข้อมูลที่ฉันบันทึก → ยืนยัน (ข้อมูลตั้งต้นของนักเรียนไม่ถูกลบ)</p></details>
+  </div>
+</section>
+
+<footer>Southern Zero Dropout Platform · คู่มือบทบาทครู ฉบับเดโม ต.ค. 2569 · ข้อมูลในระบบเป็นข้อมูลจำลองเพื่อสาธิต</footer>
+</div>
