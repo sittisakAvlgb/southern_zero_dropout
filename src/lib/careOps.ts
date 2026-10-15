@@ -40,7 +40,12 @@ export function riskTrend(s: Student): Trend {
   const h = s.riskHistory
   const last4 = h.slice(-4)
   const labels = ['3 สัปดาห์ก่อน', '2 สัปดาห์ก่อน', 'สัปดาห์ก่อน', 'ปัจจุบัน'].slice(4 - last4.length)
-  const points = last4.map((p, i) => ({ label: labels[i], score: p.score }))
+  // จุดเริ่มของช่วง 8 สัปดาห์ด้วย — เหตุผลปิดเคสอ้าง "ลดลง N คะแนนใน 8 สัปดาห์" จากจุดนี้
+  // ถ้ากราฟมีแค่ 4 จุดล่าสุด ครูจะเห็นตัวเลขที่ไม่มีในกราฟ
+  const points = [
+    ...(h.length > 4 ? [{ label: 'ต้นช่วง 8 สัปดาห์', score: h[0].score }] : []),
+    ...last4.map((p, i) => ({ label: labels[i], score: p.score })),
+  ]
   const weekDelta = h.length >= 2 ? h[h.length - 1].score - h[h.length - 2].score : 0
   const diffs = last4.slice(1).map((p, i) => p.score - last4[i].score)
   const peak = Math.max(...h.map((p) => p.score))

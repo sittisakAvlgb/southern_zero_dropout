@@ -8,7 +8,7 @@ import { recommendSteps } from '@/lib/recommend'
 import { planStepsFrom, suggestAgencies, suggestPathway } from '@/lib/planOps'
 import { reasonFor } from '@/data/dropReasons'
 import { SCHOOL_OWNER_ID } from '@/data/plans'
-import type { useCaseLog } from '@/lib/caseLog'
+import { lastVisit, type useCaseLog } from '@/lib/caseLog'
 import { useI18n } from '@/i18n/LanguageContext'
 import { useToast } from '@/components/ui/Toast'
 import { useScrollLock } from '@/lib/useScrollLock'
@@ -69,16 +69,27 @@ export function CreatePlanView({
   const [picked, setPicked] = useState<string[]>(agencies.slice(0, 1).map((a) => a.agency.id))
   const [note, setNote] = useState('')
 
+  // สิ่งที่ครูเห็นเองมาก่อนระเบียน — ครูเพิ่งบันทึก "ไม่มีค่ารถ" และไปเยี่ยมบ้านมา
+  // ถ้าฟอร์มยังโชว์แต่ตัวเลขในทะเบียน ครูจะรู้สึกว่าที่บันทึกไปไม่มีใครอ่าน
+  const notes = useMemo(() => (log.observations[s.id] ?? []).filter((o) => !o.resolvedTs).map((o) => o.text), [log.observations, s.id])
+  const visit = useMemo(() => lastVisit(s.id, log), [s.id, log])
+  const vf = visit?.family
   const factors = [
-    s.absenceStreak >= 3 && `ขาดเรียนติดกัน ${s.absenceStreak} วัน`,
+    ...notes.map((n) => `ครูพบ: ${n}`),
+    s.absenceStreak >= 3 && !notes.some((n) => n.includes(`ขาดเรียนต่อเนื่อง ${s.absenceStreak}`)) && `ขาดเรียนติดกัน ${s.absenceStreak} วัน`,
     `มาเรียน ${Math.round(s.attendance[s.attendance.length - 1]?.rate ?? 0)}%`,
     s.parentContact !== 'ok' && 'ยังติดต่อผู้ปกครองไม่ได้',
-    `รายได้ครอบครัว ${s.master.parentSalary.toLocaleString('th-TH')} บาท/เดือน`,
+    vf?.incomeBand && vf.incomeBand !== 'unknown'
+      ? `รายได้ครัวเรือน ${t(`hv.inc.${vf.incomeBand}`)} (จากเยี่ยมบ้าน)`
+      : `รายได้ครอบครัว ${s.master.parentSalary.toLocaleString('th-TH')} บาท/เดือน`,
     s.master.timeDt >= 20 && `เดินทางมาโรงเรียน ${s.master.timeDt} นาที`,
-    s.master.parentRelationName && !['มารดา', 'บิดา'].includes(s.master.parentRelationName) && `ผู้ดูแลคือ${s.master.parentRelationName}`,
+    vf?.guardianRelation
+      ? `ผู้ดูแลคือ${t(`hv.rel.${vf.guardianRelation}`)} (จากเยี่ยมบ้าน)`
+      : s.master.parentRelationName && !['มารดา', 'บิดา'].includes(s.master.parentRelationName) && `ผู้ดูแลคือ${s.master.parentRelationName}`,
+    ...(vf?.findings ?? []).map((c) => `พบที่บ้าน: ${t(`cause.${c}`)}`),
   ].filter(Boolean) as string[]
 
-  const recs = useMemo(() => recommendSteps(s, true), [s])
+  const recs = useMemo(() => recommendSteps(s, true, { notes, visitFindings: vf?.findings }), [s, notes, vf])
   const steps = useMemo(() => planStepsFrom(s, recs), [s, recs])
 
   const create = () => {
@@ -179,7 +190,7 @@ export function CreatePlanView({
                     ))}
                   </div>
                 </div>
-                <p className="mt-3 text-[12.5px] text-ink-muted">ดึงจากระเบียนของเด็ก — ไม่ต้องกรอก ถ้าไม่ตรงให้แก้ที่ข้อมูลเด็ก</p>
+                <p className="mt-3 text-[12.5px] text-ink-muted">ดึงจากระเบียนของเด็ก สิ่งที่ครูพบ และการเยี่ยมบ้าน — ไม่ต้องกรอก ถ้าไม่ตรงให้แก้ที่ข้อมูลเด็ก</p>
               </section>
 
               {/* ── ① เป้าหมาย — การ์ดให้กดเลือก แทน dropdown ─────────────── */}

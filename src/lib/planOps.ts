@@ -287,7 +287,8 @@ export function timeline(
         ? `แจ้งอุปสรรค: ${OBSTACLES[e.obstacle].th}`
         : e.stage === 'resolved'
           ? 'ปิดเคส'
-          : e.result
+          : // ผลที่อยู่ในข้อความอยู่แล้วไม่ต้องต่อท้ายซ้ำ ("โทรผู้ปกครอง: ติดต่อไม่ได้ → ติดต่อไม่ได้")
+            e.result && !e.note.includes(e.result)
             ? `${e.note} → ${e.result}`
             : e.note
     out.push({
@@ -421,12 +422,14 @@ export interface FinalAssessment {
 export function finalAssessment(c: PlanCase): FinalAssessment | undefined {
   const s = c.student
   if (!s) return undefined
-  const att = Math.round(s.attendance[s.attendance.length - 1]?.rate ?? 0)
+  // เกณฑ์เดียวกับ closability(): เฉลี่ย 4 สัปดาห์ล่าสุด
+  const recent = s.attendance.slice(-4)
+  const att = Math.round(recent.length ? recent.reduce((a, p) => a + p.rate, 0) / recent.length : 0)
   const first = s.riskHistory[0]?.score ?? s.riskScore
   const burden = s.causeKeys.map(reasonFor).find((r) => r && (r.group === 'family' || r.group === 'health'))
   const ok = (v: boolean) => (v ? 'ok' : 'no') as 'ok' | 'no'
   const questions: FinalAssessment['questions'] = [
-    { th: 'นักเรียนกลับมาเรียนสม่ำเสมอหรือไม่', state: ok(att >= 80 && s.absenceStreak <= 2), detail: `มาเรียน ${att}% · ขาดติดกันล่าสุด ${s.absenceStreak} วัน` },
+    { th: 'นักเรียนกลับมาเรียนสม่ำเสมอหรือไม่', state: ok(att >= 80 && s.absenceStreak <= 2), detail: `มาเรียนเฉลี่ย 4 สัปดาห์ ${att}% · ขาดติดกันล่าสุด ${s.absenceStreak} วัน` },
     { th: 'ระดับความเสี่ยงลดลงหรือไม่', state: ok(first - s.riskScore >= 8 && s.riskScore < 70), detail: `จาก ${first} เป็น ${s.riskScore}` },
     { th: 'ผู้ปกครองรับทราบหรือไม่', state: ok(s.parentContact === 'ok'), detail: s.parentContact === 'ok' ? 'ติดต่อได้ตามปกติ' : 'ยังติดต่อไม่ได้ตามปกติ' },
     {
@@ -450,8 +453,10 @@ export function finalAssessment(c: PlanCase): FinalAssessment | undefined {
 /** เป้าหมายของแผนที่ AI เสนอ — ครูเปลี่ยนได้ แต่ไม่ต้องเริ่มจากหน้าว่าง */
 export function suggestPathway(s: Student): { pathway: OpportunityPlan['pathway']; whyTh: string } {
   const has = (k: string) => s.causeKeys.includes(k as never)
-  if (s.master.disabilityName || has('health'))
-    return { pathway: 'specialNeeds', whyTh: 'มีข้อจำกัดด้านสุขภาพหรือการเรียนรู้ที่ต้องประเมินเฉพาะทางก่อนกำหนดรูปแบบการเรียน' }
+  // การศึกษาพิเศษเฉพาะเด็กที่มีความพิการในทะเบียน — ปัญหาสุขภาพอย่างเดียว (เช่นเจ็บป่วยเรื้อรัง)
+  // แก้ด้วยการประสานสาธารณสุขในแผนกลับเข้าเรียน ไม่ใช่ย้ายเด็กไปสายการศึกษาพิเศษ
+  if (s.master.disabilityName)
+    return { pathway: 'specialNeeds', whyTh: `ทะเบียนระบุความพิการ (${s.master.disabilityName}) — ต้องประเมินเฉพาะทางก่อนกำหนดรูปแบบการเรียน` }
   if (has('dualSchooling'))
     return { pathway: 'islamicSchool', whyTh: 'เด็กเรียนควบสายศาสนาอยู่แล้ว การจัดเวลาให้ไม่ชนกันจะลดแรงกดดันที่ทำให้หลุด' }
   if (has('childLabour') && ['m3', 'm4', 'm5'].includes(s.gradeKey))
@@ -467,16 +472,23 @@ const DUE = [2, 4, 7, 10, 14, 21, 28, 35]
 
 /** แปลงคำแนะนำของ AI เป็นขั้นในแผนจริง พร้อมเจ้าภาพและกำหนด */
 export function planStepsFrom(s: Student, recs: { key: string; th: string; en: string }[]): PlanStep[] {
+  let prev = 0
   return recs.map((r, i) => {
     const kind = STEP_OWNER[r.key] ?? 'school'
     const agency = kind === 'school' ? undefined : AGENCIES.find((a) => a.provinceKey === s.provinceKey && a.kind === kind)
+    // ขั้นนัดติดตามบอกจำนวนวันไว้ในชื่อ ("ภายใน 14 วัน") — ชื่อกับกำหนดต้องเป็นตัวเลขเดียวกัน
+    // เดิมกำหนดมาจากลำดับขั้น ชื่อจึงบอก 14 วันแต่กำหนดขึ้น 7 วัน
+    const byOrder = DUE[i] ?? 35 + i * 7
+    const follow = r.key === 'followUp'
+    const due = follow ? Math.max(prev, s.riskLevel === 'critical' ? 7 : 14) : Math.max(prev, byOrder)
+    prev = due
     return {
       id: `${s.id}-S${i + 1}`,
-      titleTh: r.th,
-      titleEn: r.en,
+      titleTh: follow ? `นัดติดตามภายใน ${due} วัน` : r.th,
+      titleEn: follow ? `Set a follow-up within ${due} days` : r.en,
       ownerAgencyId: agency?.id ?? SCHOOL_OWNER_ID,
       ownerName: agency?.th ?? SCHOOL_OWNER_TH,
-      dueInDays: DUE[i] ?? 35 + i * 7,
+      dueInDays: due,
       status: i === 0 ? 'active' : 'pending',
     }
   })

@@ -13,6 +13,7 @@ import { RISK_COLOR } from '@/lib/risk'
 import { GRADE_LABEL } from '@/lib/schoolOps'
 import { buildTeacherOps, matchesTask, type TaskFilter } from '@/lib/teacherOps'
 import { applyLog, lastLoggedMap, applyPlans, openFollowUps, useCaseLog } from '@/lib/caseLog'
+import { useFollowCases } from '@/components/followup/useFollowCases'
 import { buildSystemPrompt, localAnswer, streamAnswer } from '@/lib/ai'
 import { AnimatedCounter } from '@/components/ui/AnimatedCounter'
 import { IconArrowRight, IconClose } from '@/components/icons'
@@ -95,22 +96,21 @@ export function TeacherWorkspace() {
   /** คิวของเลขา — เด็กที่ควรตามวันนี้ ตามลำดับของ ops.rows (เลยกำหนดขึ้นก่อน
    *  แล้วตามคะแนนเสี่ยง) เฉพาะคนที่มีอะไรต้องทำจริง เด็กที่สบายดีอยู่แล้วไม่
    *  ต้องมาอยู่ในคิว ไม่งั้น "วันนี้มี 13 คน" จะฟังดูหนักเกินจริง */
+  // "วันนี้ต้องตามใคร" มีนิยามเดียว — ของหน้าติดตามการช่วยเหลือ (followOps.today)
+  // เดิมหน้านี้คิดเกณฑ์เอง หน้าแรกจึงบอก 11 คน ขณะที่หน้าการช่วยเหลือบอก 9 เคส
+  const { built: follow } = useFollowCases()
+  const todayIds = useMemo(
+    () => new Set(('list' in follow ? follow.list : []).filter((c) => c.today).map((c) => c.s.id)),
+    [follow],
+  )
   const queue = useMemo(() => {
     const open = ops.rows.filter((r) => r.stage !== 'returned' && r.stage !== 'resolved')
-    const urgent = open.filter(
-      (r) =>
-        !r.closable &&
-        (r.overdue ||
-          r.riskDelta >= 5 ||
-          r.student.parentContact !== 'ok' ||
-          r.student.riskLevel === 'critical' ||
-          r.student.riskLevel === 'high'),
-    )
+    const urgent = open.filter((r) => todayIds.has(r.student.id))
     // เคสที่เข้าเกณฑ์ปิดได้ต่อท้ายคิว — ไม่งั้นเด็กที่ดีขึ้นแล้ว (เสี่ยงต่ำ
     // ติดต่อได้ ไม่เลยกำหนด) จะไม่เคยขึ้นมาในคิวเลย และขั้น "เห็นผล → ปิด
     // เคส" จะไม่มีวันเกิดบนหน้านี้ งานที่ค้างยังมาก่อนเสมอ
-    return [...urgent, ...open.filter((r) => r.closable)]
-  }, [ops.rows])
+    return [...urgent, ...open.filter((r) => r.closable && !todayIds.has(r.student.id))]
+  }, [ops.rows, todayIds])
 
   /** สิ่งที่ช่วยไปแล้วล่าสุด — บันทึกของครูมาก่อน ไม่มีค่อยใช้ timeline เดิม
    *  ครูต้องเห็นตรงนี้ ไม่งั้นจะไม่รู้ว่าทำไมคำแนะนำเปลี่ยน หรือเผลอโทรซ้ำ */
@@ -381,6 +381,7 @@ export function TeacherWorkspace() {
           กระจายอยู่ห้าที่จนครูบอกไม่ได้ว่า AI ช่วยตรงไหน ตอนนี้รวมเป็นที่เดียว */}
       <TeacherAssistant
         queue={queue}
+        todayIds={todayIds}
         name={(user?.ownerName ?? user?.name ?? '').replace(/^ครู(แนะแนว)?\s*/, '')}
         th={th}
         mayAct={mayAct}

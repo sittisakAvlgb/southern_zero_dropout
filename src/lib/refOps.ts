@@ -13,6 +13,7 @@ import { AGENCY_BY_ID } from '@/data/agencies'
 import { NEED_LABEL, NEED_SLA } from '@/data/referrals'
 import { reasonFor } from '@/data/dropReasons'
 import { hashSeed, makeRng, pick } from './format'
+import { GRADE_LABEL } from './schoolOps'
 import type {
   CaseLogEntry,
   ConsentRecord,
@@ -167,6 +168,25 @@ const isoAdd = (iso: string, days: number) => {
   const d = new Date(iso)
   d.setDate(d.getDate() + days)
   return d.toISOString().slice(0, 10)
+}
+
+/** ลายเซ็นตอนเยี่ยมบ้านคือหลักฐานความยินยอม — แปลงเป็นบันทึกเต็ม (วันที่และผู้ลงนามจริง)
+ *  ไม่งั้น consentOf จะสร้างบันทึกสมมติจากข้อมูลตั้งต้น ซึ่งลงวันที่ย้อนหลังและชื่อคนละคน */
+export function consentFromVisit(sig: { name: string; at: string }, relation: string): ConsentRecord {
+  const date = sig.at.slice(0, 10)
+  return {
+    status: 'granted',
+    method: 'ลงนามตอนเยี่ยมบ้าน',
+    date,
+    giver: sig.name,
+    relation,
+    scope: SCOPE_OPTIONS.map((o) => o.key),
+    agencies: 'any',
+    purpose: 'เพื่อการช่วยเหลือให้เด็กได้เรียนต่อ',
+    expires: isoAdd(date, 365),
+    evidence: 'ลายเซ็นในบันทึกการเยี่ยมบ้าน',
+    ts: Date.parse(sig.at),
+  }
 }
 
 /** ความยินยอมของเด็กคนหนึ่ง — บันทึกของครูก่อน ไม่มีค่อยใช้ข้อมูลตั้งต้น
@@ -639,7 +659,7 @@ export function sharePreview(s: Student | undefined, key: string, reason: string
   if (!s) return key === 'basic' ? 'ชื่อและรหัส' : '—'
   switch (key) {
     case 'basic':
-      return `${s.name} · ${s.id} · ${s.gradeKey.toUpperCase()}`
+      return `${s.name} · ${s.id} · ${GRADE_LABEL(s.gradeKey, true)}`
     case 'summary':
       return reason
     case 'history':

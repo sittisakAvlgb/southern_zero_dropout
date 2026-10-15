@@ -14,6 +14,7 @@ import type { CauseKey, InterventionEvent, RiskLevel, Student } from '@/types'
 import { useScopedData } from '@/auth/scope'
 import { useFollowCases } from '@/components/followup/useFollowCases'
 import { isScheduleOnly } from '@/lib/caseLog'
+import { consentFromVisit } from '@/lib/refOps'
 import { StudentNextStep, StudentTimeline } from '@/components/followup/StudentFollow'
 import { FollowCaseDetail, type Sheet } from '@/components/followup/FollowCaseDetail'
 import {
@@ -317,6 +318,11 @@ export default function Student360() {
       signature: form.signature,
       consent: form.consent,
     })
+    if (form.consent === 'granted' && form.signature)
+      log.saveConsent(
+        s.id,
+        consentFromVisit(form.signature, form.family?.guardianRelation ? t(`hv.rel.${form.family.guardianRelation}`) : 'ผู้ปกครอง'),
+      )
     setLogMode(null)
     // a visit fills in the family panel, so land there rather than on the log
     setTab(form.mode === 'visit' ? 'visit' : 'timeline')

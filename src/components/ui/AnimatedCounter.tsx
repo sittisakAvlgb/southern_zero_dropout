@@ -25,10 +25,14 @@ export function AnimatedCounter({
   const rafRef = useRef<number>(0)
 
   useEffect(() => {
-    startRef.current = null
+    // The clock starts at mount, not at the first painted frame: a tab that
+    // paints a few frames late must not restart the count from 0 and then stall
+    // mid-way (the number read 37 while the dial showed 48).
+    startRef.current = performance.now()
+    let settled = false
     const step = (ts: number) => {
-      if (startRef.current === null) startRef.current = ts
-      const p = Math.min((ts - startRef.current) / duration, 1)
+      if (settled) return
+      const p = Math.max(0, Math.min((ts - (startRef.current ?? ts)) / duration, 1))
       // easeOutExpo
       const eased = p === 1 ? 1 : 1 - Math.pow(2, -10 * p)
       setDisplay(value * eased)
@@ -37,9 +41,15 @@ export function AnimatedCounter({
     rafRef.current = requestAnimationFrame(step)
     // Safety net: a backgrounded or throttled tab never fires rAF, which would
     // leave every KPI reading 0. Snap to the real figure once the animation
-    // window has passed regardless of whether a frame was ever painted.
-    const settle = window.setTimeout(() => setDisplay(value), duration + 250)
+    // window has passed regardless of whether a frame was ever painted — and
+    // stop any frame that arrives later from overwriting it.
+    const settle = window.setTimeout(() => {
+      settled = true
+      cancelAnimationFrame(rafRef.current)
+      setDisplay(value)
+    }, duration + 250)
     return () => {
+      settled = true
       cancelAnimationFrame(rafRef.current)
       clearTimeout(settle)
     }

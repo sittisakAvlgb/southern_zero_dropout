@@ -20,7 +20,7 @@ import {
   type CareOption,
 } from '@/lib/careOps'
 import { closability } from '@/lib/recommend'
-import { isScheduleOnly, type CaseLogEntry, type Observation } from '@/lib/caseLog'
+import { entryTs, isScheduleOnly, type CaseLogEntry, type Observation } from '@/lib/caseLog'
 import { useToast } from '@/components/ui/Toast'
 import { Skeleton } from '@/components/ui/Skeleton'
 import { PageHeader, Breadcrumb } from '@/components/ui/PageHeader'
@@ -32,6 +32,7 @@ import { FollowCaseDetail, type Sheet } from '@/components/followup/FollowCaseDe
 import { StudentNextStep, StudentTimeline } from '@/components/followup/StudentFollow'
 import { Drawer, inputCls, isoIn, textareaCls } from '@/components/referrals/ui'
 import { byOf } from '@/components/referrals/useRefCases'
+import { consentFromVisit } from '@/lib/refOps'
 import { LogForm, type LogResult } from '@/pages/Student360'
 import { Attendance, CaseSummary, FamilyFromVisit, Grades, MicButton } from './DeskExtras'
 
@@ -128,6 +129,11 @@ export function TeacherStudentDesk() {
       signature: res.signature,
       consent: res.consent,
     })
+    if (res.consent === 'granted' && res.signature)
+      log.saveConsent(
+        fc.s.id,
+        consentFromVisit(res.signature, res.family?.guardianRelation ? t(`hv.rel.${res.family.guardianRelation}`) : 'ผู้ปกครอง'),
+      )
     // ไปเยี่ยมบ้านแล้ว — ปิดนัดเยี่ยมบ้านที่ค้างอยู่ ไม่งั้นขั้นถัดไปยังบอก "รอเยี่ยมบ้านตามนัด"
     if (res.mode === 'visit')
       for (const e of entries) if (e.followUpDate && !e.followUpDone && e.followUpMethod === 'เยี่ยมบ้าน') log.setFollowUpDone(e.id, true)
@@ -286,6 +292,7 @@ export function TeacherStudentDesk() {
                 key={x.k}
                 type="button"
                 role="tab"
+                aria-label={x.th}
                 aria-selected={tab === x.k}
                 onClick={() => setTab(x.k)}
                 className={`shrink-0 flex-1 whitespace-nowrap rounded-lg px-3 py-2.5 text-[14px] ${tab === x.k ? 'bg-white font-bold text-ink shadow-card' : 'font-medium text-ink-muted hover:text-ink'}`}
@@ -943,7 +950,24 @@ function Outcome({ fc, entries }: { fc: FollowCase; entries: CaseLogEntry[] }) {
   // การมาเรียนมีส่วนของตัวเองด้านล่าง ไม่ซ้ำที่นี่
   const rows = latestOutcome(fc, entries).filter((r) => !r.th.startsWith('มาเรียน'))
   // การลงมือครั้งล่าสุดจริง (เยี่ยมบ้านไม่มีช่อง result) — ไม่นับนัด/Escalate/สิ่งที่ครูพบ
-  const last = entries.find((e) => !isScheduleOnly(e) && e.choice !== 'observe')
+  const mine = entries.find((e) => !isScheduleOnly(e) && e.choice !== 'observe')
+  // ผลจากหน่วยงานที่ครูบันทึกทีหลังก็เป็น "ครั้งล่าสุด" ด้วย — เดิมดูแค่บันทึกของครู
+  // จึงยังขึ้น "ส่งต่อ อบจ." ทั้งที่ อบจ. ส่งผลกลับและครูปิดการส่งต่อไปแล้ว
+  const refLast = fc.refs
+    .filter((r) => r.outcome)
+    .map((r) => ({ r, ts: Math.max(...r.events.map((e) => e.ts)) }))
+    .sort((a, b) => b.ts - a.ts)[0]
+  const dayOf = (ts: number) => {
+    const d = new Date(ts)
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+  }
+  const last =
+    refLast && (!mine || refLast.ts > entryTs(mine))
+      ? {
+          date: dayOf(refLast.ts),
+          note: `${refLast.r.toName}: ${refLast.r.outcome!.th}${refLast.r.outcome!.reviewed ? ' · ครูประเมินและปิดการส่งต่อแล้ว' : ''}`,
+        }
+      : mine
   return (
     <section className="rounded-3xl border border-surface-border bg-white p-4 sm:p-5">
       <SectionTitle>ผลล่าสุด</SectionTitle>
@@ -1117,7 +1141,7 @@ function QuickNote({ onSave, inputRef }: { onSave: (t: string) => void; inputRef
   )
 }
 
-/** 9. แนวโน้มความเสี่ยง — ตัวเลขสี่สัปดาห์ + ข้อสังเกตหนึ่งประโยค ไม่ใช่กราฟ */
+/** 9. แนวโน้มความเสี่ยง — ต้นช่วง 8 สัปดาห์ + สี่สัปดาห์ล่าสุด + ข้อสังเกตหนึ่งประโยค ไม่ใช่กราฟ */
 function Trend({ fc }: { fc: FollowCase }) {
   const tr = riskTrend(fc.s)
   return (
@@ -1126,7 +1150,7 @@ function Trend({ fc }: { fc: FollowCase }) {
       <p className="mb-3 text-[15px] font-semibold text-ink">{tr.insight}</p>
       <ul className="space-y-1.5">
         {tr.points.map((p) => (
-          <li key={p.label} className="grid grid-cols-[110px_1fr_36px] items-center gap-3 text-[14px]">
+          <li key={p.label} className="grid grid-cols-[130px_1fr_36px] items-center gap-3 text-[14px]">
             <span className="text-ink-muted">{p.label}</span>
             <span className="h-2.5 overflow-hidden rounded-full bg-surface-muted">
               <span className={`block h-full rounded-full ${p.score >= 85 ? 'bg-red-600' : 'bg-slate-400'}`} style={{ width: `${p.score}%` }} />

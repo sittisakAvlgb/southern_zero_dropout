@@ -26,6 +26,7 @@ const MASCOT = assetUrl('ChatBot.png')
  */
 export function TeacherAssistant({
   queue,
+  todayIds,
   name,
   th,
   mayAct,
@@ -41,6 +42,8 @@ export function TeacherAssistant({
 }: {
   /** เด็กที่ต้องตามวันนี้ เรียงจากเร่งที่สุด */
   queue: CaseRow[]
+  /** เด็กที่หน้าการช่วยเหลือนับเป็น "วันนี้ต้องติดตาม" */
+  todayIds: Set<string>
   /** ชื่อครู ใช้ทักทาย */
   name: string
   th: boolean
@@ -69,6 +72,9 @@ export function TeacherAssistant({
   const [local, setLocal] = useState<{ q: string; lines: string[] } | null>(null)
 
   const pending = queue.filter((r) => !done.includes(r.student.id))
+  /** จำนวนที่ทักทาย = นิยามเดียวกับ "วันนี้ต้องติดตาม N เคส" ในหน้าการช่วยเหลือ
+   *  เคสที่แค่พร้อมปิดต่อท้ายคิวได้ แต่ไม่นับเป็นงานเร่งด่วน */
+  const urgentLeft = pending.filter((r) => todayIds.has(r.student.id)).length
   const row = pending[Math.min(i, Math.max(0, pending.length - 1))]
   const s = row?.student
   const first = s?.name.split(' ')[0] ?? ''
@@ -191,10 +197,14 @@ export function TeacherAssistant({
             {th ? 'ผู้ช่วย AI ของคุณ' : 'Your AI assistant'}
           </p>
           <p className="mt-0.5 text-[17px] font-semibold leading-snug text-ink">
-            {pending.length
+            {urgentLeft
               ? th
-                ? `สวัสดีครับครู${name} วันนี้มี ${pending.length} คนที่ควรตาม — เริ่มคนแรกกันเลยครับ`
-                : `Hello ${name}. ${pending.length} children need you today — let’s start with the first.`
+                ? `สวัสดีครับครู${name} วันนี้มี ${urgentLeft} คนที่ควรตาม — เริ่มคนแรกกันเลยครับ`
+                : `Hello ${name}. ${urgentLeft} children need you today — let’s start with the first.`
+              : pending.length
+                ? th
+                  ? `ครู${name} วันนี้ไม่มีเคสเร่งด่วน — มี ${pending.length} คนที่อาจพร้อมปิดเคสครับ`
+                  : `Nothing urgent today, ${name} — ${pending.length} case(s) may be ready to close.`
               : th
                 ? `ครู${name}ตามครบทุกคนแล้วครับ วันนี้ไม่มีเคสเร่งด่วนเหลือ`
                 : `You have reached everyone today, ${name}. Nothing urgent is left.`}

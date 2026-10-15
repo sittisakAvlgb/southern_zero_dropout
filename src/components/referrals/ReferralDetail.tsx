@@ -679,6 +679,7 @@ function UpdateSheet({
             key={k}
             type="button"
             onClick={() => setKey(k)}
+            aria-label={UPDATE_TH[k]}
             aria-pressed={key === k}
             className="flex w-full items-center gap-3 rounded-xl border px-3.5 py-3 text-left"
             style={{ borderColor: key === k ? '#2f66f6' : '#e2e8f0', background: key === k ? '#eef3ff' : '#fff' }}

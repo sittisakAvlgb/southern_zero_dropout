@@ -45,12 +45,26 @@ const NEEDS_AGENCY: CauseKey[] = [
   'family',
 ]
 
+/** สิ่งที่ครูเห็นเอง — สำคัญกว่าระเบียน เพราะระเบียนไม่รู้ว่าแม่เพิ่งตกงานเมื่อวาน */
+export interface TeacherContext {
+  /** สิ่งที่ครูพบที่ยังไม่คลี่คลาย */
+  notes?: string[]
+  /** สิ่งที่พบที่บ้าน (รหัสสาเหตุ) จากการเยี่ยมบ้านครั้งล่าสุด */
+  visitFindings?: CauseKey[]
+}
+
+const TRAVEL_NOTE = /ค่าเดินทาง|ค่ารถ|ไม่มีรถ/
+const MONEY_NOTE = /ตกงาน|ไม่มีเงิน|ยากจน|รายได้ไม่พอ|หนี้/
+
 /** เรียงตามลำดับที่ครูควรลงมือจริง ไม่ใช่ตามความรุนแรงของสาเหตุ:
  *  ตั้งหลักให้ติดต่อได้ก่อน → เห็นสภาพจริงที่บ้าน → แก้ตามสาเหตุ → นัดวันกลับมาดู */
-export function recommendSteps(s: Student, th: boolean): RecommendedStep[] {
+export function recommendSteps(s: Student, th: boolean, ctx: TeacherContext = {}): RecommendedStep[] {
   const out: RecommendedStep[] = []
-  const has = (k: CauseKey) => s.causeKeys.includes(k)
+  const found = ctx.visitFindings ?? []
+  const has = (k: CauseKey) => s.causeKeys.includes(k) || found.includes(k)
   const push = (step: RecommendedStep) => out.push(step)
+  const notes = ctx.notes ?? []
+  const noteFor = (re: RegExp) => notes.find((n) => re.test(n))
 
   // ① ถ้ายังติดต่อผู้ปกครองไม่ได้ ทุกอย่างหลังจากนี้ทำไม่ได้จริง
   if (s.parentContact === 'unreachable')
@@ -84,7 +98,8 @@ export function recommendSteps(s: Student, th: boolean): RecommendedStep[] {
     })
 
   // ③ แก้ตามสาเหตุ — เฉพาะสาเหตุที่เด็กคนนี้มีจริง
-  if (has('poverty') || has('childLabour')) {
+  const moneyNote = noteFor(MONEY_NOTE)
+  if (has('poverty') || has('childLabour') || moneyNote) {
     // อ้างรายได้จริงจากทะเบียน ไม่ใช่คำว่า "ยากจน" ลอย ๆ — ครูต้องใช้ตัวเลขนี้
     // กรอกแบบขอทุนอยู่แล้ว และผู้อนุมัติก็ดูตัวเลขนี้เหมือนกัน
     const salary = s.master.parentSalary.toLocaleString('th-TH')
@@ -92,7 +107,11 @@ export function recommendSteps(s: Student, th: boolean): RecommendedStep[] {
       key: 'welfare',
       th: 'ประเมินสถานะทางเศรษฐกิจของครอบครัว และยื่นขอทุน/เงินอุดหนุน',
       en: "Assess the family's finances and apply for a grant or allowance",
-      whyTh: has('childLabour')
+      whyTh: moneyNote
+        ? `ครูพบว่า: ${moneyNote}`
+        : found.includes('poverty') && !s.causeKeys.includes('poverty')
+          ? 'เยี่ยมบ้านแล้วพบว่าฐานะครอบครัวยากจน'
+          : has('childLabour')
         ? `รายได้ผู้ปกครอง ${salary} บาท/เดือน และระเบียนระบุว่าเด็กต้องทำงานหารายได้ (รหัส 303)`
         : `รายได้ผู้ปกครอง ${salary} บาท/เดือน · ${REASON_BY_ID.get(302)?.shortTh} (รหัส 302)`,
       whyEn: has('childLabour')
@@ -121,7 +140,8 @@ export function recommendSteps(s: Student, th: boolean): RecommendedStep[] {
   // ผู้ปกครองที่ไม่ใช่พ่อแม่ + ที่อยู่ปัจจุบันต่างจากทะเบียนบ้าน คือรูปร่างของ
   // รหัส 306 (ย้ายถิ่นตามผู้ปกครอง) ในข้อมูลจริง ครูที่เห็นสองฟิลด์นี้พร้อมกัน
   // จะรู้ทันทีว่าต้องคุยกับใคร ไม่ใช่โทรหาพ่อแม่ที่ไม่ได้อยู่ในพื้นที่
-  if (has('migration') || (s.master.movedFromRegisteredAddress && !PARENT.includes(s.master.parentRelationName)))
+  // เยี่ยมบ้านแล้วคือได้คุยกับผู้ดูแลจริงไปแล้ว — ไม่ต้องให้ไปคุยซ้ำ
+  if (!s.homeVisited && (has('migration') || (s.master.movedFromRegisteredAddress && !PARENT.includes(s.master.parentRelationName))))
     push({
       key: 'guardian',
       th: `คุยกับ${s.master.parentRelationName}ซึ่งเป็นผู้ดูแลจริง ไม่ใช่พ่อแม่ที่ย้ายถิ่น`,
@@ -148,21 +168,27 @@ export function recommendSteps(s: Student, th: boolean): RecommendedStep[] {
       whyEn: 'Without identity documents every education and welfare entitlement stalls',
     })
 
-  if (has('travel') || has('noDevice')) {
+  const travelNote = noteFor(TRAVEL_NOTE)
+  if (has('travel') || has('noDevice') || travelNote) {
     const m = s.master
+    const travel = has('travel') || Boolean(travelNote)
     // ระยะทางในทะเบียนแยกตามสภาพเส้นทาง — ทางลูกรังกับทางน้ำคือสาเหตุที่
     // เด็กมาไม่ได้ในหน้าฝน ซึ่งต่างจาก "บ้านไกล" เฉย ๆ และแก้คนละวิธี
     const rough = m.rockDt + m.waterDt
     push({
       key: 'access',
-      th: has('travel')
-        ? 'จัดการเรื่องการเดินทางมาโรงเรียน'
-        : 'จัดหาอุปกรณ์หรือจุดเรียนที่เด็กเข้าถึงได้',
-      en: has('travel') ? 'Sort out the journey to school' : 'Find a device or a place to study',
-      whyTh: has('travel')
+      th: travelNote
+        ? 'หาทุนค่าเดินทางมาโรงเรียน (อบต. / อบจ. / กองทุนโรงเรียน)'
+        : travel
+          ? 'จัดการเรื่องการเดินทางมาโรงเรียน'
+          : 'จัดหาอุปกรณ์หรือจุดเรียนที่เด็กเข้าถึงได้',
+      en: travelNote ? 'Find funding for the journey to school' : travel ? 'Sort out the journey to school' : 'Find a device or a place to study',
+      whyTh: travelNote
+        ? `ครูพบว่า: ${travelNote}`
+        : travel
         ? `เดินทาง ${m.timeDt} นาที · ${m.journeyTypeName}${rough > 0 ? ` · เส้นทางลูกรัง/ทางน้ำ ${rough.toLocaleString('th-TH')} ม.` : ''} (รหัส 503)`
         : 'ไม่มีอุปกรณ์สำหรับเรียน',
-      whyEn: has('travel')
+      whyEn: travel
         ? `${m.timeDt} minutes each way · ${m.journeyTypeName}${rough > 0 ? ` · ${rough} m of unpaved or water crossing` : ''}`
         : 'No device to study with',
     })
@@ -235,8 +261,9 @@ export function closability(s: Student): Closable {
   const first = s.riskHistory[0]?.score ?? s.riskScore
   const drop = first - s.riskScore
   if (drop >= 8) {
-    metTh.push(`ความเสี่ยงลดลง ${drop} คะแนนใน 8 สัปดาห์`)
-    metEn.push(`Risk down ${drop} points over 8 weeks`)
+    // บอกต้นและปลายด้วย — กราฟแนวโน้มต้องเห็นตัวเลขเดียวกันนี้ ครูจึงตรวจเองได้
+    metTh.push(`ความเสี่ยงลดลง ${drop} คะแนนใน 8 สัปดาห์ (${first} → ${s.riskScore})`)
+    metEn.push(`Risk down ${drop} points over 8 weeks (${first} → ${s.riskScore})`)
   } else {
     missingTh.push('ความเสี่ยงยังไม่ลดลงอย่างชัดเจน')
     missingEn.push('Risk has not clearly come down')
@@ -253,25 +280,29 @@ export function closability(s: Student): Closable {
     missingEn.push(`The score is still ${s.riskScore}, inside the high-risk band`)
   }
 
-  const att = s.attendance[s.attendance.length - 1]?.rate ?? 0
+  // "สม่ำเสมอ" = เฉลี่ย 4 สัปดาห์ล่าสุด ไม่ใช่สัปดาห์เดียว — สัปดาห์นี้ที่ป่วยไป 2 วัน
+  // ไม่ควรทำให้เคสที่ดีขึ้นแล้วปิดไม่ได้ และสัปดาห์เดียวที่ดีก็ไม่ควรพอให้ปิด
+  const recent = s.attendance.slice(-4)
+  const att = recent.length ? recent.reduce((a, p) => a + p.rate, 0) / recent.length : 0
   if (att >= 80) {
-    metTh.push(`กลับมาเรียนสม่ำเสมอ ${Math.round(att)}%`)
-    metEn.push(`Attendance back to ${Math.round(att)}%`)
+    metTh.push(`มาเรียนสม่ำเสมอ เฉลี่ย 4 สัปดาห์ล่าสุด ${Math.round(att)}%`)
+    metEn.push(`Attendance averaging ${Math.round(att)}% over the last 4 weeks`)
   } else {
-    missingTh.push(`การมาเรียนยังอยู่ที่ ${Math.round(att)}%`)
-    missingEn.push(`Attendance is still ${Math.round(att)}%`)
+    missingTh.push(`การมาเรียนเฉลี่ย 4 สัปดาห์ล่าสุดยังอยู่ที่ ${Math.round(att)}%`)
+    missingEn.push(`Attendance is still ${Math.round(att)}% over the last 4 weeks`)
   }
 
   // ขาด 1–2 วันคือเป็นหวัด ไม่ใช่สัญญาณหลุดระบบ ถ้าบังคับให้เป็นศูนย์เป๊ะ
   // เคสที่หายดีแล้วจริง ๆ จะติดอยู่ที่เงื่อนไขนี้ข้อเดียวแทบทั้งหมด
+  // ห้ามเขียนว่า "ไม่ต่อเนื่อง" — แถบสถานะเรียกตัวเลขเดียวกันว่า "ขาดเรียนต่อเนื่อง N วัน"
   if (s.absenceStreak <= 2) {
     metTh.push(
-      s.absenceStreak === 0 ? 'ไม่มีการขาดเรียนต่อเนื่อง' : `ขาดเรียนเพียง ${s.absenceStreak} วัน ไม่ต่อเนื่อง`,
+      s.absenceStreak === 0 ? 'ไม่มีการขาดเรียนต่อเนื่อง' : `ขาดเรียนล่าสุด ${s.absenceStreak} วัน — ยังไม่ถึงเกณฑ์เฝ้าระวัง (3 วันขึ้นไป)`,
     )
     metEn.push(
       s.absenceStreak === 0
         ? 'No current absence streak'
-        : `Only ${s.absenceStreak} days absent, not a streak`,
+        : `Absent ${s.absenceStreak} day(s) recently — below the 3-day watch threshold`,
     )
   } else {
     missingTh.push(`ยังขาดเรียนต่อเนื่อง ${s.absenceStreak} วัน`)

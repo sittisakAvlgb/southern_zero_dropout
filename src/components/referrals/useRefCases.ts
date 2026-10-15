@@ -28,8 +28,10 @@ export function useRefCases(
 ) {
   return useMemo(() => {
     const byId = new Map(roster.map((s) => [s.id, s]))
+    // ความยินยอมเป็นของเด็ก ไม่ใช่ของการส่งต่อแต่ละรายการ — ใช้สถานะของเด็กก่อน
+    // ไม่งั้นหน้าเด็กบอก "ยังไม่ได้ความยินยอม" แต่หน้าส่งต่อบอก "ยินยอมแล้ว"
     const consentFor = (childId: string, seeded?: Referral['consent']) =>
-      consentOf(childId, seeded ?? byId.get(childId)?.consent, byId.get(childId), log.consents[childId], now)
+      consentOf(childId, byId.get(childId)?.consent ?? seeded, byId.get(childId), log.consents[childId], now)
 
     const out: RefCase[] = []
     for (const r of referrals) {
