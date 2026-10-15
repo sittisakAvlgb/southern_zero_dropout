@@ -280,21 +280,22 @@ export function FollowCaseDetail({
         )}
       </Section>
 
-      {/* ── 7. Pipeline ──────────────────────── */}
-      <Section title="ตอนนี้เคสอยู่ขั้นไหน">
+      {/* ── 7. ขั้นของเคส: แถบเดียว + ขั้นตอนนี้/ถัดไป ทุกขั้นกดดูได้ ──────── */}
+      <Section title="ขั้นของเคส">
         <Pipeline stage={s.caseStage} />
       </Section>
 
-      {/* ── 8. ลิงก์ ─────────────────────────── */}
+      {/* ── 8. ไปหน้าอื่น: รายการเดียว (ประวัติทั้งหมดมีปุ่มอยู่ใต้ timeline แล้ว) ── */}
       <Section title="ดูเพิ่มเติม">
-        <div className="grid grid-cols-2 gap-2">
-          <LinkBtn onClick={() => nav(`/student?id=${s.id}`)}>ข้อมูลเด็กรายบุคคล</LinkBtn>
-          <LinkBtn onClick={() => nav(`/plan?child=${s.id}`)}>{c.hasPlan ? 'แผนโอกาส' : 'สร้างแผนโอกาส'}</LinkBtn>
-          <LinkBtn onClick={() => nav(c.refs[0] ? `/referral?ref=${c.refs[0].id}` : `/referral?child=${s.id}`)}>
-            {c.refs.length ? `การส่งต่อ (${c.refs.length})` : 'ส่งต่อหน่วยงาน'}
-          </LinkBtn>
-          <LinkBtn onClick={() => setAllTl(true)}>ประวัติทั้งหมด</LinkBtn>
-        </div>
+        <ul className="divide-y divide-surface-border overflow-hidden rounded-2xl border border-surface-border">
+          <LinkRow onClick={() => nav(`/student?id=${s.id}`)} th="ข้อมูลเด็กรายบุคคล" sub="ประวัติ การมาเรียน ครอบครัว" />
+          <LinkRow onClick={() => nav(`/plan?child=${s.id}`)} th={c.hasPlan ? 'แผนโอกาส' : 'สร้างแผนโอกาส'} sub={c.hasPlan ? 'ดูขั้นของแผนและความเห็นชอบ' : 'ยังไม่มีแผน'} />
+          <LinkRow
+            onClick={() => nav(c.refs[0] ? `/referral?ref=${c.refs[0].id}` : `/referral?child=${s.id}`)}
+            th={c.refs.length ? 'การส่งต่อ' : 'ส่งต่อหน่วยงาน'}
+            sub={c.refs.length ? `${c.refs.length} หน่วยงาน` : 'ยังไม่ได้ส่งต่อ'}
+          />
+        </ul>
       </Section>
     </Drawer>
   )
@@ -321,35 +322,64 @@ function BarBtn({ onClick, primary, children }: { onClick: () => void; primary?:
   )
 }
 
-function LinkBtn({ onClick, children }: { onClick: () => void; children: string }) {
+function LinkRow({ onClick, th, sub }: { onClick: () => void; th: string; sub: string }) {
   return (
-    <button type="button" onClick={onClick} className="rounded-xl border border-surface-border px-3 py-3 text-left text-[14px] font-medium text-brand-700">
-      → {children}
-    </button>
+    <li>
+      <button type="button" onClick={onClick} className="flex w-full items-center gap-3 px-4 py-3 text-left hover:bg-surface-muted/50">
+        <span className="min-w-0 flex-1">
+          <span className="block text-[14.5px] font-semibold text-ink">{th}</span>
+          <span className="block text-[13px] text-ink-muted">{sub}</span>
+        </span>
+        <span className="text-[20px] leading-none text-ink-faint" aria-hidden>
+          ›
+        </span>
+      </button>
+    </li>
   )
 }
 
+/**
+ * ขั้นของเคส 8 ขั้น — เดิมเป็นตาราง 8 ช่องที่อ่านยาก ตอนนี้เป็นแถบเดียว
+ * บอกขั้นตอนนี้กับขั้นถัดไปเป็นคำ ส่วนรายการเต็มกดเปิดดูเมื่ออยากรู้
+ */
 function Pipeline({ stage }: { stage: FollowCase['s']['caseStage'] }) {
   const { t } = useI18n()
+  const [open, setOpen] = useState(false)
   const at = PIPELINE.indexOf(stage)
+  const next = PIPELINE[at + 1]
   return (
-    <ol className="grid grid-cols-2 gap-x-3 gap-y-1.5 rounded-2xl border border-surface-border p-3 sm:grid-cols-4">
-      {PIPELINE.map((p, i) => (
-        <li key={p} className="flex items-center gap-2 text-[13.5px]">
-          <span
-            className="grid h-5 w-5 shrink-0 place-items-center rounded-full text-[11px] font-bold"
-            style={{ background: i < at ? '#16a34a' : i === at ? '#2f66f6' : '#e2e8f0', color: i <= at ? '#fff' : '#64748b' }}
-            aria-hidden
-          >
-            {i < at ? '✓' : i + 1}
-          </span>
-          <span className={i === at ? 'font-bold text-ink' : i < at ? 'text-ink' : 'text-ink-faint'}>
-            {t(`stage.${p}`)}
-            {i === at && ' ← ตอนนี้'}
-          </span>
-        </li>
-      ))}
-    </ol>
+    <div className="rounded-2xl border border-surface-border p-4">
+      <div className="flex gap-1" aria-hidden>
+        {PIPELINE.map((p, i) => (
+          <span key={p} className={`h-2 flex-1 rounded-full ${i < at ? 'bg-ink' : i === at ? 'bg-brand-500' : 'bg-surface-muted'}`} />
+        ))}
+      </div>
+      <p className="mt-3 text-[13px] text-ink-muted">
+        ขั้นที่ {at + 1} จาก {PIPELINE.length}
+      </p>
+      <p className="text-[16px] font-bold leading-snug text-ink">{t(`stage.${stage}`)}</p>
+      {next && <p className="mt-0.5 text-[14px] text-ink-muted">ถัดไป: {t(`stage.${next}`)}</p>}
+      <button type="button" onClick={() => setOpen((v) => !v)} aria-expanded={open} className="mt-2 text-[14px] font-semibold text-brand-700">
+        {open ? 'ซ่อนขั้นทั้งหมด' : 'ดูขั้นทั้งหมด'}
+      </button>
+      {open && (
+        <ol className="mt-2 space-y-1.5">
+          {PIPELINE.map((p, i) => (
+            <li key={p} className="flex items-center gap-2.5 text-[14px]">
+              <span
+                className="grid h-6 w-6 shrink-0 place-items-center rounded-full text-[12px] font-bold"
+                style={{ background: i < at ? '#0f172a' : i === at ? '#2f66f6' : '#e2e8f0', color: i <= at ? '#fff' : '#64748b' }}
+                aria-hidden
+              >
+                {i < at ? '✓' : i + 1}
+              </span>
+              <span className={i === at ? 'font-bold text-ink' : i < at ? 'text-ink' : 'text-ink-muted'}>{t(`stage.${p}`)}</span>
+              {i === at && <span className="rounded-full bg-brand-50 px-2 py-0.5 text-[12px] font-bold text-brand-700">ตอนนี้</span>}
+            </li>
+          ))}
+        </ol>
+      )}
+    </div>
   )
 }
 
