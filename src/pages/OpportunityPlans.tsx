@@ -1,12 +1,15 @@
 import { useEffect, useMemo, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import Chart from 'react-apexcharts'
 import type { OpportunityPlan, Pathway, PlanStepStatus } from '@/types'
 import { useI18n } from '@/i18n/LanguageContext'
+import { BackToDesk } from '@/components/director/DeskParts'
 import { useScopedData } from '@/auth/scope'
 import { canWorkCases } from '@/auth/roles'
 import { applyPlans, useCaseLog, logKeyOf } from '@/lib/caseLog'
 import { TeacherPlanWorkspace } from '@/components/plans/TeacherPlanWorkspace'
+import { DirectorPlanDesk } from '@/components/director/DirectorPlanDesk'
 import { DirectOnlyNotice } from '@/components/auth/DirectOnlyNotice'
 import { PageHeader, Breadcrumb } from '@/components/ui/PageHeader'
 import { Card, CardHeader } from '@/components/ui/Card'
@@ -59,7 +62,33 @@ type FocusKey = 'none' | 'blocked' | 'stale' | 'notAgreed'
  *  (ผอ. · เขต · สพฐ.) ยังใช้หน้าภาพรวมเดิมซึ่งเหมาะกับการดูทีละมาก ๆ */
 export default function OpportunityPlans() {
   const { user } = useScopedData()
-  return user?.role === 'teacher' ? <TeacherPlanWorkspace /> : <OversightPlans />
+  const [params, setParams] = useSearchParams()
+  if (user?.role === 'teacher') return <TeacherPlanWorkspace />
+  // ผอ. เปิดมาเจอแผนทีละเรื่องแบบหน้าครู — รายการแบบเต็มยังเปิดได้ด้วย ?view=full
+  if (user?.role === 'school' && params.get('view') !== 'full')
+    return (
+      <DirectorPlanDesk
+        onFullView={() => {
+          const next = new URLSearchParams(params)
+          next.set('view', 'full')
+          setParams(next)
+        }}
+      />
+    )
+  if (user?.role === 'school')
+    return (
+      <>
+        <BackToDesk
+          onBack={() => {
+            const next = new URLSearchParams(params)
+            next.delete('view')
+            setParams(next)
+          }}
+        />
+        <OversightPlans />
+      </>
+    )
+  return <OversightPlans />
 }
 
 function OversightPlans() {

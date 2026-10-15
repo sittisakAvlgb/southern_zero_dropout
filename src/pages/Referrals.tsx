@@ -1,12 +1,14 @@
 import { useEffect, useMemo, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import Chart from 'react-apexcharts'
 import type { ConsentStatus, Referral, ReferralStatus } from '@/types'
 import { useI18n } from '@/i18n/LanguageContext'
+import { BackToDesk } from '@/components/director/DeskParts'
 import { useScopedData } from '@/auth/scope'
 import { canAccess } from '@/auth/roles'
 import { TeacherReferralCenter } from '@/components/referrals/TeacherReferralCenter'
+import { DirectorReferralDesk } from '@/components/director/DirectorReferralDesk'
 import { PageHeader, Breadcrumb } from '@/components/ui/PageHeader'
 import { Card, CardHeader } from '@/components/ui/Card'
 import { Select } from '@/components/ui/Select'
@@ -76,7 +78,33 @@ function nextAction(r: Referral): 'accept' | 'start' | 'complete' | 'escalate' |
  *  บทบาทอื่นยังเห็นหน้ากำกับดูแลเดิม */
 export default function Referrals() {
   const { user } = useScopedData()
-  return user?.role === 'teacher' ? <TeacherReferralCenter /> : <OversightReferrals />
+  const [params, setParams] = useSearchParams()
+  if (user?.role === 'teacher') return <TeacherReferralCenter />
+  // ผอ. เปิดมาเจอการส่งต่อทีละเรื่องแบบหน้าครู — รายการแบบเต็มยังเปิดได้ด้วย ?view=full
+  if (user?.role === 'school' && params.get('view') !== 'full')
+    return (
+      <DirectorReferralDesk
+        onFullView={() => {
+          const next = new URLSearchParams(params)
+          next.set('view', 'full')
+          setParams(next)
+        }}
+      />
+    )
+  if (user?.role === 'school')
+    return (
+      <>
+        <BackToDesk
+          onBack={() => {
+            const next = new URLSearchParams(params)
+            next.delete('view')
+            setParams(next)
+          }}
+        />
+        <OversightReferrals />
+      </>
+    )
+  return <OversightReferrals />
 }
 
 function OversightReferrals() {

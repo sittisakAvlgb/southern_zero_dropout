@@ -16,6 +16,8 @@ import { canWorkCases } from '@/auth/roles'
 import { DirectOnlyNotice } from '@/components/auth/DirectOnlyNotice'
 import { canAccess } from '@/auth/roles'
 import { ScopeBanner } from '@/components/auth/ScopeBanner'
+import { DirectorSchoolDesk } from '@/components/director/DirectorSchoolDesk'
+import { BackToDesk } from '@/components/director/DeskParts'
 import { SCHOOLS } from '@/data/schools'
 import type { School } from '@/types'
 import {
@@ -51,7 +53,38 @@ function healthOf(s: School): Health {
 type RankKey = 'dataQualityScore' | 'interventionSuccessRate' | 'responseHours' | 'highRiskStudents'
 type Focus = 'none' | 'needs' | 'lowData' | 'lowSuccess'
 
+/** ผอ. (โรงเรียนเดียว) เปิดมาเจอหน้าที่ AI อ่านผลการดำเนินงานให้ — หน้าเดิม (ส่งออก CSV) เปิดได้ด้วย ?view=full */
 export default function SchoolPerformance() {
+  const { schools, user } = useScopedData()
+  const [params, setParams] = useSearchParams()
+  if (user?.role === 'school' && schools.length === 1 && params.get('view') !== 'full')
+    return (
+      <DirectorSchoolDesk
+        school={schools[0]}
+        onFullView={() => {
+          const next = new URLSearchParams(params)
+          next.set('view', 'full')
+          setParams(next)
+        }}
+      />
+    )
+  return (
+    <>
+      {user?.role === 'school' && (
+        <BackToDesk
+          onBack={() => {
+            const next = new URLSearchParams(params)
+            next.delete('view')
+            setParams(next)
+          }}
+        />
+      )}
+      <SchoolPerformanceFull />
+    </>
+  )
+}
+
+function SchoolPerformanceFull() {
   const { t, pn, dn, lang } = useI18n()
   const th = lang === 'th'
   const toast = useToast()

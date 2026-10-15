@@ -1,13 +1,13 @@
 import { NavLink } from 'react-router-dom'
 import { useI18n } from '@/i18n/LanguageContext'
 import { useAuth } from '@/auth/AuthContext'
-import { canAccess } from '@/auth/roles'
+import { inMenu } from '@/auth/roles'
 import { BOTTOM_NAV, navLabelKey } from './navItems'
 
 export function BottomNav() {
   const { t } = useI18n()
   const { user } = useAuth()
-  const items = BOTTOM_NAV.filter((n) => !user || canAccess(user, n.to))
+  const items = BOTTOM_NAV.filter((n) => !user || inMenu(user, n.to))
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-40 flex h-16 items-stretch border-t border-surface-border bg-white/95 backdrop-blur-md md:hidden">
       {items.map((item) => (

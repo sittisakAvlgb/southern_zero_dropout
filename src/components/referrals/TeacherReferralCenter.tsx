@@ -20,7 +20,7 @@ import { ReferralDetail } from './ReferralDetail'
 import { CreateReferral } from './CreateReferral'
 
 const MASCOT = assetUrl('ChatBot.png')
-const BUCKETS: Bucket[] = ['breach', 'near', 'returned', 'review', 'consent', 'awaiting', 'needInfo', 'inProgress', 'done']
+export const BUCKETS: Bucket[] = ['breach', 'near', 'returned', 'review', 'consent', 'awaiting', 'needInfo', 'inProgress', 'done']
 
 /**
  * ส่งต่อเคสข้ามหน่วยงาน สำหรับครู
@@ -354,7 +354,7 @@ export function TeacherReferralCenter() {
   )
 }
 
-function FilterChip({ on, onClick, label, n, color }: { on: boolean; onClick: () => void; label: string; n: number; color?: string }) {
+export function FilterChip({ on, onClick, label, n, color }: { on: boolean; onClick: () => void; label: string; n: number; color?: string }) {
   return (
     <button
       type="button"
@@ -371,7 +371,22 @@ function FilterChip({ on, onClick, label, n, color }: { on: boolean; onClick: ()
 }
 
 /** การ์ดต่อเด็กหนึ่งคน — การส่งต่อทุกหน่วยงานของเด็กคนนั้นอยู่ในการ์ดเดียว */
-function ChildCard({ refs, risk, level, onOpen }: { refs: RefCase[]; risk?: number; level?: keyof typeof RISK_COLOR; onOpen: (id: string) => void }) {
+/** การ์ดของเด็กหนึ่งคน — ผอ. ใช้การ์ดเดียวกัน โดยแทนบรรทัด "ถัดไป" ด้วยมุมของ ผอ. และบอกชื่อครูผู้รับผิดชอบ */
+export function ChildCard({
+  refs,
+  risk,
+  level,
+  onOpen,
+  nextOf,
+  owner,
+}: {
+  refs: RefCase[]
+  risk?: number
+  level?: keyof typeof RISK_COLOR
+  onOpen: (id: string) => void
+  nextOf?: (r: RefCase) => React.ReactNode
+  owner?: string
+}) {
   const head = refs[0]
   return (
     <li className="overflow-hidden rounded-2xl border border-surface-border bg-white">
@@ -382,6 +397,7 @@ function ChildCard({ refs, risk, level, onOpen }: { refs: RefCase[]; risk?: numb
           </span>
         )}
         <p className="min-w-0 flex-1 truncate text-[16px] font-bold text-ink">{head.childName}</p>
+        {owner && <span className="hidden shrink-0 text-[13px] font-semibold text-brand-700 sm:inline">{owner}</span>}
         {refs.length > 1 && <span className="shrink-0 text-[13px] font-medium text-ink-muted">{refs.length} หน่วยงาน</span>}
       </div>
       <ul>
@@ -395,7 +411,13 @@ function ChildCard({ refs, risk, level, onOpen }: { refs: RefCase[]; risk?: numb
                   <span className="text-[13.5px] text-ink-muted">→ {r.toName}</span>
                 </div>
                 <p className="mt-1 text-[14.5px] font-medium leading-snug text-ink">
-                  <span className="text-ink-muted">ถัดไป:</span> {r.next.th}
+                  {nextOf ? (
+                    nextOf(r)
+                  ) : (
+                    <>
+                      <span className="text-ink-muted">ถัดไป:</span> {r.next.th}
+                    </>
+                  )}
                 </p>
                 {r.sla.clock !== 'none' && (
                   <p className="mt-0.5 text-[13px]">

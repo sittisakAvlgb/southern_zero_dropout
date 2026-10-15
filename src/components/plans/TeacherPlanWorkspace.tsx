@@ -260,7 +260,20 @@ export function TeacherPlanWorkspace() {
   )
 }
 
-function CaseRow({ c, pathway, onOpen }: { c: PlanCase; pathway: string; onOpen: () => void }) {
+/** แถวของแผนหนึ่งแผน — ผอ. ใช้แถวเดียวกัน โดยแทนบรรทัด "ถัดไป" และบรรทัดรองด้วยมุมของ ผอ. */
+export function CaseRow({
+  c,
+  pathway,
+  onOpen,
+  next,
+  meta,
+}: {
+  c: PlanCase
+  pathway: string
+  onOpen: () => void
+  next?: React.ReactNode
+  meta?: React.ReactNode
+}) {
   const ms = milestones(c)
   const done = c.plan.steps.filter((s) => s.status === 'done').length
   const n = c.next
@@ -278,9 +291,13 @@ function CaseRow({ c, pathway, onOpen }: { c: PlanCase; pathway: string; onOpen:
             )}
           </div>
           <p className="mt-1 text-[14.5px] font-medium leading-snug text-ink">
-            <span className="text-ink-muted">ถัดไป:</span> {n.th}
+            {next ?? (
+              <>
+                <span className="text-ink-muted">ถัดไป:</span> {n.th}
+              </>
+            )}
           </p>
-          <p className="mt-0.5 text-[13px] text-ink-muted">
+          {meta ? <p className="mt-0.5 text-[13px] text-ink-muted">{meta}</p> : <p className="mt-0.5 text-[13px] text-ink-muted">
             <span className={n.ownerIsTeacher ? 'font-semibold text-brand-700' : ''}>{n.ownerTh}</span>
             {n.daysLeft !== undefined && (
               <span style={{ color: n.daysLeft < 0 ? RISK_COLOR.critical : n.daysLeft <= 3 ? RISK_COLOR.high : undefined }}>
@@ -291,7 +308,7 @@ function CaseRow({ c, pathway, onOpen }: { c: PlanCase; pathway: string; onOpen:
             {c.followUpIn !== undefined && (
               <span> · นัดติดตาม{c.followUpIn <= 0 ? 'ถึงกำหนดแล้ว' : `อีก ${c.followUpIn} วัน`}</span>
             )}
-          </p>
+          </p>}
         </div>
         <div className="hidden shrink-0 flex-col items-end justify-center gap-1.5 sm:flex">
           <div className="flex gap-1" aria-label="milestone">
@@ -315,7 +332,7 @@ function CaseRow({ c, pathway, onOpen }: { c: PlanCase; pathway: string; onOpen:
 }
 
 /** สถิติไว้ท้ายสุดและพับไว้ — ครูเข้ามาเพื่อช่วยนักเรียน ไม่ได้มาดูกราฟ */
-function StatsFold({ cases, t }: { cases: PlanCase[]; t: (k: string) => string }) {
+export function StatsFold({ cases, t }: { cases: PlanCase[]; t: (k: string) => string }) {
   const by = new Map<string, number>()
   for (const c of cases) by.set(c.plan.pathway, (by.get(c.plan.pathway) ?? 0) + 1)
   const rows = [...by.entries()].sort((a, b) => b[1] - a[1])

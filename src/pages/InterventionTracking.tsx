@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { Navigate, useSearchParams } from 'react-router-dom'
 import { useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { PageHeader } from '@/components/ui/PageHeader'
@@ -9,6 +9,7 @@ import { RiskBadge } from '@/components/ui/RiskBadge'
 import { AnimatedCounter } from '@/components/ui/AnimatedCounter'
 import { Select } from '@/components/ui/Select'
 import { useI18n } from '@/i18n/LanguageContext'
+import { BackToDesk } from '@/components/director/DeskParts'
 import { formatNumber } from '@/lib/format'
 import { STAGE_SEQUENCE, levelRank, pipelineCounts } from '@/data/cases'
 import { useToast } from '@/components/ui/Toast'
@@ -49,7 +50,19 @@ type Focus = 'none' | 'overdue' | 'urgent' | 'unassigned'
 /** ครูได้ศูนย์ติดตามงานของตัวเอง บทบาทอื่นยังเห็นหน้ากำกับดูแลเดิม */
 export default function InterventionTracking() {
   const { user } = useScopedData()
-  return user?.role === 'teacher' ? <TeacherFollowUpCenter /> : <OversightTracking />
+  const [params] = useSearchParams()
+  const nav = useNavigate()
+  if (user?.role === 'teacher') return <TeacherFollowUpCenter />
+  // ผอ.: "การช่วยเหลือ" รวมอยู่ใน "เรื่องที่ต้องตัดสินใจ" แล้ว — ลิงก์เก่าพาไปที่นั่น ตารางเต็มยังเปิดได้ด้วย ?view=full
+  if (user?.role === 'school' && params.get('view') !== 'full') return <Navigate to="/decisions" replace />
+  if (user?.role === 'school')
+    return (
+      <>
+        <BackToDesk onBack={() => nav('/decisions')} />
+        <OversightTracking />
+      </>
+    )
+  return <OversightTracking />
 }
 
 function OversightTracking() {

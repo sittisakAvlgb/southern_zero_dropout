@@ -1,11 +1,14 @@
-import { useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { NavLink, useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { useI18n } from '@/i18n/LanguageContext'
 import { useAuth } from '@/auth/AuthContext'
-import { canAccess, ROLE_META } from '@/auth/roles'
+import { canAccess, inMenu, ROLE_META } from '@/auth/roles'
 import { useScopedData } from '@/auth/scope'
 import { logKeyOf, useCaseLog, waitsOnDirector } from '@/lib/caseLog'
+import { directorInbox } from '@/lib/directorOps'
+import { directorQueue } from '@/lib/directorDeskOps'
+import { useFollowCases } from '@/components/followup/useFollowCases'
 import { roleIcon } from '@/components/auth/roleIcon'
 import { LogoutDialog } from '@/components/auth/LogoutDialog'
 import { navLabelKey, NAV_ITEMS } from './navItems'
@@ -13,6 +16,18 @@ import { IconChevronRight, IconLogout, IconShield } from '../icons'
 import { Logo } from '../ui/Logo'
 
 const SECTIONS = ['monitor', 'design', 'action', 'system'] as const
+
+/** ตัวเลขบนเมนู "เรื่องที่ต้องตัดสินใจ" ของ ผอ. — นับจากคิวเดียวกับในหน้า (คำขอจากครู + เรื่องที่ AI พบว่าค้าง)
+ *  แยกเป็นคอมโพเนนต์ที่ render เฉพาะ ผอ. เพื่อไม่ให้บทบาทอื่นต้องคำนวณเคสทั้งหมดทุกครั้งที่ sidebar render */
+function DirectorQueueProbe({ onCount }: { onCount: (n: number) => void }) {
+  const { log, built } = useFollowCases()
+  const n = useMemo(() => {
+    if (!('list' in built)) return 0
+    return directorQueue(directorInbox(built.list, Object.values(log.requests)), log.entries).waiting
+  }, [built, log.requests, log.entries])
+  useEffect(() => onCount(n), [n, onCount])
+  return null
+}
 
 export function Sidebar({
   collapsed,
@@ -29,7 +44,8 @@ export function Sidebar({
   const [confirmOut, setConfirmOut] = useState(false)
   const caseLog = useCaseLog(logKeyOf(user), user?.id)
 
-  const visible = NAV_ITEMS.filter((n) => !user || canAccess(user, n.to))
+  const visible = NAV_ITEMS.filter((n) => !user || inMenu(user, n.to))
+  const [queueN, setQueueN] = useState(0)
   const meta = ROLE_META[user?.role ?? 'exec']
 
   // attention badges from scoped data
@@ -39,7 +55,7 @@ export function Sidebar({
   if (urgent > 0) badges['/intervention'] = { n: urgent, color: '#dc2626' }
   if (highRisk > 0 && canAccess(user, '/student')) badges['/student'] = { n: highRisk, color: '#f97316' }
   // คำขอจากครูที่รอ ผอ. — ตัวเลขเดียวกับ "ต้องตัดสินใจวันนี้" ในหน้าเรื่องที่ต้องตัดสินใจ
-  const waiting = Object.values(caseLog.requests).filter(waitsOnDirector).length
+  const waiting = user?.role === 'school' ? queueN : Object.values(caseLog.requests).filter(waitsOnDirector).length
   if (waiting > 0 && canAccess(user, '/decisions')) badges['/decisions'] = { n: waiting, color: '#dc2626' }
 
   return (
@@ -48,6 +64,7 @@ export function Sidebar({
         collapsed ? 'w-[76px]' : 'w-[248px]'
       }`}
     >
+      {user?.role === 'school' && <DirectorQueueProbe onCount={setQueueN} />}
       {/* Floating collapse toggle */}
       <button
         onClick={onToggle}

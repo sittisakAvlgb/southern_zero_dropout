@@ -214,7 +214,7 @@ export function DirectorHome() {
               ภาพรวมโรงเรียนอยู่ในเกณฑ์ปกติ
               {open.filter((c) => c.attn !== 'normal').length > 0 && ` มี ${open.filter((c) => c.attn !== 'normal').length} เคสที่ควรติดตามแต่ยังไม่ต้องดำเนินการทันที`}
             </p>
-            <button type="button" onClick={() => nav('/intervention')} className={btnSecondary}>
+            <button type="button" onClick={() => nav('/decisions#team')} className={btnSecondary}>
               ดูเคสเฝ้าระวัง
             </button>
           </div>

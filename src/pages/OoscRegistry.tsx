@@ -1,8 +1,10 @@
 import { useEffect, useMemo, useState } from 'react'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import Chart from 'react-apexcharts'
 import type { ChildStatus, OoscRecord, OoscSource } from '@/types'
 import { useI18n } from '@/i18n/LanguageContext'
+import { BackToDesk } from '@/components/director/DeskParts'
 import { useScopedData } from '@/auth/scope'
 import { canWorkCases } from '@/auth/roles'
 import { DirectOnlyNotice } from '@/components/auth/DirectOnlyNotice'
@@ -15,6 +17,9 @@ import { AnimatedCounter } from '@/components/ui/AnimatedCounter'
 import { useToast } from '@/components/ui/Toast'
 import { formatNumber, formatPct } from '@/lib/format'
 import { DISTRICT_BY_KEY as DISTRICT_GEO } from '@/data/geo'
+import { logKeyOf, useCaseLog } from '@/lib/caseLog'
+import { viewOosc } from '@/lib/ooscOps'
+import { SchoolOoscDesk } from '@/components/oosc/SchoolOoscDesk'
 import {
   IconAlert,
   IconCheck,
@@ -55,11 +60,45 @@ type Focus = 'none' | 'needVisit' | 'unassigned' | 'consentPending' | 'noPlan'
 
 const PAGE_SIZE = 10
 
+/** ผอ. เปิดมาเจอการ์ดทีละคนแบบหน้าครู (SchoolOoscDesk) — ทะเบียนแบบเต็มยังเปิดได้ด้วย ?view=full
+ *  บทบาทอื่นใช้ทะเบียนแบบเต็มเหมือนเดิม */
 export default function OoscRegistry() {
+  const { user } = useScopedData()
+  const [params, setParams] = useSearchParams()
+  if (user?.role === 'school' && params.get('view') !== 'full')
+    return (
+      <SchoolOoscDesk
+        onFullView={() => {
+          const next = new URLSearchParams(params)
+          next.set('view', 'full')
+          setParams(next)
+        }}
+      />
+    )
+  if (user?.role === 'school')
+    return (
+      <>
+        <BackToDesk
+          onBack={() => {
+            const next = new URLSearchParams(params)
+            next.delete('view')
+            setParams(next)
+          }}
+        />
+        <OoscRegistryFull />
+      </>
+    )
+  return <OoscRegistryFull />
+}
+
+function OoscRegistryFull() {
   const { t, lang, pn, dn, tn } = useI18n()
   const th = lang === 'th'
   const { oosc, schools, user } = useScopedData()
   const { push } = useToast()
+  const nav = useNavigate()
+  // งานที่บันทึกไว้แล้ว (มอบหมาย · ลงพื้นที่) อยู่ในบันทึกของโรงเรียน — ตรงกับการ์ดของ ผอ. และไม่หายเมื่อรีโหลด
+  const log = useCaseLog(logKeyOf(user), user?.id)
 
   const [query, setQuery] = useState('')
   const [district, setDistrict] = useState('all')
@@ -87,16 +126,15 @@ export default function OoscRegistry() {
   const [visited, setVisited] = useState<Set<string>>(() => new Set())
   const [assigned, setAssigned] = useState<Record<string, string>>({})
 
-  const decorate = (r: OoscRecord): OoscRecord => ({
-    ...r,
-    verified: r.verified || visited.has(r.id),
-    ownerName: r.ownerName ?? assigned[r.id] ?? null,
-  })
+  const decorate = (r: OoscRecord): OoscRecord => {
+    const v = viewOosc(r, log)
+    return { ...r, verified: v.verified || visited.has(r.id), ownerName: v.owner ?? assigned[r.id] ?? null }
+  }
 
   const records = useMemo(
     () => oosc.map(decorate),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [oosc, visited, assigned],
+    [oosc, visited, assigned, log],
   )
 
   // Controls only exist when they can change something: a school director's
@@ -257,23 +295,20 @@ export default function OoscRegistry() {
   const mayAct = canWorkCases(user)
   const refuse = () => push(th ? 'บัญชีระดับกำกับดูแลดูข้อมูลได้ แต่ไม่ลงมือกับเคสรายบุคคล' : 'A supervising account can read this, but not act on an individual case')
 
+  // เดิมแจ้ง "สร้างแผนให้แล้ว" ทั้งที่ไม่ได้สร้างอะไร — มีแผนก็พาไปหน้าแผน ไม่มีก็บอกตรง ๆ ว่าใครต้องทำ
   const openPlan = (r: OoscRecord) =>
     !mayAct
       ? refuse()
-      : push(
-      r.planId
-        ? th
-          ? `เปิดแผนโอกาสของ ${r.name}`
-          : `Opening plan for ${r.name}`
-        : th
-          ? `สร้างแผนโอกาสให้ ${r.name} แล้ว`
-          : `Opportunity plan created for ${r.name}`,
-    )
+      : r.planId
+        ? nav('/plan')
+        : push(th ? `${r.name} ยังไม่มีแผน — ผู้รับผิดชอบเป็นคนทำแผนร่วมกับครอบครัว` : `${r.name} has no plan yet — the case owner makes it with the family`)
 
   const assign = (r: OoscRecord) => {
     if (!mayAct) return refuse()
     const owner = user?.name ?? (th ? 'ผู้ใช้งานปัจจุบัน' : 'Current user')
     setAssigned((a) => ({ ...a, [r.id]: owner }))
+    log.setOwner(r.id, owner)
+    log.add({ childId: r.id, mode: 'note', date: new Date().toISOString().slice(0, 10), by: owner, note: `รับเป็นผู้รับผิดชอบ ${r.name}`, ...(user?.role === 'school' ? { role: 'director' as const, escalation: 'ผอ.' } : {}) })
     push(th ? `มอบหมาย ${r.name} ให้ ${owner} แล้ว` : `${r.name} assigned to ${owner}`)
   }
 
@@ -282,6 +317,7 @@ export default function OoscRegistry() {
   const markVisited = (r: OoscRecord) => {
     if (!mayAct) return refuse()
     setVisited((v) => new Set(v).add(r.id))
+    log.add({ childId: r.id, mode: 'visit', date: new Date().toISOString().slice(0, 10), by: user?.name ?? 'ผู้ใช้งาน', homeVisited: true, result: 'พบตัว', note: `บันทึกว่าลงพื้นที่ยืนยันตัวตน ${r.name} แล้ว`, ...(user?.role === 'school' ? { role: 'director' as const } : {}) })
     push(th ? `บันทึกการลงพื้นที่ของ ${r.name} แล้ว` : `Field visit recorded for ${r.name}`)
   }
 
