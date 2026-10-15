@@ -42,7 +42,7 @@ export default {
       },
       fontFamily: {
         // Font is switched at runtime via the `lang-th` / `lang-en` body class
-        th: ['Kanit', 'sans-serif'],
+        th: ['IBM Plex Sans Thai Looped', 'sans-serif'],
         en: ['Ubuntu', 'sans-serif'],
       },
       boxShadow: {

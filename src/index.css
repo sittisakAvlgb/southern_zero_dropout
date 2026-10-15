@@ -16,17 +16,20 @@ body {
 }
 
 /* Runtime language → font switch */
-/* เนื้อความใช้ Sarabun (ตัวมีหัว คุ้นตาจากเอกสารราชการ) — ครูที่อายุมากอ่านข้อความยาว
-   ได้ง่ายกว่าตัวไม่มีหัวอย่าง Kanit ซึ่งเหลือไว้เฉพาะหัวข้อ (h1–h3)
-   วัดแล้วที่ขนาด px เท่ากัน Sarabun สูงกว่า Kanit เล็กน้อย (x-height 50 กับ 48 ที่ 100px)
-   ตัวหนังสือจึงไม่เล็กลง — กติกาของโปรเจกต์คือห้ามทำให้ตัวหนังสือเล็กลง */
+/* เนื้อความใช้ IBM Plex Sans Thai Looped — ตัวมีหัว (ครูที่อายุมากอ่านข้อความยาวได้ง่ายกว่า
+   ตัวไม่มีหัว และแยก ด/ต บ/ป ภ/ถ ได้ชัด) แต่เส้นตรงขอบคมกว่า Sarabun ออกแบบมาสำหรับจอ
+   หัวข้อ (h1–h3) ใช้ Bai Jamjuree ตัวไม่มีหัวทรงเรขาคณิต เข้าชุดกับ Plex
+   ห้ามทำให้ตัวหนังสือเล็กลง — กติกาของโปรเจกต์ */
 body.lang-th,
 body.lang-th input,
 body.lang-th button,
 body.lang-th textarea,
 body.lang-th select {
-  font-family: 'Sarabun', 'Kanit', sans-serif;
-  /* Sarabun 400 เส้นบางเกินไปบน Windows/Android ที่ 13–15px — ใช้ 500 เป็นค่าตั้งต้น
+  font-family: 'IBM Plex Sans Thai Looped', 'Sarabun', sans-serif;
+  /* Plex ตัวไทยเตี้ยกว่า Sarabun ราว 5% ที่ px เท่ากัน (ความสูง น 56 กับ 59 ที่ 100px)
+     ขยายชดเชยให้เท่าเดิม แทนการไล่แก้ขนาดทุกจุด — x-height ของ Plex 0.52 × 59/56 ≈ 0.548 */
+  font-size-adjust: 0.548;
+  /* น้ำหนัก 400 เส้นบางเกินไปบน Windows/Android ที่ 13–15px — ใช้ 500 เป็นค่าตั้งต้น
      ให้เส้นคมชัด ตัวหนา (600/700) ยังต่างจากเนื้อความชัดเจน */
   font-weight: 500;
   /* antialiased ทำให้เส้นบางลงอีกบน macOS — ปล่อยให้ระบบเลือกเอง */
@@ -40,7 +43,8 @@ body.lang-th select {
 body.lang-th h1,
 body.lang-th h2,
 body.lang-th h3 {
-  font-family: 'Kanit', sans-serif;
+  font-family: 'Bai Jamjuree', 'IBM Plex Sans Thai Looped', sans-serif;
+  font-size-adjust: none;
 }
 
 /* English and Malay (Rumi) share the Latin face */

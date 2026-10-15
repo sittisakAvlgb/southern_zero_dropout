@@ -488,7 +488,7 @@ function Summary({ fc }: { fc: FollowCase }) {
           <span className="hidden sm:block">
             <RiskGauge score={s.riskScore} size={120} />
           </span>
-          <p className="max-w-[120px] text-center text-[12.5px] font-medium leading-tight text-ink sm:max-w-[140px] sm:text-[13px]">{delta}</p>
+          <p className="max-w-[150px] text-balance text-center text-[12.5px] font-medium leading-tight text-ink sm:max-w-[170px] sm:text-[13px]">{delta}</p>
         </div>
       </div>
       <div className="mt-3 flex flex-wrap gap-1.5">

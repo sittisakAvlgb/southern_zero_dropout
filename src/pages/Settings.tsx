@@ -154,7 +154,7 @@ export default function Settings() {
               <div className="p-5">
                 <div className="grid grid-cols-3 gap-3">
                   {([
-                    { code: 'th' as const, label: 'ไทย', note: 'Thai · Kanit', font: 'Kanit, sans-serif' },
+                    { code: 'th' as const, label: 'ไทย', note: 'Thai · IBM Plex Sans Thai Looped', font: "'IBM Plex Sans Thai Looped', sans-serif" },
                     { code: 'en' as const, label: 'English', note: 'English · Ubuntu', font: 'Ubuntu, sans-serif' },
                     { code: 'ms' as const, label: 'Melayu', note: 'Bahasa Melayu (Rumi)', font: 'Ubuntu, sans-serif' },
                   ]).map((opt) => (
