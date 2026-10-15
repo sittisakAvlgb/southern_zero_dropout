@@ -100,36 +100,24 @@ export function ReferralDetail({
 
   return (
     <Drawer label={r.childName} head={head} onClose={onClose}>
-      {/* ── การ์ดสถานะ: ตอนนี้อยู่ขั้นไหน · เวลา · ต้องทำอะไรต่อ ─────────
-          รวมความคืบหน้าไว้ในการ์ดเดียว ไม่แยกตารางขั้นอีกส่วน (เดิมซ้ำกันสองที่) */}
-      <section className="overflow-hidden rounded-2xl border border-surface-border bg-white shadow-card">
-        <div className="flex flex-wrap items-center justify-between gap-2 px-4 pt-4">
-          <p className="text-[14px] font-semibold text-ink">{STAGE_TH[r.stage]}</p>
-          {r.sla.clock !== 'none' && (
-            <span className="rounded-full px-2.5 py-1 text-[13px] font-bold" style={{ background: `${slaTint}14`, color: slaTint }}>
-              <SlaText sla={r.sla} />
-            </span>
-          )}
-        </div>
-        {r.stage !== 'draft' && (
-          <div className="px-2 pb-1 pt-4 sm:px-4">
-            <Stepper r={r} />
+      {/* ── การ์ดสถานะ: สิ่งที่ต้องทำมาก่อน ความคืบหน้าเป็นบริบทอยู่ล่าง ─────────
+          ครูเปิดมาเพื่อทำงาน — หัวเรื่องคือการกระทำ ป้ายเวลาบอกความเร่ง ขั้นทั้งห้าเป็นแถบเงียบ ๆ ด้านล่าง */}
+      <section className={`overflow-hidden rounded-2xl border bg-white shadow-card ${r.sla.level === 'breach' ? 'border-red-200' : 'border-surface-border'}`}>
+        <div className="px-4 pb-4 pt-4">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <p className="text-[13.5px] font-semibold text-ink-muted">{r.next.actions.length > 0 || (r.stage === 'draft' && consentOk) ? 'ต้องทำต่อ' : 'สถานะ'}</p>
+            {r.sla.clock !== 'none' && (
+              <span className="rounded-full px-2.5 py-1 text-[13px] font-bold" style={{ background: `${slaTint}14`, color: slaTint }}>
+                <SlaText sla={r.sla} />
+              </span>
+            )}
           </div>
-        )}
-
-        <div className="mt-3 border-t border-surface-border bg-surface-muted/40 px-4 py-4">
-          <p className="text-[13px] font-semibold text-ink-muted">ขั้นถัดไป</p>
-          <p className="mt-0.5 text-[18px] font-bold leading-snug text-ink">{r.next.th}</p>
-          {r.next.whyTh && <p className="mt-1 text-[14px] leading-snug text-ink-muted">{r.next.whyTh}</p>}
-          {r.sla.rule && r.sla.clock !== 'none' && (
-            <p className="mt-1 text-[13px] text-ink-muted">
-              {r.sla.rule}
-              {r.escalated > 0 && ` · Escalate แล้วระดับ ${r.escalated}`}
-            </p>
-          )}
+          <p className="mt-1.5 text-[19px] font-bold leading-snug text-ink">{r.next.th}</p>
+          {r.next.whyTh && <p className="mt-1.5 text-[14.5px] leading-relaxed text-ink-muted">{r.next.whyTh}</p>}
+          {r.escalated > 0 && <p className="mt-1 text-[13.5px] font-semibold text-ink">Escalate แล้วระดับ {r.escalated}</p>}
 
           {mayAct && r.stage === 'draft' && consentOk && (
-            <div className="mt-3">
+            <div className="mt-4">
               <PrimaryBtn
                 onClick={() => {
                   ev({ type: 'sent', by: r.fromName })
@@ -141,7 +129,7 @@ export function ReferralDetail({
             </div>
           )}
           {mayAct && r.next.actions.length > 0 && !(r.stage === 'draft' && consentOk) && (
-            <div className="mt-3 flex flex-wrap gap-2">
+            <div className="mt-4 flex flex-wrap gap-2">
               {r.next.actions.map((a, i) => (
                 <button
                   key={a}
@@ -149,7 +137,7 @@ export function ReferralDetail({
                   onClick={() => act(a)}
                   className={
                     i === 0
-                      ? 'w-full rounded-xl bg-brand-500 px-4 py-3 text-[15px] font-semibold text-white shadow-card sm:w-auto'
+                      ? 'w-full rounded-xl bg-brand-500 px-5 py-3 text-[15px] font-semibold text-white shadow-card sm:w-auto'
                       : 'grow whitespace-nowrap rounded-xl border border-surface-border bg-white px-4 py-3 text-[14.5px] font-medium text-ink sm:grow-0'
                   }
                 >
@@ -161,7 +149,7 @@ export function ReferralDetail({
           {!mayAct && <p className="mt-2 text-[13px] text-ink-muted">บัญชีนี้ดูได้อย่างเดียว</p>}
 
           {r.outcome && (
-            <div className="mt-3 rounded-xl border border-surface-border bg-white px-3.5 py-2.5">
+            <div className="mt-4 rounded-xl bg-surface-muted/60 px-3.5 py-2.5">
               <p className="text-[13px] font-semibold text-ink-muted">ผลจากหน่วยงาน</p>
               <p className={`text-[15px] font-bold ${r.outcome.ok === 'no' ? 'text-red-700' : 'text-ink'}`}>
                 {r.outcome.ok === 'ok' ? '✓' : r.outcome.ok === 'warn' ? '⚠' : '✕'} {r.outcome.th}
@@ -170,6 +158,15 @@ export function ReferralDetail({
             </div>
           )}
         </div>
+
+        {r.stage !== 'draft' && (
+          <div className="border-t border-surface-border bg-surface-muted/50 px-2 pb-3 pt-3 sm:px-4">
+            <p className="mb-3 px-2 text-[13px] text-ink-muted sm:px-0">
+              ความคืบหน้า · <span className="font-semibold text-ink">{STAGE_TH[r.stage]}</span>
+            </p>
+            <Stepper r={r} />
+          </div>
+        )}
       </section>
 
       {/* ── รายละเอียด: แถวหัวข้อ–ค่า ในการ์ดเดียว แทนการ์ดคนละช่อง 4 ใบ ── */}
