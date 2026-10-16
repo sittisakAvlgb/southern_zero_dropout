@@ -7,6 +7,7 @@ import { recommendSteps, type StepAction } from '@/lib/recommend'
 import { Sparkline } from '@/components/ui/Sparkline'
 import { useToast } from '@/components/ui/Toast'
 import { TeacherAssistant } from './TeacherAssistant'
+import { TeacherOoscTasks, useTeacherOosc } from '@/components/oosc/TeacherOoscTasks'
 import { useI18n } from '@/i18n/LanguageContext'
 import { formatNumber } from '@/lib/format'
 import { RISK_COLOR } from '@/lib/risk'
@@ -49,6 +50,8 @@ export function TeacherWorkspace() {
   /** บัญชีระดับกำกับดูแล (สพฐ. ส่วนกลาง / ศอ.บต.) อ่านคำแนะนำได้ แต่ไม่ลงมือ
    *  แทนเจ้าของเคส — AI ต้องไม่กลายเป็นทางลัดข้ามด่านสิทธิ์ */
   const mayAct = canWorkCases(user)
+  /** เด็กนอกระบบที่ ผอ. มอบหมายให้ครูคนนี้ลงพื้นที่ — เฉพาะของตัวเอง ไม่ใช่ทะเบียน */
+  const fieldTasks = useTeacherOosc(user, log)
 
   /** The caseload as this account has left it. Reading the raw seeded rows here
    *  meant a parent reached on the child's page was still counted under "ต้อง
@@ -145,7 +148,9 @@ export function TeacherWorkspace() {
                 : mine.note
       return { text: what, daysAgo: ago(mine.date), by: mine.by }
     }
-    const seeded = roster.find((st) => st.id === childId)?.timeline
+    // timeline ตั้งต้นของเด็กเท่านั้น — roster ผ่าน applyLog แล้วมีบันทึกจากแอปปนอยู่
+    // (คำขอถึง ผอ. · การตัดสินใจของ ผอ.) ซึ่งตัดทิ้งไปแล้วข้างบน ถ้าใช้ roster มันจะกลับมาเป็น "ช่วยไปแล้ว"
+    const seeded = students.find((st) => st.id === childId)?.timeline
     const latest = seeded?.slice().sort((a, b) => b.date.localeCompare(a.date))[0]
     return latest ? { text: latest.note, daysAgo: ago(latest.date), by: latest.by } : undefined
   }
@@ -393,6 +398,8 @@ export function TeacherWorkspace() {
       <TeacherAssistant
         queue={queue}
         todayIds={todayIds}
+        fieldTasks={<TeacherOoscTasks user={user} log={log} mayAct={mayAct} />}
+        fieldCount={fieldTasks.length}
         fromDirector={(id) => {
           const c = 'list' in follow ? follow.list.find((x) => x.s.id === id) : undefined
           if (!c || (c.next.kind !== 'directive' && c.next.kind !== 'replyDirector')) return undefined

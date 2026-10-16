@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useState, type ReactNode } from 'react'
 import { motion } from 'framer-motion'
 import { RISK_COLOR } from '@/lib/risk'
 import { GRADE_LABEL } from '@/lib/schoolOps'
@@ -28,6 +28,8 @@ export function TeacherAssistant({
   queue,
   todayIds,
   fromDirector,
+  fieldTasks,
+  fieldCount = 0,
   name,
   th,
   mayAct,
@@ -47,6 +49,9 @@ export function TeacherAssistant({
   todayIds: Set<string>
   /** งานที่ ผอ. ส่งกลับมา หรือคำถามจาก ผอ. ที่รอครูตอบ */
   fromDirector?: (studentId: string) => { label: string; th: string; why: string } | undefined
+  /** งานลงพื้นที่เด็กนอกระบบที่ ผอ. มอบหมาย — ขึ้นก่อนเด็กในคิวเสมอ */
+  fieldTasks?: ReactNode
+  fieldCount?: number
   /** ชื่อครู ใช้ทักทาย */
   name: string
   th: boolean
@@ -200,7 +205,7 @@ export function TeacherAssistant({
             {th ? 'ผู้ช่วย AI ของคุณ' : 'Your AI assistant'}
           </p>
           <p className="mt-0.5 text-[17px] font-semibold leading-snug text-ink">
-            {urgentLeft
+            {fieldCount > 0 && th ? `ครู${name}มีงานลงพื้นที่จาก ผอ. ${fieldCount} เรื่อง (เด็กนอกระบบ)${urgentLeft ? ` และนักเรียนที่ควรตามอีก ${urgentLeft} คน` : ''} — เริ่มจากงานของ ผอ. ก่อนครับ` : urgentLeft
               ? th
                 ? `สวัสดีครับครู${name} วันนี้มี ${urgentLeft} คนที่ควรตาม — เริ่มคนแรกกันเลยครับ`
                 : `Hello ${name}. ${urgentLeft} children need you today — let’s start with the first.`
@@ -214,6 +219,8 @@ export function TeacherAssistant({
           </p>
         </div>
       </div>
+
+      {fieldTasks}
 
       {/* ── เด็กหนึ่งคน ──────────────────────────────────
           remount ด้วย key อย่างเดียว ไม่ใช้ AnimatePresence mode="wait" — แบบนั้น

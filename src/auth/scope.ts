@@ -192,6 +192,19 @@ export function scopedOosc(user: User | null): OoscRecord[] {
   return orSample(OOSC.filter((r) => inTerritory(user, r)), OOSC, 14)
 }
 
+/** เด็กนอกระบบที่ ผอ. มอบหมายให้ครูคนนี้ลงพื้นที่ — และเฉพาะคนนั้นเท่านั้น
+ *
+ *  ครูไม่มี `/oosc` จึงไม่เห็นทะเบียน (scopedOosc ไม่เคยถูกเรียกให้ครู) แต่ครูที่ถูก
+ *  มอบหมายต้องรู้ว่าจะไปหาใคร ที่ไหน ไม่งั้นงานที่ ผอ. สั่งไม่มีวันถึงมือ
+ *  หน้าที่นี้คือเหตุผลของการเข้าถึง (TOR ๔.๕.๕): ผู้รับผิดชอบปัจจุบันของเด็กต้องเป็นครูคนนี้
+ *  ในบันทึกของโรงเรียน — ถ้า ผอ. เปลี่ยนคน ชื่อเด็กหายจากหน้าครูคนเดิมทันที
+ *  ขอบเขตเดียวกับ ผอ. (โรงเรียนแจ้ง + อำเภอของโรงเรียน) และห้ามเติมตัวอย่าง */
+export function assignedOosc(user: User | null, owners: Record<string, string>): OoscRecord[] {
+  if (!user || user.role !== 'teacher' || !user.ownerName) return []
+  const me = user.ownerName
+  return OOSC.filter((r) => r.source === 'schoolReport' && inTerritory(user, r) && (owners[r.id] ?? r.ownerName) === me)
+}
+
 export function scopedSchools(user: User | null): School[] {
   if (!user) return SCHOOLS
   // a director or teacher gets *their* school, matched by id — not whichever
