@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
+import { EsaOoscDesk } from '@/components/area/EsaOoscDesk'
 import { motion } from 'framer-motion'
 import Chart from 'react-apexcharts'
 import type { ChildStatus, OoscRecord, OoscSource } from '@/types'
@@ -65,6 +66,8 @@ const PAGE_SIZE = 10
 export default function OoscRegistry() {
   const { user } = useScopedData()
   const [params, setParams] = useSearchParams()
+  // เขต: เด็กเดินมาถึงไหน · ติดที่ไหน · อำเภอไหนต้องช่วย — ไม่ใช่คิวลงพื้นที่รายคน (งานของโรงเรียน)
+  if (user?.role === 'esa') return <EsaOoscDesk />
   if (user?.role === 'school' && params.get('view') !== 'full')
     return (
       <SchoolOoscDesk

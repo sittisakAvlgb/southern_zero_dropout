@@ -1,4 +1,5 @@
 import { useMemo, useState, type ReactNode } from 'react'
+import { Select } from '@/components/ui/Select'
 import { useNavigate } from 'react-router-dom'
 import { useScopedData } from '@/auth/scope'
 import { canAccess } from '@/auth/roles'
@@ -561,8 +562,14 @@ export function AreaOpsCenter() {
           r={sheet.r}
           team={team}
           patterns={patterns}
+          school={views.find((v) => v.s.id === sheet.r.schoolId)}
           onClose={() => setSheet(null)}
           onDecide={(acts) => setSheet({ kind: 'decide', r: sheet.r, acts })}
+          onOpenSchool={() => {
+            const v = views.find((x) => x.s.id === sheet.r.schoolId)
+            if (v) setSheet({ kind: 'support', v })
+          }}
+          onMeasure={(p) => setSheet({ kind: 'measure', p })}
         />
       )}
       {sheet?.kind === 'decide' && (
@@ -635,84 +642,151 @@ export function AreaOpsCenter() {
 
 /**
  * คำขอจาก ผอ. — อ่านจากบนลงล่างตามลำดับที่เขตคิด:
- *   ขออะไร → โรงเรียนทำอะไรไปแล้ว / ติดตรงไหน → AI แนะนำอะไร (ปุ่มเดียว) → หรือทางอื่น
- * ไม่มีกรอบซ้อนกรอบ และ AI ไม่เล่าคำขอซ้ำ บอกเฉพาะสิ่งที่เพิ่มจากคำขอ (ใครรับ · งานในมือ)
+ *   ผอ. ขออะไร (ทำแล้ว / ติดที่) → โรงเรียนนี้เป็นอย่างไร → AI แนะนำอะไร และทำไม → ทางอื่น
+ * เดิม AI บอกแค่ชื่อ action กับผู้รับผิดชอบ ไม่บอกว่าทำไม และไม่เห็นภาพโรงเรียนที่ขอ
+ * ตอนนี้เหตุผลของ AI มาจากข้อมูลจริง: ภาระงานของคนที่แนะนำ · ปัญหานี้เกิดซ้ำกี่โรงเรียน · ผลที่คาดหวัง
  */
-export function RequestDrawer({ r, team, patterns, onClose, onDecide }: { r: AreaRequest; team: TeamRow[]; patterns: Pattern[]; onClose: () => void; onDecide: (acts: AreaAct[]) => void }) {
+export function RequestDrawer({
+  r,
+  team,
+  patterns,
+  school,
+  onClose,
+  onDecide,
+  onOpenSchool,
+  onMeasure,
+}: {
+  r: AreaRequest
+  team: TeamRow[]
+  patterns: Pattern[]
+  school?: SchoolView
+  onClose: () => void
+  onDecide: (acts: AreaAct[]) => void
+  onOpenSchool?: () => void
+  onMeasure?: (p: Pattern) => void
+}) {
   const b = requestBrief(r, team, patterns)
-  const rec = b.acts.map((a) => AREA_ACT_TH[a]).join(' + ')
-  const others: { acts: AreaAct[]; label: string }[] = [
-    { acts: ['meeting'], label: 'เรียกประชุม ผอ. ก่อน' },
-    { acts: ['advise'], label: 'ส่งคำแนะนำกลับโรงเรียน' },
+  const owner = team.find((t) => t.name === b.owner)
+  const pattern = b.pattern && b.pattern.schools.length >= 2 ? b.pattern : undefined
+  const why: { text: string; warn?: boolean }[] = [
+    ...(owner ? [{ text: `${owner.name} รับเรื่องนี้ได้ตรงงาน — งานในมือ ${owner.load}/${owner.capacity} (${owner.pct}%)${owner.pct >= 100 ? ' เต็มแล้ว อาจต้องเลื่อนงานอื่นหรือหาคนช่วย' : ''}`, warn: owner.pct >= 100 }] : []),
+    ...(pattern ? [{ text: `ปัญหา "${pattern.th}" พบใน ${pattern.schools.length} โรงเรียนของเขต — ช่วยที่นี่ก่อนได้ และอาจพิจารณาทำเป็นมาตรการระดับเขตด้วย` }] : []),
+    { text: `ผลที่คาดหวัง: ${b.expected}` },
   ]
+  const others: { acts: AreaAct[]; label: string; effect: string }[] = [
+    { acts: ['meeting'], label: 'เรียกประชุม ผอ. ก่อน', effect: 'คุยรายละเอียดกับโรงเรียนก่อนตัดสินใจ' },
+    { acts: ['advise'], label: 'ส่งคำแนะนำกลับโรงเรียน', effect: 'โรงเรียนยังทำต่อเองได้ เขตให้แนวทาง' },
+  ]
+
   return (
     <Drawer
       label={`คำขอจาก ${r.schoolName}`}
       head={
         <>
           <p className="truncate text-[19px] font-bold leading-tight text-ink">{r.schoolName}</p>
-          <p className="mt-0.5 text-[13.5px] text-ink-muted">
-            {r.by} · {b.waitedDays ? `ส่งมา ${b.waitedDays} วันก่อน` : 'ส่งมาวันนี้'}
+          <p className="mt-1 flex flex-wrap items-center gap-1.5 text-[13.5px] text-ink-muted">
+            {r.urgency === 'high' && <span className="rounded-full bg-red-50 px-2 py-0.5 text-[12.5px] font-bold text-red-700">เร่งด่วน</span>}
+            <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[12.5px] font-bold text-amber-800">{b.waitedDays ? `รอเขต ${b.waitedDays} วัน` : 'ส่งมาวันนี้'}</span>
+            <span>{r.by}</span>
           </p>
         </>
       }
       onClose={onClose}
     >
-      {/* 1 · ขออะไร */}
-      <div className="flex flex-wrap items-center gap-2">
-        <h3 className="text-[20px] font-bold leading-snug text-ink">
+      {/* 1 · ผอ. ขออะไร */}
+      <section className="rounded-2xl border border-surface-border p-4">
+        <p className="text-[13px] font-semibold text-ink-muted">ผอ. ขอให้เขต</p>
+        <h3 className="mt-0.5 text-[19px] font-bold leading-snug text-ink">
           {AREA_NEED_TH[r.need]}
           {r.childName ? ` · ${r.childName}` : ''}
         </h3>
-        {r.urgency === 'high' && <span className="rounded-full bg-red-50 px-2.5 py-0.5 text-[13px] font-bold text-red-700">เร่งด่วน</span>}
-      </div>
-      <p className="mt-1.5 whitespace-pre-line text-[15.5px] leading-relaxed text-ink">{r.ask}</p>
-
-      {/* 2 · ทำแล้ว / ติดที่ */}
-      <dl className="mt-5 space-y-3 border-t border-surface-border pt-4 text-[15px] leading-snug">
-        {r.tried.length > 0 && (
+        <p className="mt-1.5 whitespace-pre-line text-[15.5px] leading-relaxed text-ink">{r.ask}</p>
+        <dl className="mt-3 space-y-2.5 border-t border-surface-border pt-3 text-[15px] leading-snug">
+          {r.tried.length > 0 && (
+            <div className="flex gap-3">
+              <dt className="flex w-[68px] shrink-0 items-start gap-1.5 font-semibold text-green-800">
+                <span aria-hidden>✓</span>ทำแล้ว
+              </dt>
+              <dd className="min-w-0 space-y-1 text-ink">
+                {r.tried.map((x) => (
+                  <p key={x}>{x}</p>
+                ))}
+              </dd>
+            </div>
+          )}
           <div className="flex gap-3">
-            <dt className="w-16 shrink-0 font-semibold text-green-800">ทำแล้ว</dt>
-            <dd className="min-w-0 space-y-1 text-ink">
-              {r.tried.map((x) => (
-                <p key={x}>{x}</p>
-              ))}
-            </dd>
+            <dt className="flex w-[68px] shrink-0 items-start gap-1.5 font-semibold text-red-700">
+              <span aria-hidden>!</span>ติดที่
+            </dt>
+            <dd className="min-w-0 text-ink">{r.blocked}</dd>
           </div>
-        )}
-        <div className="flex gap-3">
-          <dt className="w-16 shrink-0 font-semibold text-red-700">ติดที่</dt>
-          <dd className="min-w-0 text-ink">{r.blocked}</dd>
-        </div>
-      </dl>
+        </dl>
+      </section>
 
-      {/* 3 · AI แนะนำ — ทางเดียว ปุ่มเดียว */}
-      <section className="mt-6 rounded-2xl bg-brand-50/70 p-4">
+      {/* 2 · โรงเรียนนี้เป็นอย่างไร */}
+      {school && (
+        <section className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1.5 rounded-2xl bg-surface-muted/60 px-4 py-3 text-[14px] text-ink-muted">
+          <span className={`rounded-full px-2.5 py-0.5 text-[12.5px] font-bold ${TIER_META[school.tier].pill}`}>{TIER_META[school.tier].th}</span>
+          <span>
+            เสี่ยงสูง <b className="text-ink">{school.rate.toFixed(1)}%</b>
+          </span>
+          <span>
+            เกิน SLA <b className={school.overdue >= 5 ? 'text-red-700' : 'text-ink'}>{school.overdue}</b>
+          </span>
+          <span>
+            ช่วยสำเร็จ <b className="text-ink">{school.s.interventionSuccessRate.toFixed(0)}%</b>
+          </span>
+          {onOpenSchool && (
+            <button type="button" onClick={onOpenSchool} className="ml-auto font-semibold text-brand-700">
+              ดูข้อมูลโรงเรียน →
+            </button>
+          )}
+        </section>
+      )}
+
+      {/* 3 · AI แนะนำ และทำไม */}
+      <section className="mt-5 rounded-2xl bg-brand-50/70 p-4">
         <div className="flex items-center gap-2.5">
           <img src={MASCOT} alt="" className="h-8 w-8 shrink-0 rounded-lg bg-white object-contain p-0.5" draggable={false} />
           <p className="text-[14px] font-semibold text-brand-700">AI แนะนำ</p>
         </div>
-        <p className="mt-2 text-[17px] font-bold leading-snug text-ink">{rec}</p>
-        {b.owner && <p className="mt-0.5 text-[15px] text-ink">ผู้รับผิดชอบ: {b.owner}</p>}
-        {b.capacityNote && (
-          <p className="mt-2 flex gap-2 text-[14.5px] leading-snug text-red-700">
-            <span aria-hidden>⚠</span>
-            <span>{b.capacityNote}</span>
-          </p>
-        )}
+        <p className="mt-2 text-[18px] font-bold leading-snug text-ink">{b.acts.map((a) => AREA_ACT_TH[a]).join(' + ')}</p>
+        <ul className="mt-2 space-y-1.5">
+          {why.map((w) => (
+            <li key={w.text} className={`flex gap-2 text-[14.5px] leading-snug ${w.warn ? 'font-semibold text-red-700' : 'text-ink'}`}>
+              <span className={`mt-[7px] h-1.5 w-1.5 shrink-0 rounded-full ${w.warn ? 'bg-red-600' : 'bg-brand-400'}`} aria-hidden />
+              {w.text}
+            </li>
+          ))}
+        </ul>
         <button type="button" onClick={() => onDecide(b.acts)} className="mt-4 w-full rounded-xl bg-brand-500 px-5 py-3.5 text-[15.5px] font-semibold text-white hover:bg-brand-600">
           ตัดสินใจตามนี้ →
         </button>
       </section>
 
-      {/* 4 · หรือทางอื่น */}
-      <p className="mt-5 text-[14px] font-semibold text-ink-muted">หรือ</p>
-      <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
+      {/* 4 · ทางอื่น */}
+      <h3 className="mt-6 text-[15px] font-bold text-ink">หรือเลือกทางอื่น</h3>
+      <div className="mt-2 divide-y divide-surface-border overflow-hidden rounded-2xl border border-surface-border">
         {others.map((o) => (
-          <button key={o.label} type="button" onClick={() => onDecide(o.acts)} className={btnSecondary}>
-            {o.label}
+          <button key={o.label} type="button" onClick={() => onDecide(o.acts)} className="group flex w-full items-center gap-3 px-4 py-3 text-left hover:bg-surface-muted/50">
+            <span className="min-w-0 flex-1">
+              <span className="block text-[15px] font-semibold text-ink">{o.label}</span>
+              <span className="block text-[13.5px] text-ink-muted">{o.effect}</span>
+            </span>
+            <span aria-hidden className="text-ink-faint group-hover:text-brand-600">→</span>
           </button>
         ))}
+        {pattern && onMeasure && (
+          <button type="button" onClick={() => onMeasure(pattern)} className="group flex w-full items-center gap-3 px-4 py-3 text-left hover:bg-surface-muted/50">
+            <span className="min-w-0 flex-1">
+              <span className="block text-[15px] font-semibold text-ink">สร้างมาตรการระดับเขต</span>
+              <span className="block text-[13.5px] text-ink-muted">
+                แก้ "{pattern.th}" ให้ทั้ง {pattern.schools.length} โรงเรียนในครั้งเดียว
+              </span>
+            </span>
+            <span aria-hidden className="text-ink-faint group-hover:text-brand-600">→</span>
+          </button>
+        )}
       </div>
     </Drawer>
   )
@@ -884,7 +958,7 @@ export function SupportSheet({
   )
 }
 
-function MeasureSheet({ p, team, onClose, onSave }: { p: Pattern; team: TeamRow[]; onClose: () => void; onSave: (m: { title: string; schools: string[]; owner: string; due: string; expected: string }) => void }) {
+export function MeasureSheet({ p, team, onClose, onSave }: { p: Pattern; team: TeamRow[]; onClose: () => void; onSave: (m: { title: string; schools: string[]; owner: string; due: string; expected: string }) => void }) {
   const titles: Record<string, string> = {
     travel: 'ทุนค่าเดินทางระดับเขตสำหรับนักเรียนที่บ้านไกล',
     noContact: 'ช่องทางติดต่อครอบครัวผ่านผู้นำชุมชน / อสม. ทั้งเขต',
@@ -907,13 +981,7 @@ function MeasureSheet({ p, team, onClose, onSave }: { p: Pattern; team: TeamRow[
       <p className="mb-1.5 mt-4 text-[14px] font-semibold text-ink">โรงเรียนที่ได้รับ</p>
       <p className="text-[14.5px] text-ink">{p.schools.join(' · ')}</p>
       <Label>ผู้รับผิดชอบฝั่งเขต</Label>
-      <select id="measure-owner" value={owner} onChange={(e) => setOwner(e.target.value)} className={inputCls}>
-        {team.map((t) => (
-          <option key={t.name} value={t.name}>
-            {t.name} ({t.pct}%)
-          </option>
-        ))}
-      </select>
+      <Select id="measure-owner" ariaLabel="ผู้รับผิดชอบฝั่งเขต" size="lg" value={owner} onChange={setOwner} options={team.map((t) => ({ value: t.name, label: `${t.name} · งานในมือ ${t.pct}%` }))} />
       <Label>กำหนดเริ่มใช้</Label>
       <input id="measure-due" type="date" value={due} onChange={(e) => setDue(e.target.value)} className={inputCls} />
       <Label>ผลที่คาดหวัง</Label>

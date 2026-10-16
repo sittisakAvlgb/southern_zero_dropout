@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { Select } from '@/components/ui/Select'
 import {
   DIRECTOR_ACT_TH,
   SUPPORT_REASON_TH,
@@ -251,11 +252,7 @@ export function DirectorDecisionSheet({
           {acts.includes('escalate') && (
             <>
               <Label>ยกระดับไปที่</Label>
-              <select id="dec-escalate" value={escalateTo} onChange={(e) => setEscalateTo(e.target.value)} className={inputCls}>
-                {['สพท. (เขตพื้นที่การศึกษา)', 'ศปก.อำเภอ', 'พมจ. จังหวัด', 'ศอ.บต.'].map((x) => (
-                  <option key={x}>{x}</option>
-                ))}
-              </select>
+              <Select id="dec-escalate" ariaLabel="ยกระดับไปที่" size="lg" value={escalateTo} onChange={setEscalateTo} options={['สพท. (เขตพื้นที่การศึกษา)', 'ศปก.อำเภอ', 'พมจ. จังหวัด', 'ศอ.บต.'].map((x) => ({ value: x, label: x }))} />
             </>
           )}
         </>
@@ -279,11 +276,15 @@ export function DirectorDecisionSheet({
           <div className="mt-1 grid gap-3 sm:grid-cols-2">
             <div>
               <Label>ผู้รับผิดชอบ</Label>
-              <select id="dec-next-owner" value={ownerValue} onChange={(e) => setOwner(e.target.value)} disabled={acts.includes('owner') && Boolean(newOwner)} className={inputCls}>
-                {[...new Set([owner0, ...team])].map((n) => (
-                  <option key={n} value={n}>{n}</option>
-                ))}
-              </select>
+              <Select
+                id="dec-next-owner"
+                ariaLabel="ผู้รับผิดชอบ"
+                size="lg"
+                value={ownerValue}
+                onChange={setOwner}
+                disabled={acts.includes('owner') && Boolean(newOwner)}
+                options={[...new Set([owner0, ...team])].map((n) => ({ value: n, label: n }))}
+              />
             </div>
             <div>
               <Label>กำหนด</Label>
@@ -394,11 +395,7 @@ export function AssignOwnerSheet({
       {mode === 'escalate' && (
         <>
           <Label>การส่งต่อที่เกินกำหนด</Label>
-          <select id="assign-ref" value={refId} onChange={(e) => setRefId(e.target.value)} className={inputCls}>
-            {late.map((r) => (
-              <option key={r.id} value={r.id}>{r.toName} · {r.needTh} · {r.sla.text}</option>
-            ))}
-          </select>
+          <Select id="assign-ref" ariaLabel="การส่งต่อที่เกินกำหนด" size="lg" value={refId} onChange={setRefId} options={late.map((r) => ({ value: r.id, label: `${r.toName} · ${r.needTh} · ${r.sla.text}` }))} />
           <Label>ยกระดับถึง</Label>
           <div className="grid grid-cols-2 gap-2">
             {([2, 3] as const).map((l) => (

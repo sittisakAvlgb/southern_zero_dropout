@@ -36,12 +36,23 @@ export function Select({
   onChange,
   options,
   className = '',
+  id: idProp,
+  ariaLabel,
+  disabled = false,
+  size = 'md',
 }: {
   label?: string
   value: string
   onChange: (v: string) => void
   options: Option[]
   className?: string
+  /** id ของปุ่ม (ฟอร์มในลิ้นชักใช้หาช่องด้วย id) */
+  id?: string
+  /** ชื่อที่โปรแกรมอ่านหน้าจออ่าน เมื่อไม่มี label แสดงบนจอ */
+  ariaLabel?: string
+  disabled?: boolean
+  /** lg = ขนาดเดียวกับช่องกรอกในฟอร์ม (inputCls) */
+  size?: 'md' | 'lg'
 }) {
   const id = useId()
   const btn = useRef<HTMLButtonElement>(null)
@@ -154,7 +165,10 @@ export function Select({
       )}
       <button
         ref={btn}
+        id={idProp}
         type="button"
+        disabled={disabled}
+        aria-label={!label ? ariaLabel : undefined}
         aria-haspopup="listbox"
         aria-expanded={open}
         aria-controls={open ? `${id}-list` : undefined}
@@ -162,7 +176,7 @@ export function Select({
         aria-activedescendant={open ? `${id}-o${active}` : undefined}
         onClick={() => (open ? close() : openList())}
         onKeyDown={onKey}
-        className={`relative flex w-full items-center rounded-xl border bg-white py-2.5 pl-3 pr-9 text-left text-sm font-medium text-ink outline-none transition-colors hover:border-brand-200 focus-visible:border-brand-400 focus-visible:ring-2 focus-visible:ring-brand-100 ${open ? 'border-brand-400 ring-2 ring-brand-100' : 'border-surface-border'}`}
+        className={`relative flex w-full items-center rounded-xl border bg-white text-left text-ink outline-none transition-colors hover:border-brand-200 focus-visible:border-brand-400 focus-visible:ring-2 focus-visible:ring-brand-100 disabled:cursor-not-allowed disabled:bg-surface-muted disabled:text-ink-muted ${size === 'lg' ? 'py-3 pl-3.5 pr-10 text-[15px]' : 'py-2.5 pl-3 pr-9 text-sm font-medium'} ${open ? 'border-brand-400 ring-2 ring-brand-100' : 'border-surface-border'}`}
       >
         <span id={`${id}-v`} className="truncate">
           {current?.label}

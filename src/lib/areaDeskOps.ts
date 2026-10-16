@@ -275,6 +275,8 @@ export interface RequestBrief {
   waitedDays: number
   /** ข้อสังเกตเรื่องทรัพยากร */
   capacityNote?: string
+  /** ปัญหาเดียวกันที่พบหลายโรงเรียน (ถ้ามี) */
+  pattern?: Pattern
 }
 
 export function requestBrief(r: AreaRequest, rows: TeamRow[], patterns: Pattern[]): RequestBrief {
@@ -297,6 +299,7 @@ export function requestBrief(r: AreaRequest, rows: TeamRow[], patterns: Pattern[
             ? 'นักเรียนกลุ่มนี้มาเรียนเฉลี่ยเกิน 80% ภายใน 1 เดือน'
             : 'เคสเดินต่อได้และมีผู้รับผิดชอบชัดเจนภายใน 2 สัปดาห์',
     waitedDays,
+    pattern,
     capacityNote: row && row.pct >= 100 ? `${row.name} งานในมือเต็มแล้ว (${row.pct}%) — อาจพิจารณาเลื่อนงานอื่นหรือหาคนช่วย` : undefined,
   }
 }

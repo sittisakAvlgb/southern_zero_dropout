@@ -69,23 +69,12 @@ export default function SchoolPerformance() {
         }}
       />
     )
-  // เขต: โรงเรียนในเขตเรียงตามความจำเป็น + สถานะกับเขต — ตารางเต็มเปิดจาก "ดูข้อมูลโรงเรียน"
-  if (user?.role === 'esa' && params.get('view') !== 'full')
-    return (
-      <EsaSchoolDesk
-        onFull={(id) => {
-          const next = new URLSearchParams(params)
-          next.set('view', 'full')
-          if (id) next.set('s', id)
-          setParams(next)
-        }}
-      />
-    )
+  // เขต: โรงเรียนในเขตเรียงตามความจำเป็น + สถานะกับเขต · ตาราง · ส่งออก · ข้อมูลโรงเรียน อยู่ในหน้าเดียว
+  if (user?.role === 'esa') return <EsaSchoolDesk />
   return (
     <>
-      {(user?.role === 'school' || user?.role === 'esa') && (
+      {user?.role === 'school' && (
         <BackToDesk
-          label={user?.role === 'esa' ? '← กลับไปโรงเรียนในเขต' : undefined}
           onBack={() => {
             const next = new URLSearchParams(params)
             next.delete('view')

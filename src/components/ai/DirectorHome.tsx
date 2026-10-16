@@ -1,4 +1,5 @@
 import { useMemo, useState, type ReactNode } from 'react'
+import { Select } from '@/components/ui/Select'
 import { useNavigate } from 'react-router-dom'
 import { useScopedData } from '@/auth/scope'
 import { formatNumber } from '@/lib/format'
@@ -525,32 +526,19 @@ function SpreadSheet({
                 {c.support && requestStatus(c.support.req) === 'withTeacher' ? ' · มีงานจาก ผอ. ค้าง' : ''}
               </span>
             </span>
-            <select
-              aria-label={`ผู้รับผิดชอบใหม่ของ ${c.s.name}`}
+            <Select
+              ariaLabel={`ผู้รับผิดชอบใหม่ของ ${c.s.name}`}
+              className="w-full sm:w-56"
               value={moves[c.s.id] ?? ''}
-              onChange={(e) => setMoves({ ...moves, [c.s.id]: e.target.value })}
-              className="w-full rounded-xl border border-surface-border px-3 py-2.5 text-[14.5px] sm:w-56"
-            >
-              <option value="">คงไว้กับ {owner}</option>
-              {others.map((o) => (
-                <option key={o} value={o}>
-                  ย้ายให้ {o}
-                </option>
-              ))}
-            </select>
+              onChange={(v) => setMoves({ ...moves, [c.s.id]: v })}
+              options={[{ value: '', label: `คงไว้กับ ${owner}` }, ...others.map((o) => ({ value: o, label: `ย้ายให้ ${o}` }))]}
+            />
           </li>
         ))}
       </ul>
 
       <Label>หรือเพิ่มผู้ช่วยในเคสเสี่ยงสูงของ {owner}</Label>
-      <select id="spread-helper" value={helper} onChange={(e) => setHelper(e.target.value)} className={inputCls}>
-        <option value="">ไม่เพิ่ม</option>
-        {others.map((o) => (
-          <option key={o} value={o}>
-            {o}
-          </option>
-        ))}
-      </select>
+      <Select id="spread-helper" ariaLabel={`ผู้ช่วยในเคสเสี่ยงสูงของ ${owner}`} size="lg" value={helper} onChange={setHelper} options={[{ value: '', label: 'ไม่เพิ่ม' }, ...others.map((o) => ({ value: o, label: o }))]} />
       {helper && <p className="mt-1.5 text-[13px] text-ink-muted">บันทึกในไทม์ไลน์ของเด็ก {high.length} คน · {owner} ยังเป็นผู้รับผิดชอบหลัก</p>}
 
       <div className="mt-5">

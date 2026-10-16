@@ -4,13 +4,12 @@ import { useI18n } from '@/i18n/LanguageContext'
 import { useToast } from '@/components/ui/Toast'
 import { fmtDay } from '@/lib/directorOps'
 import { AREA_ACT_TH, AREA_NEED_TH, AREA_VERDICT_TH, areaRequestStatus, useAreaLog, type AreaAct, type AreaRequest } from '@/lib/areaLog'
-import { TIER_META, crossSchoolPatterns, requestBrief, schoolViews, teamRows, type SchoolView, type Tier } from '@/lib/areaDeskOps'
-import { RequestDrawer, SupportSheet } from './AreaOpsCenter'
-
-const TIER_BAR: Record<Tier, string> = { urgent: '#dc2626', follow: '#f97316', watch: '#eab308', ok: '#16a34a' }
+import { TIER_META, crossSchoolPatterns, requestBrief, schoolViews, teamRows, type Pattern, type SchoolView, type Tier } from '@/lib/areaDeskOps'
+import { MeasureSheet, RequestDrawer, SupportSheet } from './AreaOpsCenter'
+import { EsaSchoolDrawer, SchoolTable, TIER_BAR, exportSchoolsCsv } from './EsaSchoolParts'
 const TIERS: Tier[] = ['urgent', 'follow', 'watch', 'ok']
 
-type Sheet = { kind: 'support'; v: SchoolView } | { kind: 'request'; r: AreaRequest } | { kind: 'decide'; r: AreaRequest; acts: AreaAct[] }
+type Sheet = { kind: 'support'; v: SchoolView } | { kind: 'request'; r: AreaRequest } | { kind: 'decide'; r: AreaRequest; acts: AreaAct[] } | { kind: 'school'; v: SchoolView } | { kind: 'measure'; p: Pattern }
 
 /**
  * โรงเรียนในเขต — มุมมองของเขต
@@ -18,9 +17,10 @@ type Sheet = { kind: 'support'; v: SchoolView } | { kind: 'request'; r: AreaRequ
  * หน้าเดิม (ผลการดำเนินงานโรงเรียน) เรียงตามคุณภาพข้อมูล ป้ายเคสค้างรายโรงเรียนมาจากตัวเลขรายงาน
  * (รวม 79 ขณะที่หน้าเขตบอกเกิน SLA 30) และไม่มีที่ให้เขตลงมือ ที่นี่เรียงจากโรงเรียนที่ต้องช่วยก่อน
  * นับเคสจากเคสจริง แต่ละโรงเรียนบอกสถานะกับเขต (คำขอรอเขต · เขตส่งอะไรไป · ผลที่โรงเรียนรายงาน)
- * และปุ่มหลักคือ "วางแผนสนับสนุน" — ตารางเต็มและส่งออก CSV ยังอยู่ใน "ดูข้อมูลโรงเรียน"
+ * และปุ่มหลักคือ "วางแผนสนับสนุน" — มุมมองตาราง (เรียงได้ทุกคอลัมน์ · ส่งออก CSV) และข้อมูลโรงเรียน
+ * อยู่ในหน้านี้ เขตจึงไม่ต้องไปตารางเดิมที่มีแถบเตือนสามแถบและตัวเลขเคสค้างคนละชุด
  */
-export function EsaSchoolDesk({ onFull }: { onFull: (schoolId?: string) => void }) {
+export function EsaSchoolDesk() {
   const { dn } = useI18n()
   const { push } = useToast()
   const { user, schools, students, cases, referrals } = useScopedData()
@@ -31,9 +31,11 @@ export function EsaSchoolDesk({ onFull }: { onFull: (schoolId?: string) => void 
   const team = useMemo(() => teamRows(area), [area])
   const [tier, setTier] = useState<Tier | 'all'>('all')
   const [sheet, setSheet] = useState<Sheet | null>(null)
+  const [mode, setMode] = useState<'list' | 'table'>('list')
+  const [q, setQ] = useState('')
 
   const count = (t: Tier) => views.filter((v) => v.tier === t).length
-  const rows = views.filter((v) => tier === 'all' || v.tier === tier)
+  const rows = views.filter((v) => (tier === 'all' || v.tier === tier) && (!q.trim() || v.s.name.includes(q.trim()) || dn(v.s.districtKey).includes(q.trim())))
   const waiting = area.requests.filter((r) => areaRequestStatus(r) === 'new').length
   const active = area.actions.filter((a) => !a.done).length + area.requests.filter((r) => areaRequestStatus(r) === 'decided').length
   const reported = area.actions.filter((a) => a.done).length + area.requests.filter((r) => r.done).length
@@ -45,9 +47,18 @@ export function EsaSchoolDesk({ onFull }: { onFull: (schoolId?: string) => void 
           <h1 className="text-[24px] font-bold leading-tight text-ink">โรงเรียนในเขต</h1>
           <p className="mt-1 text-[14.5px] text-ink-muted">เรียงจากโรงเรียนที่ต้องช่วยก่อน — เขตเข้ามาช่วยเมื่อโรงเรียนแก้ต่อเองไม่ไหว</p>
         </div>
-        <button type="button" onClick={() => onFull()} className="rounded-xl border border-surface-border bg-white px-4 py-2.5 text-[14.5px] font-semibold text-ink hover:border-brand-300">
-          ตารางเต็ม · ส่งออก CSV
-        </button>
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="inline-flex rounded-xl bg-surface-muted p-1" role="group" aria-label="มุมมอง">
+            {(['list', 'table'] as const).map((m) => (
+              <button key={m} type="button" aria-pressed={mode === m} onClick={() => setMode(m)} className={`rounded-lg px-4 py-2 text-[14.5px] font-semibold ${mode === m ? 'bg-white text-brand-700 shadow-card' : 'text-ink-muted hover:text-ink'}`}>
+                {m === 'list' ? 'รายการ' : 'ตาราง'}
+              </button>
+            ))}
+          </div>
+          <button type="button" onClick={() => exportSchoolsCsv(rows, dn)} className="rounded-xl border border-surface-border bg-white px-4 py-2.5 text-[14.5px] font-semibold text-ink hover:border-brand-300">
+            ส่งออก CSV
+          </button>
+        </div>
       </div>
 
       {/* ── สรุป: ระดับความเร่งด่วน (กดกรอง) + งานกับเขต ── */}
@@ -72,12 +83,23 @@ export function EsaSchoolDesk({ onFull }: { onFull: (schoolId?: string) => void 
             )
           })}
         </div>
+        <input
+          type="search"
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+          placeholder="ค้นหาชื่อโรงเรียนหรืออำเภอ"
+          aria-label="ค้นหาชื่อโรงเรียนหรืออำเภอ"
+          className="mt-3 w-full rounded-xl border border-surface-border bg-white px-4 py-2.5 text-[15px] text-ink outline-none focus:border-brand-400 focus:ring-2 focus:ring-brand-100"
+        />
         <p className="mt-3 border-t border-surface-border pt-3 text-[14px] text-ink-muted">
           คำขอรอเขตตัดสินใจ <b className={waiting ? 'text-red-700' : 'text-ink'}>{waiting}</b> · เขตกำลังสนับสนุน <b className="text-ink">{active}</b> · โรงเรียนรายงานผลแล้ว <b className="text-ink">{reported}</b>
         </p>
       </div>
 
       {/* ── โรงเรียน: แถวเดียวต่อโรงเรียนในการ์ดเดียว — ชื่อ · ตัวเลขสามตัวในบรรทัดเดียว · AI · สถานะกับเขต · ปุ่มหลักด้านขวา ── */}
+      {rows.length === 0 && <p className="rounded-2xl border border-dashed border-surface-border bg-white px-5 py-4 text-[15px] text-ink-muted">ไม่พบโรงเรียนที่ตรงกับตัวกรอง</p>}
+      {mode === 'table' && rows.length > 0 && <SchoolTable rows={rows} dn={dn} onOpen={(v) => setSheet({ kind: 'school', v })} />}
+      {mode === 'list' && rows.length > 0 && (
       <ul className="divide-y divide-surface-border overflow-hidden rounded-2xl bg-white ring-1 ring-surface-border">
         {rows.map((v) => {
           const reqs = area.requests.filter((r) => r.schoolId === v.s.id && !r.done && areaRequestStatus(r) !== 'rejected')
@@ -88,7 +110,7 @@ export function EsaSchoolDesk({ onFull }: { onFull: (schoolId?: string) => void 
               <span className="hidden h-11 w-1 shrink-0 rounded-full sm:block" style={{ background: TIER_BAR[v.tier] }} aria-hidden />
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                  <button type="button" onClick={() => onFull(v.s.id)} className="text-left text-[16.5px] font-bold text-ink underline-offset-2 hover:text-brand-700 hover:underline">
+                  <button type="button" onClick={() => setSheet({ kind: 'school', v })} className="text-left text-[16.5px] font-bold text-ink underline-offset-2 hover:text-brand-700 hover:underline">
                     {v.s.name}
                   </button>
                   <span className={`rounded-full px-2.5 py-0.5 text-[12.5px] font-bold ${TIER_META[v.tier].pill}`}>{TIER_META[v.tier].th}</span>
@@ -138,8 +160,46 @@ export function EsaSchoolDesk({ onFull }: { onFull: (schoolId?: string) => void 
           )
         })}
       </ul>
+      )}
 
-      {sheet?.kind === 'request' && <RequestDrawer r={sheet.r} team={team} patterns={patterns} onClose={() => setSheet(null)} onDecide={(acts) => setSheet({ kind: 'decide', r: sheet.r, acts })} />}
+      {sheet?.kind === 'school' && (
+        <EsaSchoolDrawer
+          v={sheet.v}
+          dn={dn}
+          requests={area.requests.filter((r) => r.schoolId === sheet.v.s.id)}
+          actions={area.actions.filter((a) => a.schoolId === sheet.v.s.id)}
+          onClose={() => setSheet(null)}
+          onSupport={() => setSheet({ kind: 'support', v: sheet.v })}
+          onRequest={(r) => setSheet({ kind: 'request', r })}
+        />
+      )}
+      {sheet?.kind === 'request' && (
+        <RequestDrawer
+          r={sheet.r}
+          team={team}
+          patterns={patterns}
+          school={views.find((v) => v.s.id === sheet.r.schoolId)}
+          onClose={() => setSheet(null)}
+          onDecide={(acts) => setSheet({ kind: 'decide', r: sheet.r, acts })}
+          onOpenSchool={() => {
+            const v = views.find((x) => x.s.id === sheet.r.schoolId)
+            if (v) setSheet({ kind: 'school', v })
+          }}
+          onMeasure={(p) => setSheet({ kind: 'measure', p })}
+        />
+      )}
+      {sheet?.kind === 'measure' && (
+        <MeasureSheet
+          p={sheet.p}
+          team={team}
+          onClose={() => setSheet(null)}
+          onSave={(m) => {
+            area.addMeasure({ by, pattern: sheet.p.key, ...m })
+            setSheet(null)
+            push(`สร้างมาตรการ "${m.title}" แล้ว`)
+          }}
+        />
+      )}
       {sheet?.kind === 'decide' && (
         <SupportSheet
           title={`ตัดสินใจ · ${sheet.r.schoolName}`}
