@@ -27,6 +27,7 @@ import { formatNumber, formatPct } from '@/lib/format'
 import { oosSplit } from '@/lib/oos'
 import { RISK_COLOR } from '@/lib/risk'
 import { IconChevronRight, IconProvince, IconSchool } from '@/components/icons'
+import { EsaAreaDetail } from '@/components/area/EsaAreaDetail'
 
 /** Shared Apex defaults — app typography and a visible but calm entry animation. */
 const CHART_BASE = {
@@ -41,7 +42,13 @@ const CHART_BASE = {
   },
 }
 
+/** เขตเห็นมุมมองของเขตเอง (เริ่มจากเขต ไม่ใช่จังหวัด) — บทบาทอื่นยังเป็นหน้าเดิม */
 export default function AreaInsight() {
+  const { user } = useScopedData()
+  return user?.role === 'esa' ? <EsaAreaDetail tabs={<AreaViewTabs />} /> : <AreaInsightAll />
+}
+
+function AreaInsightAll() {
   const { t, lang, pn, dn, tn, pick } = useI18n()
   const th = lang === 'th'
   const nav = useNavigate()

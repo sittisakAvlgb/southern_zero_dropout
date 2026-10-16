@@ -92,7 +92,7 @@ export function Select({
       if (!btn.current?.contains(t) && !list.current?.contains(t)) close(false)
     }
     const move = (e: Event) => {
-      if (list.current?.contains(e.target as Node)) return
+      if (e.target instanceof Node && list.current?.contains(e.target)) return
       measure()
     }
     document.addEventListener('pointerdown', outside)
