@@ -7,6 +7,7 @@ import { canAccess, inMenu, NAV_MERGED_INTO, ROLE_META } from '@/auth/roles'
 import { useScopedData } from '@/auth/scope'
 import { logKeyOf, useCaseLog, waitsOnDirector } from '@/lib/caseLog'
 import { useDirectorWork } from '@/components/director/useDirectorWork'
+import { areaRequestStatus, useAreaLog } from '@/lib/areaLog'
 import { roleIcon } from '@/components/auth/roleIcon'
 import { LogoutDialog } from '@/components/auth/LogoutDialog'
 import { navLabelKey, NAV_ITEMS } from './navItems'
@@ -21,6 +22,16 @@ const DIRECTOR_GROUPS: { key: string; items: string[] }[] = [
   { key: 'nav.section.school.today', items: ['/', '/decisions'] },
   { key: 'nav.section.school.children', items: ['/student', '/oosc', '/plan', '/referral'] },
   { key: 'nav.section.school.results', items: ['/school', '/reports'] },
+  { key: 'nav.section.system', items: ['/settings'] },
+]
+
+/** เมนูของเขต จัดตามงานของเขต — เขตช่วยโรงเรียน ไม่ได้ลงมือกับเคสเอง
+ *  เดิม "การช่วยเหลือ" ป้ายแดง 30 อยู่ใต้ "ลงมือช่วยเหลือ" ทั้งที่เขตลงมือกับเคสไม่ได้ (canWorkCases) และ
+ *  "สถานศึกษา" ซึ่งเป็นหน่วยที่เขตดูแลจริงอยู่กลางกลุ่มนั้น ป้ายงานของเขตคือคำขอจากโรงเรียนที่รอเขตตัดสินใจ */
+const ESA_GROUPS: { key: string; items: string[] }[] = [
+  { key: 'nav.section.esa.work', items: ['/', '/school'] },
+  { key: 'nav.section.esa.children', items: ['/geo', '/oosc', '/student', '/plan', '/intervention'] },
+  { key: 'nav.section.esa.results', items: ['/cause', '/reports'] },
   { key: 'nav.section.system', items: ['/settings'] },
 ]
 
@@ -45,6 +56,8 @@ export function Sidebar({
   const mergedActive = user && !inMenu(user, pathname) ? NAV_MERGED_INTO[pathname] : undefined
   // ผอ.: ตัวเลขบนเมนูมาจากแหล่งเดียวกับ "ต้องใช้ ผอ." ในแต่ละหน้า
   const work = useDirectorWork()
+  const esa = user?.role === 'esa'
+  const area = useAreaLog(esa ? user?.esaKey : undefined)
   const meta = ROLE_META[user?.role ?? 'exec']
 
   // attention badges from scoped data
@@ -54,9 +67,10 @@ export function Sidebar({
   const urgent = cases.filter((c) => (supervising ? c.slaBreached : c.urgent || c.slaBreached)).length
   const highRisk = students.filter((s) => s.riskLevel === 'high' || s.riskLevel === 'critical').length
   const badges: Record<string, { n: number; color: string; soft?: boolean }> = {}
-  if (urgent > 0 && !work) badges['/intervention'] = { n: urgent, color: '#dc2626' }
+  // เขต: เคสเกิน SLA เป็นข้อมูลที่ต้องรู้ ไม่ใช่งานที่เขตลงมือ — ป้ายอ่อน
+  if (urgent > 0 && !work) badges['/intervention'] = esa ? { n: urgent, color: '#ea580c', soft: true } : { n: urgent, color: '#dc2626' }
   // ผอ.: ป้ายตัวเลขบนเมนูหมายถึง "งานที่รอ ผอ." อย่างเดียว — จำนวนเด็กเสี่ยงสูงไม่ใช่งานที่ต้องทำ
-  if (highRisk > 0 && canAccess(user, '/student') && !work) badges['/student'] = { n: highRisk, color: '#f97316' }
+  if (highRisk > 0 && canAccess(user, '/student') && !work && !esa) badges['/student'] = { n: highRisk, color: '#f97316' }
   // คำขอจากครูที่รอ ผอ. — ตัวเลขเดียวกับ "ต้องตัดสินใจวันนี้" ในหน้าเรื่องที่ต้องตัดสินใจ
   const waiting = work ? work.decisions : Object.values(caseLog.requests).filter(waitsOnDirector).length
   if (waiting > 0 && canAccess(user, '/decisions')) badges['/decisions'] = { n: waiting, color: '#dc2626' }
@@ -66,8 +80,12 @@ export function Sidebar({
     if (work.referrals) badges['/referral'] = { n: work.referrals, color: '#ea580c', soft: true }
     if (work.oosc) badges['/oosc'] = { n: work.oosc, color: '#ea580c', soft: true }
   }
-  const groups = work
-    ? DIRECTOR_GROUPS.map((g) => ({ key: g.key, items: g.items.map((to) => visible.find((n) => n.to === to)).filter((n): n is (typeof visible)[number] => Boolean(n)) }))
+  // เขต: คำขอจากโรงเรียนที่รอเขตตัดสินใจ — ตัวเลขเดียวกับ "รอเขตตัดสินใจ" ในหน้าภาพรวมเขต
+  const areaWaiting = area.requests.filter((r) => areaRequestStatus(r) === 'new').length
+  if (esa && areaWaiting > 0) badges['/'] = { n: areaWaiting, color: '#dc2626' }
+  const custom = work ? DIRECTOR_GROUPS : esa ? ESA_GROUPS : null
+  const groups = custom
+    ? custom.map((g) => ({ key: g.key, items: g.items.map((to) => visible.find((n) => n.to === to)).filter((n): n is (typeof visible)[number] => Boolean(n)) }))
     : SECTIONS.map((s) => ({ key: `nav.section.${s}`, items: visible.filter((n) => n.section === s) }))
 
   return (
