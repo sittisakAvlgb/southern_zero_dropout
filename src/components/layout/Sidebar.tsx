@@ -15,6 +15,15 @@ import { Logo } from '../ui/Logo'
 
 const SECTIONS = ['monitor', 'design', 'action', 'system'] as const
 
+/** เมนูของ ผอ. จัดตามงานของ ผอ. ไม่ใช่ตามขั้นของแพลตฟอร์ม — งานที่รอ ผอ. ขึ้นก่อน
+ *  เดิม "เรื่องที่ต้องตัดสินใจ" อยู่กลางเมนูใต้ "ลงมือช่วยเหลือ" ทะเบียนเด็กนอกระบบอยู่ใต้ "มองเห็นทุกคน" */
+const DIRECTOR_GROUPS: { key: string; items: string[] }[] = [
+  { key: 'nav.section.school.today', items: ['/', '/decisions'] },
+  { key: 'nav.section.school.children', items: ['/student', '/oosc', '/plan', '/referral'] },
+  { key: 'nav.section.school.results', items: ['/school', '/reports'] },
+  { key: 'nav.section.system', items: ['/settings'] },
+]
+
 export function Sidebar({
   collapsed,
   onToggle,
@@ -38,17 +47,22 @@ export function Sidebar({
   // attention badges from scoped data
   const urgent = cases.filter((c) => c.urgent || c.slaBreached).length
   const highRisk = students.filter((s) => s.riskLevel === 'high' || s.riskLevel === 'critical').length
-  const badges: Record<string, { n: number; color: string }> = {}
+  const badges: Record<string, { n: number; color: string; soft?: boolean }> = {}
   if (urgent > 0 && !work) badges['/intervention'] = { n: urgent, color: '#dc2626' }
-  if (highRisk > 0 && canAccess(user, '/student')) badges['/student'] = { n: highRisk, color: '#f97316' }
+  // ผอ.: ป้ายตัวเลขบนเมนูหมายถึง "งานที่รอ ผอ." อย่างเดียว — จำนวนเด็กเสี่ยงสูงไม่ใช่งานที่ต้องทำ
+  if (highRisk > 0 && canAccess(user, '/student') && !work) badges['/student'] = { n: highRisk, color: '#f97316' }
   // คำขอจากครูที่รอ ผอ. — ตัวเลขเดียวกับ "ต้องตัดสินใจวันนี้" ในหน้าเรื่องที่ต้องตัดสินใจ
   const waiting = work ? work.decisions : Object.values(caseLog.requests).filter(waitsOnDirector).length
   if (waiting > 0 && canAccess(user, '/decisions')) badges['/decisions'] = { n: waiting, color: '#dc2626' }
+  // ผอ.: เรื่องที่ต้องตัดสินใจเป็นป้ายทึบสีแดง (งานหลัก) หน้าอื่นเป็นป้ายอ่อน — เมนูไม่แดงส้มทั้งแถบ
   if (work) {
-    if (work.plans) badges['/plan'] = { n: work.plans, color: '#ea580c' }
-    if (work.referrals) badges['/referral'] = { n: work.referrals, color: '#ea580c' }
-    if (work.oosc) badges['/oosc'] = { n: work.oosc, color: '#ea580c' }
+    if (work.plans) badges['/plan'] = { n: work.plans, color: '#ea580c', soft: true }
+    if (work.referrals) badges['/referral'] = { n: work.referrals, color: '#ea580c', soft: true }
+    if (work.oosc) badges['/oosc'] = { n: work.oosc, color: '#ea580c', soft: true }
   }
+  const groups = work
+    ? DIRECTOR_GROUPS.map((g) => ({ key: g.key, items: g.items.map((to) => visible.find((n) => n.to === to)).filter((n): n is (typeof visible)[number] => Boolean(n)) }))
+    : SECTIONS.map((s) => ({ key: `nav.section.${s}`, items: visible.filter((n) => n.section === s) }))
 
   return (
     <aside
@@ -80,14 +94,13 @@ export function Sidebar({
 
       {/* Nav */}
       <nav className="flex-1 overflow-y-auto overflow-x-hidden px-3 py-4">
-        {SECTIONS.map((section) => {
-          const items = visible.filter((n) => n.section === section)
+        {groups.map(({ key, items }) => {
           if (items.length === 0) return null
           return (
-            <div key={section} className="mb-5">
+            <div key={key} className="mb-5">
               {!collapsed && (
-                <p className="px-3 pb-1.5 text-[10px] font-semibold uppercase tracking-wider text-ink-faint">
-                  {t(`nav.section.${section}`)}
+                <p className="px-3 pb-1.5 text-[12px] font-semibold tracking-wide text-ink-muted">
+                  {t(key)}
                 </p>
               )}
               <ul className="flex flex-col gap-0.5">
@@ -111,17 +124,12 @@ export function Sidebar({
                                 : 'font-medium text-ink-muted hover:bg-surface-muted hover:text-ink'
                             } ${collapsed ? 'justify-center' : ''}`}
                           >
+                            {/* แถบเลือกอยู่กับที่ ไม่เลื่อนข้ามรายการ — เดิมใช้ layoutId ให้เลื่อนจากเมนูเก่ามาเมนูใหม่
+                                ระหว่างเลื่อน แถบทับข้อความของเมนูข้างบน (ดูเหมือนขีดฆ่า) และดูเหมือนเมนู "ตก" ลงมา */}
                             {isActive && (
                               <>
-                                <motion.span
-                                  layoutId="nav-pill"
-                                  className="absolute inset-0 rounded-lg bg-brand-50"
-                                  transition={{ type: 'spring', stiffness: 500, damping: 40 }}
-                                />
-                                <motion.span
-                                  layoutId="nav-bar"
-                                  className="absolute left-0 top-1/2 h-5 w-[3px] -translate-y-1/2 rounded-r-full bg-brand-700"
-                                />
+                                <span className="absolute inset-0 rounded-lg bg-brand-50" />
+                                <span className="absolute left-0 top-1/2 h-5 w-[3px] -translate-y-1/2 rounded-r-full bg-brand-700" />
                               </>
                             )}
                             <span className={`relative z-10 ${isActive ? 'text-brand-700' : ''}`}>
@@ -133,8 +141,8 @@ export function Sidebar({
                             {/* badge */}
                             {badge && !collapsed && (
                               <span
-                                className="relative z-10 rounded-full px-1.5 py-0.5 text-[10px] font-bold text-white"
-                                style={{ backgroundColor: badge.color }}
+                                className={`relative z-10 min-w-[24px] rounded-full px-2 py-0.5 text-center text-[12px] font-bold tabular ${badge.soft ? '' : 'text-white'}`}
+                                style={badge.soft ? { backgroundColor: `${badge.color}1a`, color: '#c2410c' } : { backgroundColor: badge.color }}
                               >
                                 {badge.n > 99 ? '99+' : badge.n}
                               </span>
