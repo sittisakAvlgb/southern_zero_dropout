@@ -18,7 +18,7 @@ import { rankDistricts } from '@/lib/decision'
 import { ESA_BY_KEY } from '@/data/esa'
 import { IconArrowRight, IconDown, IconUp } from '@/components/icons'
 import { ExecutiveBriefing } from '@/components/ai/ExecutiveBriefing'
-import { AreaCommandCenter } from '@/components/ai/AreaCommandCenter'
+import { AreaOpsCenter } from '@/components/area/AreaOpsCenter'
 import { DirectorHome } from '@/components/ai/DirectorHome'
 import { TeacherWorkspace } from '@/components/ai/TeacherWorkspace'
 
@@ -347,7 +347,7 @@ export default function SouthernOverview() {
               described a page that is not there. Their heading names the work
               and the one school it happens in. */}
           <h1 className="text-xl font-bold text-ink md:text-2xl">
-            {user?.role === 'teacher' ? t('nav.overview.teacher') : t('app.title')}
+            {user?.role === 'teacher' ? t('nav.overview.teacher') : user?.role === 'esa' ? scopeNote : t('app.title')}
           </h1>
           <p className="mt-1 text-sm text-ink-muted">
             {user?.role === 'teacher' ? (
@@ -359,7 +359,7 @@ export default function SouthernOverview() {
               <>
                 {/* naming all three provinces beside counts covering four อำเภอ of
                     one เขต is the contradiction an area account reads first */}
-                {scopeNote} ·{' '}
+                {user?.role === 'esa' ? '' : `${scopeNote} · `}
                 <span className="tabular">
                   {stats.districtsCount} {t('geo.districts')} · {stats.tambonsCount}{' '}
                   {t('geo.tambons')} · {formatNumber(schools.length)}{' '}
@@ -369,7 +369,8 @@ export default function SouthernOverview() {
             )}
           </p>
         </div>
-        <div className="flex shrink-0 items-center gap-2 text-xs">
+        {/* เขตรู้ว่าตัวเองเป็นใคร (ชื่อเขตคือหัวเรื่องแล้ว) — ป้ายบทบาทเป็นแค่สีเพิ่มบนหน้าที่แน่นอยู่แล้ว */}
+        <div className={`${user?.role === 'esa' ? 'hidden' : 'flex'} shrink-0 items-center gap-2 text-xs`}>
           <span
             className="rounded-full px-3 py-1.5 font-medium text-white"
             style={{ background: meta.color }}
@@ -384,7 +385,7 @@ export default function SouthernOverview() {
           policy across provinces, an area office runs a เขต's caseload, a
           principal runs a school, and a teacher works a named list. */}
       {user?.role === 'esa' ? (
-        <AreaCommandCenter />
+        <AreaOpsCenter />
       ) : user?.role === 'school' ? (
         <DirectorHome />
       ) : user?.role === 'teacher' ? (
@@ -401,7 +402,9 @@ export default function SouthernOverview() {
 
       {/* ผอ. ก็จบที่นี่เช่นกัน — แผนที่ จชต. ภาพรวมรายจังหวัด และทะเบียนเด็กนอกระบบทั้งอำเภอ
           เป็นงานของระดับพื้นที่ เคยทำให้หน้า ผอ. มี "ปัตตานี 9,422 นักเรียน" ใต้ "นักเรียนทั้งโรงเรียน 1,536" */}
-      {user?.role !== 'teacher' && user?.role !== 'school' && (
+      {/* เขตก็จบที่นี่ — แผนที่ จชต. ภาพรวมรายจังหวัด และกราฟระดับพื้นที่อยู่ในหน้าเจาะลึกและแผนที่ (ลิงก์ใน "ข้อมูลเชิงลึก")
+          หน้าแรกของเขตต้องตอบว่าพื้นที่ไหนต้องดูแลก่อนและเขตต้องช่วยอย่างไร ไม่ใช่ข้อมูลเพิ่มอีกชุด */}
+      {user?.role !== 'teacher' && user?.role !== 'school' && user?.role !== 'esa' && (
         <>
       {/* Three questions, in order: how bad, where, and what are we doing. */}
       <div className="mb-4 grid gap-3 lg:grid-cols-3">

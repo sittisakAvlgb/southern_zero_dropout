@@ -11,6 +11,8 @@ import type { FollowCase } from '@/lib/followOps'
 import { actsFromRequest, directiveFor, execSummary, fmtDay, isoIn, type TeamRow } from '@/lib/directorOps'
 import type { Log } from '@/components/referrals/useRefCases'
 import { Label, PrimaryBtn, inputCls, textareaCls } from '@/components/referrals/ui'
+import { esaOfSchool, useAreaLog } from '@/lib/areaLog'
+import { SCHOOLS } from '@/data/schools'
 
 /** ครูที่ว่างที่สุด (ไม่นับเจ้าของเดิม) — เคสเสี่ยงสูงน้อยสุด แล้วเคสเปิดน้อยสุด */
 export function lightestOf(load: TeamRow[] | undefined, exclude?: string): string | undefined {
@@ -130,6 +132,8 @@ export function DirectorDecisionSheet({
   const [resource, setResource] = useState('')
   const [newOwner, setNewOwner] = useState('')
   const [escalateTo, setEscalateTo] = useState('สพท. (เขตพื้นที่การศึกษา)')
+  // ยกระดับถึงเขต = คำขอเข้ากล่องของเขตจริง ไม่ใช่แค่ข้อความในไทม์ไลน์
+  const area = useAreaLog(esaOfSchool(c.s.schoolKey))
   // เหตุผลตั้งต้นของการอนุมัติ — ปุ่มยืนยันกดได้ทันที ผอ. แก้ได้ (ขอข้อมูลเพิ่ม · ส่งกลับ · ไม่อนุมัติ ต้องเขียนเอง)
   const [reasonEdit, setReasonEdit] = useState<string>()
   const reasonDefault = verdict === 'approve' ? `อนุมัติตามที่ครูขอ — ${req.reasons.filter((r) => r !== 'other').map((r) => SUPPORT_REASON_TH[r]).join(' · ') || req.ask}` : ''
@@ -180,7 +184,20 @@ export function DirectorDecisionSheet({
       },
       note,
     )
-    push(verdict === 'needInfo' ? 'ส่งคำถามถึงครูแล้ว' : next ? `ส่งงานถึง ${next.owner} แล้ว — ขึ้นในงานวันนี้ของครูทันที` : 'บันทึกการตัดสินใจแล้ว')
+    if (actsUsed.includes('escalate') && escalateTo.startsWith('สพท.'))
+      area.addRequest({
+        schoolId: c.s.schoolKey,
+        schoolName: SCHOOLS.find((x) => x.id === c.s.schoolKey)?.name ?? c.s.schoolKey,
+        by,
+        need: 'complex',
+        childId: c.s.id,
+        childName: c.s.name,
+        ask: reason.trim(),
+        tried: req.tried,
+        blocked: req.summary,
+        urgency: c.s.riskLevel === 'critical' || c.s.riskLevel === 'high' ? 'high' : 'normal',
+      })
+    push(verdict === 'needInfo' ? 'ส่งคำถามถึงครูแล้ว' : next ? `ส่งงานถึง ${next.owner} แล้ว — ขึ้นในงานวันนี้ของครูทันที${actsUsed.includes('escalate') && escalateTo.startsWith('สพท.') ? ' · ส่งเรื่องถึงเขตแล้ว' : ''}` : 'บันทึกการตัดสินใจแล้ว')
     done()
   }
 

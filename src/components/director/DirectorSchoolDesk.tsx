@@ -13,6 +13,8 @@ import { Skeleton } from '@/components/ui/Skeleton'
 import { useToast } from '@/components/ui/Toast'
 import { IconSchool } from '@/components/icons'
 import { MASCOT, btnSecondary } from './DeskParts'
+import { AREA_ACT_TH, AREA_NEED_TH, AREA_VERDICT_TH, areaRequestStatus, esaOfSchool, useAreaLog, type AreaAction, type AreaRequest } from '@/lib/areaLog'
+import { fmtDay } from '@/lib/directorOps'
 
 type Tone = 'good' | 'bad' | 'even'
 const TONE_PILL: Record<Tone, string> = { good: 'bg-green-50 text-green-800', bad: 'bg-red-50 text-red-700', even: 'bg-surface-muted text-ink-muted' }
@@ -56,7 +58,13 @@ export function DirectorSchoolDesk({ school: s, onFullView }: { school: School; 
   const { t } = useI18n()
   const nav = useNavigate()
   const { push } = useToast()
-  const { log, built } = useFollowCases()
+  const { user, log, built } = useFollowCases()
+  // คำขอถึงเขต · การสนับสนุนที่เขตส่งมา — ที่เก็บเดียวกับหน้าเขต
+  const area = useAreaLog(esaOfSchool(s.id))
+  const myRequests = area.requests.filter((r) => r.schoolId === s.id)
+  const myActions = area.actions.filter((a) => a.schoolId === s.id)
+  const [reporting, setReporting] = useState<{ kind: 'request'; r: AreaRequest } | { kind: 'action'; a: AreaAction } | null>(null)
+  const [reportNote, setReportNote] = useState('')
   const loading = useSimulatedLoading(400)
   const cases = useMemo(() => ('list' in built ? built.list : []), [built])
   const requests = useMemo(() => Object.values(log.requests), [log.requests])
@@ -65,7 +73,7 @@ export function DirectorSchoolDesk({ school: s, onFullView }: { school: School; 
   const jams = useMemo(() => bottlenecks(cases, requests), [cases, requests])
   const out = useMemo(() => outcomes(cases), [cases])
   const [asking, setAsking] = useState(false)
-  const [asked, setAsked] = useState(false)
+  const asked = myRequests.some((r) => (r.need === 'resource' || r.need === 'budget') && !r.done && areaRequestStatus(r) !== 'rejected')
 
   const open = cases.filter((c) => c.open)
   const breach = open.filter((c) => c.sla.level === 'breach')
@@ -347,6 +355,63 @@ export function DirectorSchoolDesk({ school: s, onFullView }: { school: School; 
           </dl>
         </Section>
 
+        {/* ── คำขอถึงเขต · การสนับสนุนที่เขตส่งมา — ผลกลับมาที่ ผอ. ที่นี่ ── */}
+        {(myRequests.length > 0 || myActions.length > 0) && (
+          <Section title="คำขอและการสนับสนุนจากเขต" sub="เขตตัดสินใจแล้ว งานกลับมาที่โรงเรียน — ทำแล้วรายงานผลให้เขตติดตามได้">
+            <ul className="space-y-2.5">
+              {myRequests.map((r) => {
+                const st = areaRequestStatus(r)
+                const d = r.decision
+                return (
+                  <li key={r.id} className="rounded-xl border border-surface-border p-4">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className={`rounded-full px-2.5 py-0.5 text-[12.5px] font-bold ${st === 'new' ? 'bg-amber-50 text-amber-800' : st === 'done' ? 'bg-green-50 text-green-800' : st === 'decided' ? 'bg-brand-50 text-brand-700' : 'bg-surface-muted text-ink-muted'}`}>
+                        {st === 'new' ? 'รอเขตพิจารณา' : st === 'done' ? '✓ รายงานผลแล้ว' : d ? `เขต${AREA_VERDICT_TH[d.verdict]}` : ''}
+                      </span>
+                      <span className="text-[15px] font-semibold text-ink">{AREA_NEED_TH[r.need]}{r.childName ? ` · ${r.childName}` : ''}</span>
+                    </div>
+                    {d ? (
+                      <p className="mt-1.5 text-[14.5px] leading-snug text-ink">
+                        {d.acts.length ? `${d.acts.map((a) => AREA_ACT_TH[a]).join(' · ')} — ` : ''}
+                        {d.note}
+                        <span className="block text-[13.5px] text-ink-muted">
+                          ผู้รับผิดชอบฝั่งเขต {d.owner} · กำหนด {fmtDay(d.due)}{d.expected ? ` · ผลที่คาดหวัง: ${d.expected}` : ''}
+                        </span>
+                      </p>
+                    ) : (
+                      <p className="mt-1.5 text-[14px] text-ink-muted">ส่งเมื่อ {new Date(r.ts).toLocaleDateString('th-TH', { day: 'numeric', month: 'short' })}</p>
+                    )}
+                    {r.done && <p className="mt-1.5 text-[14px] text-green-800">ผลที่โรงเรียนรายงาน: {r.done.note}</p>}
+                    {st === 'decided' && (
+                      <button type="button" onClick={() => { setReportNote(''); setReporting({ kind: 'request', r }) }} className={`${btnSecondary} mt-2.5`}>
+                        รายงานผลให้เขต
+                      </button>
+                    )}
+                  </li>
+                )
+              })}
+              {myActions.map((a) => (
+                <li key={a.id} className="rounded-xl border border-brand-200 bg-brand-50/40 p-4">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className={`rounded-full px-2.5 py-0.5 text-[12.5px] font-bold ${a.done ? 'bg-green-50 text-green-800' : 'bg-brand-500 text-white'}`}>{a.done ? '✓ รายงานผลแล้ว' : 'เขตส่งการสนับสนุนมา'}</span>
+                    <span className="text-[15px] font-semibold text-ink">{a.acts.map((x) => AREA_ACT_TH[x]).join(' · ')}</span>
+                  </div>
+                  <p className="mt-1.5 text-[14.5px] leading-snug text-ink">
+                    {a.note}
+                    <span className="block text-[13.5px] text-ink-muted">ผู้รับผิดชอบฝั่งเขต {a.owner} · กำหนด {fmtDay(a.due)}{a.expected ? ` · ผลที่คาดหวัง: ${a.expected}` : ''}</span>
+                  </p>
+                  {a.done && <p className="mt-1.5 text-[14px] text-green-800">ผลที่โรงเรียนรายงาน: {a.done.note}</p>}
+                  {!a.done && (
+                    <button type="button" onClick={() => { setReportNote(''); setReporting({ kind: 'action', a }) }} className={`${btnSecondary} mt-2.5`}>
+                      รายงานผลให้เขต
+                    </button>
+                  )}
+                </li>
+              ))}
+            </ul>
+          </Section>
+        )}
+
         {/* ── ขอสนับสนุนทรัพยากร ── */}
         {s.needsResources && (
           <section className="flex flex-col gap-3 rounded-2xl border border-amber-200 bg-amber-50/60 p-4 sm:flex-row sm:items-center sm:p-5">
@@ -396,6 +461,30 @@ export function DirectorSchoolDesk({ school: s, onFullView }: { school: School; 
         </details>
       </div>
 
+      {reporting && (
+        <Drawer label="รายงานผลให้เขต" head={<p className="text-[19px] font-bold text-ink">รายงานผลให้เขต</p>} onClose={() => setReporting(null)}>
+          <p className="text-[14px] text-ink-muted">
+            {reporting.kind === 'request' ? `${AREA_NEED_TH[reporting.r.need]} — ${reporting.r.decision?.expected ?? ''}` : `${reporting.a.acts.map((x) => AREA_ACT_TH[x]).join(' · ')} — ${reporting.a.expected}`}
+          </p>
+          <Label>ผลที่ได้</Label>
+          <textarea id="area-report" value={reportNote} onChange={(e) => setReportNote(e.target.value)} rows={4} className={textareaCls} placeholder="เช่น นักจิตวิทยาเขตเข้ามาแล้ว 2 ครั้ง นักเรียน 2 ใน 3 คนกลับมาเรียนสม่ำเสมอ" />
+          <div className="mt-5">
+            <PrimaryBtn
+              disabled={reportNote.trim().length < 5}
+              onClick={() => {
+                const who = user?.name ?? 'ผอ.'
+                if (reporting.kind === 'request') area.reportRequest(reporting.r.id, who, reportNote.trim())
+                else area.reportAction(reporting.a.id, who, reportNote.trim())
+                setReporting(null)
+                push('รายงานผลให้เขตแล้ว — เขตเห็นในหน้าภาพรวมเขต')
+              }}
+            >
+              ส่งผลให้เขต
+            </PrimaryBtn>
+          </div>
+        </Drawer>
+      )}
+
       {asking && (
         <Drawer label="ขอสนับสนุนทรัพยากร" head={<p className="text-[19px] font-bold text-ink">ขอสนับสนุนทรัพยากรจากเขต</p>} onClose={() => setAsking(false)}>
           <p className="text-[14px] text-ink-muted">AI ร่างจากตัวเลขของโรงเรียน — ผอ. แก้ได้ทุกบรรทัด</p>
@@ -405,9 +494,18 @@ export function DirectorSchoolDesk({ school: s, onFullView }: { school: School; 
             <PrimaryBtn
               disabled={(text || draft).trim().length < 10}
               onClick={() => {
-                setAsked(true)
+                area.addRequest({
+                  schoolId: s.id,
+                  schoolName: s.name,
+                  by: user?.name ?? 'ผอ.',
+                  need: 'resource',
+                  ask: (text || draft).trim(),
+                  tried: [`ครูติดตามเคสในระบบ ${open.length} เคส`, `ปิดเคสสำเร็จแล้ว ${out.closed} เคส`, ...(topOwner && spreadTo ? [`กระจายเคสภายในโรงเรียนแล้ว (${topOwner} → ${spreadTo})`] : [])],
+                  blocked: jams[0] ? `เคสค้างเพราะ${BOTTLENECK_TH[jams[0].key]} ${jams[0].n} เคส · เกิน SLA ${breach.length} เคส` : `เกิน SLA ${breach.length} เคส`,
+                  urgency: breach.length >= 10 ? 'high' : 'normal',
+                })
                 setAsking(false)
-                push(`ส่งคำขอสนับสนุนทรัพยากรของ ${s.name} ไปยังเขตพื้นที่แล้ว`)
+                push(`ส่งคำขอสนับสนุนทรัพยากรของ ${s.name} ไปยังเขตพื้นที่แล้ว — ติดตามคำตอบได้ที่หน้านี้`)
               }}
             >
               ส่งคำขอไปที่เขต
