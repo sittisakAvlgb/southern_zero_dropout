@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react'
+import { createPortal } from 'react-dom'
 import { useScrollLock } from '@/lib/useScrollLock'
 import { motion } from 'framer-motion'
 import { IconArrowRight, IconClose } from '@/components/icons'
@@ -21,7 +22,8 @@ export function Drawer({
   children: ReactNode
 }) {
   useScrollLock()
-  return (
+  // portal to body: inside the page wrappers the fixed layer opened 32px down and the top bar showed over the overlay
+  return createPortal(
     <div className="fixed inset-0 z-[70] flex justify-end">
       <button type="button" aria-label="ปิด" className="absolute inset-0 bg-brand-950/35" onClick={onClose} />
       <motion.aside
@@ -47,7 +49,8 @@ export function Drawer({
         <div className="flex-1 overflow-y-auto px-5 pb-6 pt-4">{children}</div>
         {footer && <div className="border-t border-surface-border bg-white px-5 py-3">{footer}</div>}
       </motion.aside>
-    </div>
+    </div>,
+    document.body,
   )
 }
 
