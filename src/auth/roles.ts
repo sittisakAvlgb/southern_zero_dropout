@@ -272,14 +272,17 @@ export function canAccess(user: NavUser, path: string): boolean {
  *  visit — or only read it and direct someone else to?
  *
  *  A seat covering the whole area sets policy and moves resources; the case
- *  itself belongs to whoever is accountable for that child. สพฐ. ส่วนกลาง and
- *  ศอ.บต. therefore read every screen and act on none of them, while a
- *  province exec, the เขต office, a school and a teacher all carry real
- *  caseloads. Same principle as the menu — TOR ๔.๕.๕: access follows the job.
+ *  itself belongs to whoever is accountable for that child. สพฐ. (ส่วนกลางหรือเขต)
+ *  and ศอ.บต. therefore read every screen and act on none of them, while a
+ *  province exec, a school and a teacher carry real caseloads. Same principle as the menu — TOR ๔.๕.๕: access follows the job.
  *
  *  This gates *actions*, not visibility. An สพฐ. executive still sees who has
  *  no plan and which อำเภอ is behind; they just do not author the plan. */
 export function canWorkCases(user: NavUser): boolean {
+  // เขต และ สพฐ. กำกับโรงเรียน ไม่ได้เป็นเจ้าของเคส — อ่านเด็กรายคนได้ (ผู้ดูแลทะเบียนนักเรียน)
+  // แต่ไม่เลื่อนขั้น ไม่รับเคส ไม่บันทึกการเยี่ยมบ้านแทนครู เดิมเขตผ่านด่านนี้เพราะบัญชีมีจังหวัด
+  // จึงเห็นปุ่ม "รับผิดชอบเคสนี้เอง" และ "เลื่อนไปขั้นถัดไป" บนเด็กของทุกโรงเรียนในเขต
+  if (user?.role === 'esa' || user?.role === 'obec') return false
   return !isAreaWide(user)
 }
 

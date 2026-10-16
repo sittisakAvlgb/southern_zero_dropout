@@ -89,7 +89,9 @@ function SchoolPerformanceFull() {
   const th = lang === 'th'
   const toast = useToast()
   const nav = useNavigate()
-  const { schools: scoped, user } = useScopedData()
+  const { schools: scoped, user, cases } = useScopedData()
+  // เคสเกิน SLA จากเคสจริงในขอบเขต — แหล่งเดียวกับหน้าภาพรวมและหน้าการช่วยเหลือ
+  const slaOverdue = useMemo(() => cases.filter((c) => c.slaBreached).length, [cases])
 
   const [query, setQuery] = useState('')
   const [district, setDistrict] = useState('all')
@@ -361,32 +363,20 @@ function SchoolPerformanceFull() {
                 </div>
                 <HealthTrack
                   total={stats.total}
+                  active={focus}
+                  onPick={(k) => toggleFocus(k as Focus)}
                   parts={[
-                    { key: 'needs', label: t('sch.needResource'), value: stats.needs, color: '#f97316' },
-                    { key: 'lowData', label: t('sch.lowData'), value: stats.lowData, color: '#eab308' },
-                    { key: 'lowSuccess', label: t('sch.lowSuccess'), value: stats.lowSuccess, color: '#a855f7' },
+                    { key: 'needs', label: t('sch.needResource'), value: stats.needs, color: '#f97316', filter: true },
+                    { key: 'lowData', label: t('sch.lowData'), value: stats.lowData, color: '#eab308', filter: true },
+                    { key: 'lowSuccess', label: t('sch.lowSuccess'), value: stats.lowSuccess, color: '#a855f7', filter: true },
                     { key: 'ok', label: t('sch.ok'), value: stats.ok, color: '#16a34a' },
                   ]}
                 />
                 <div className="mt-3 flex flex-wrap gap-2">
                   <MiniChip
-                    icon={<IconShield width={12} height={12} />}
-                    label={t('sch.lowData')}
-                    value={stats.lowData}
-                    active={focus === 'lowData'}
-                    onClick={() => toggleFocus('lowData')}
-                  />
-                  <MiniChip
-                    icon={<IconCheck width={12} height={12} />}
-                    label={t('sch.lowSuccess')}
-                    value={stats.lowSuccess}
-                    active={focus === 'lowSuccess'}
-                    onClick={() => toggleFocus('lowSuccess')}
-                  />
-                  <MiniChip
                     icon={<IconClock width={12} height={12} />}
-                    label={t('common.openCases')}
-                    value={stats.overdue}
+                    label={t('common.overdue')}
+                    value={slaOverdue}
                     active={false}
                     onClick={() =>
                       canCases
@@ -1077,12 +1067,18 @@ function Benchmarked({
 
 /* ─────────────── shared pieces ─────────────── */
 
+/** แถบสัดส่วน + คำอธิบาย — คำอธิบายที่มีตัวกรองกดได้เลย
+ *  เดิมคำอธิบายกดไม่ได้ และมีชิปกรองซ้ำชื่อเดียวกันอยู่ใต้แถบ (เช่น "ข้อมูลยังไม่ครบ 3" สองที่) */
 function HealthTrack({
   total,
   parts,
+  active,
+  onPick,
 }: {
   total: number
-  parts: { key: string; label: string; value: number; color: string }[]
+  parts: { key: string; label: string; value: number; color: string; filter?: boolean }[]
+  active?: string
+  onPick?: (key: string) => void
 }) {
   return (
     <div className="mt-2">
@@ -1098,13 +1094,27 @@ function HealthTrack({
         ))}
       </div>
       <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1">
-        {parts.map((p) => (
-          <span key={p.key} className="inline-flex items-center gap-1.5 text-[11px] text-ink-muted">
-            <span className="h-2 w-2 rounded-full" style={{ backgroundColor: p.color }} />
-            {p.label}
-            <span className="tabular font-semibold text-ink">{p.value}</span>
-          </span>
-        ))}
+        {parts.map((p) =>
+          p.filter && onPick ? (
+            <button
+              key={p.key}
+              type="button"
+              onClick={() => onPick(p.key)}
+              aria-pressed={active === p.key}
+              className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[12.5px] ${active === p.key ? 'border-brand-500 bg-brand-50 text-brand-700' : 'border-surface-border bg-white text-ink-muted hover:border-brand-300'}`}
+            >
+              <span className="h-2 w-2 rounded-full" style={{ backgroundColor: p.color }} />
+              {p.label}
+              <span className="tabular font-semibold text-ink">{p.value}</span>
+            </button>
+          ) : (
+            <span key={p.key} className="inline-flex items-center gap-1.5 px-1 py-1 text-[12.5px] text-ink-muted">
+              <span className="h-2 w-2 rounded-full" style={{ backgroundColor: p.color }} />
+              {p.label}
+              <span className="tabular font-semibold text-ink">{p.value}</span>
+            </span>
+          ),
+        )}
       </div>
     </div>
   )

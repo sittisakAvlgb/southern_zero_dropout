@@ -45,7 +45,10 @@ export function Sidebar({
   const meta = ROLE_META[user?.role ?? 'exec']
 
   // attention badges from scoped data
-  const urgent = cases.filter((c) => c.urgent || c.slaBreached).length
+  // บัญชีกำกับดูแล (เขต · สพฐ. · ศอ.บต.): หน้าการช่วยเหลือเปิดด้วย "N เคสเกิน SLA" ป้ายจึงนับแบบเดียวกัน
+  // (เดิมนับเร่งด่วนหรือเกิน SLA ได้ 31 ขณะที่หน้าบอก 30) ครูยังนับแบบเดิม
+  const supervising = user?.role === 'esa' || user?.role === 'obec' || user?.role === 'exec'
+  const urgent = cases.filter((c) => (supervising ? c.slaBreached : c.urgent || c.slaBreached)).length
   const highRisk = students.filter((s) => s.riskLevel === 'high' || s.riskLevel === 'critical').length
   const badges: Record<string, { n: number; color: string; soft?: boolean }> = {}
   if (urgent > 0 && !work) badges['/intervention'] = { n: urgent, color: '#dc2626' }

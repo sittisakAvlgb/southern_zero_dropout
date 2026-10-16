@@ -50,6 +50,19 @@ export const OWNERS = [
   'นักจิตวิทยา สุไรยา', 'นักสังคมสงเคราะห์ ซัลมา', 'ครูสมชาย ท.', 'อสม. ยาวารี',
 ]
 
+/** โรงเรียนเดโมของบัญชีครูและ ผอ. — ผู้รับผิดชอบเคสชุดเดิม (บัญชีครูผูกกับชื่อ GUIDANCE_OWNER) */
+const DEMO_SCHOOL = 'TOR-005'
+/** ครูของโรงเรียนอื่น — เดิมเด็กเสี่ยงสูงทุกโรงเรียนได้ "ครูแนะแนว นูรียะ" (ครูของสายบุรี) เป็นผู้ดูแล
+ *  บัญชีเขตจึงเห็นครูคนเดียวดูแลเด็กไม้แก่น กะพ้อ ทุ่งยางแดง แต่ละโรงเรียนจึงมีชื่อครูของตัวเอง
+ *  เลือกด้วย hash ของรหัสโรงเรียน ไม่ใช้ rng — ค่าอื่นของนักเรียนไม่เปลี่ยน */
+const GUIDE_NAMES = ['ฮาลีมะห์', 'อับดุลการิม', 'ซารีฟะห์', 'มาหามะ', 'รอฮานี', 'ยูโซฟ', 'นูรอานี', 'อิสมาอีล', 'ฟาริดา', 'ซุลกิฟลี']
+const ROOM_NAMES = ['อัมรัน', 'ซูไฮลา', 'มูหะมัด', 'กัลซม', 'อาซิซ', 'นาดียา', 'รอซาลี', 'สุไลมาน', 'ฮาบีบะห์', 'ยะห์ยา', 'มารีแย', 'อาหมัด']
+function ownerAt(schoolId: string, escalated: boolean, n: number): string {
+  const h = hashSeed(schoolId)
+  if (escalated) return `ครูแนะแนว ${GUIDE_NAMES[h % GUIDE_NAMES.length]}`
+  return n === 2 ? `อสม. ${ROOM_NAMES[(h + 5) % ROOM_NAMES.length]}` : `ครูประจำชั้น ${ROOM_NAMES[(h + n) % ROOM_NAMES.length]}`
+}
+
 const GRADES: GradeLevel[] = ['p5', 'p6', 'm1', 'm2', 'm3', 'm4', 'm5']
 
 // ── ทะเบียนนักเรียนตามรูปร่างจริง (DMC/สพฐ.) ─────────────────
@@ -296,10 +309,15 @@ function buildStudent(idx: number): Student {
   // volunteers keep the watchlist. Drawing every owner at random left the
   // guidance account holding only watch-level children, so its dashboard
   // reported zero high-risk students for a school that has plenty.
+  const escalated = level === 'high' || level === 'critical'
+  // เรียก rng เฉพาะเด็กที่ไม่ใช่เสี่ยงสูง เหมือนเดิมทุกประการ — ไม่งั้นค่าสุ่มของทุกฟิลด์ถัดไปเลื่อนทั้งชุด
+  const pickN = escalated ? 0 : randInt(rng, 0, 2)
   const owner =
-    level === 'high' || level === 'critical'
-      ? GUIDANCE_OWNER
-      : OWNERS[hashSeed(school.id + '|' + randInt(rng, 0, 2)) % OWNERS.length]
+    school.id === DEMO_SCHOOL
+      ? escalated
+        ? GUIDANCE_OWNER
+        : OWNERS[hashSeed(school.id + '|' + pickN) % OWNERS.length]
+      : ownerAt(school.id, escalated, pickN)
   /** เด็กที่มีแผนช่วยเหลือแล้วหรือกลับเข้าเรียนแล้ว คือกลุ่มที่สถานการณ์
    *  กำลังดีขึ้น เดิมชุดข้อมูลไม่มีเด็กกลุ่มนี้เลย — `absenceStreak` คำนวณ
    *  จาก attendanceRisk ซึ่งต่ำสุดคือ 22 จึงไม่มีเด็กคนไหนเลิกขาดเรียนได้

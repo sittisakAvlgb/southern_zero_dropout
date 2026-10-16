@@ -6,7 +6,7 @@ import { IconEye } from '@/components/icons'
 
 /**
  * Shown on the case-level screens to a seat that reads and directs rather than
- * acts — สพฐ. ส่วนกลาง and ศอ.บต.
+ * acts — สพฐ. (ส่วนกลางและเขต) and ศอ.บต.
  *
  * The alternative was to quietly drop the action buttons, which leaves a
  * reviewer wondering whether the feature is missing or withheld. Saying it
@@ -31,8 +31,8 @@ export function DirectOnlyNotice() {
       </span>
       <span className="text-amber-900">
         {th
-          ? 'บัญชีระดับกำกับดูแลไม่ลงมือกับเคสรายบุคคล — เจ้าของเคสคือเขตพื้นที่ โรงเรียน หรือครูผู้รับผิดชอบ'
-          : 'A supervising account does not act on individual cases — the owner is the area office, the school or the responsible teacher.'}
+          ? 'บัญชีระดับกำกับดูแลไม่ลงมือกับเคสรายบุคคล — เจ้าของเคสคือโรงเรียนและครูผู้รับผิดชอบ'
+          : 'A supervising account does not act on individual cases — the owner is the school and the responsible teacher.'}
       </span>
     </motion.div>
   )

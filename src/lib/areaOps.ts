@@ -217,8 +217,10 @@ export function buildAreaOps(input: {
         rate,
         level: rateToLevel(rate),
         atRisk: s.highRiskStudents,
-        openCases: s.openCases,
-        overdue: s.overdueCases,
+        // นับจากเคสจริงของโรงเรียนนั้น แหล่งเดียวกับยอดรวมบนหน้า — เดิมใช้ตัวเลขจากรายงาน
+        // (overdueCases) รายโรงเรียนจึงรวมได้ 79 ขณะที่บรรทัดบนบอกเกินกำหนด 30
+        openCases: cases.filter((c) => c.schoolKey === s.id && stageOf(c) !== 'done').length,
+        overdue: cases.filter((c) => c.schoolKey === s.id && c.slaBreached).length,
       }
     })
     .sort((a, b) => b.rate - a.rate)

@@ -305,21 +305,16 @@ function OversightPlans() {
             </div>
             <HealthTrack
               total={stats.total}
+              active={focus}
+              onPick={(k) => toggleFocus(k as FocusKey)}
               parts={[
-                { key: 'blocked', label: t('plan.blocked'), value: stats.blocked, color: '#dc2626' },
-                { key: 'stale', label: t('plan.needsReview'), value: stats.stale, color: '#f97316' },
+                { key: 'blocked', label: t('plan.blocked'), value: stats.blocked, color: '#dc2626', filter: true },
+                { key: 'stale', label: t('plan.needsReview'), value: stats.stale, color: '#f97316', filter: true },
                 { key: 'moving', label: t('plan.moving'), value: stats.moving, color: '#2f66f6' },
                 { key: 'nearDone', label: t('plan.nearDone'), value: stats.nearDone, color: '#16a34a' },
               ]}
             />
             <div className="mt-3 flex flex-wrap gap-2">
-              <MiniChip
-                icon={<IconClock width={12} height={12} />}
-                label={t('plan.needsReview')}
-                value={stats.staleAll}
-                active={focus === 'stale'}
-                onClick={() => toggleFocus('stale')}
-              />
               <MiniChip
                 icon={<IconUsers width={12} height={12} />}
                 label={t('plan.notAgreed')}
@@ -646,12 +641,18 @@ function OversightPlans() {
 
 /* ─────────────── pieces ─────────────── */
 
+/** แถบสัดส่วน + คำอธิบาย — คำอธิบายที่มีตัวกรองกดได้เลย
+ *  เดิมคำอธิบายกดไม่ได้ และมีชิปกรองซ้ำชื่อเดียวกันอยู่ใต้แถบ (เช่น "ข้อมูลยังไม่ครบ 3" สองที่) */
 function HealthTrack({
   total,
   parts,
+  active,
+  onPick,
 }: {
   total: number
-  parts: { key: string; label: string; value: number; color: string }[]
+  parts: { key: string; label: string; value: number; color: string; filter?: boolean }[]
+  active?: string
+  onPick?: (key: string) => void
 }) {
   return (
     <div className="mt-2">
@@ -667,13 +668,27 @@ function HealthTrack({
         ))}
       </div>
       <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1">
-        {parts.map((p) => (
-          <span key={p.key} className="inline-flex items-center gap-1.5 text-[11px] text-ink-muted">
-            <span className="h-2 w-2 rounded-full" style={{ backgroundColor: p.color }} />
-            {p.label}
-            <span className="tabular font-semibold text-ink">{p.value}</span>
-          </span>
-        ))}
+        {parts.map((p) =>
+          p.filter && onPick ? (
+            <button
+              key={p.key}
+              type="button"
+              onClick={() => onPick(p.key)}
+              aria-pressed={active === p.key}
+              className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[12.5px] ${active === p.key ? 'border-brand-500 bg-brand-50 text-brand-700' : 'border-surface-border bg-white text-ink-muted hover:border-brand-300'}`}
+            >
+              <span className="h-2 w-2 rounded-full" style={{ backgroundColor: p.color }} />
+              {p.label}
+              <span className="tabular font-semibold text-ink">{p.value}</span>
+            </button>
+          ) : (
+            <span key={p.key} className="inline-flex items-center gap-1.5 px-1 py-1 text-[12.5px] text-ink-muted">
+              <span className="h-2 w-2 rounded-full" style={{ backgroundColor: p.color }} />
+              {p.label}
+              <span className="tabular font-semibold text-ink">{p.value}</span>
+            </span>
+          ),
+        )}
       </div>
     </div>
   )
