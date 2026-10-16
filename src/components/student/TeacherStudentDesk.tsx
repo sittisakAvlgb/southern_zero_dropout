@@ -34,6 +34,9 @@ import { Drawer, inputCls, isoIn, textareaCls } from '@/components/referrals/ui'
 import { byOf } from '@/components/referrals/useRefCases'
 import { consentFromVisit } from '@/lib/refOps'
 import { LogForm, type LogResult } from '@/pages/Student360'
+import { DirectorCaseDetail, itemFor, teamOf } from '@/pages/DirectorDecisions'
+import { DirectorStudentPanel } from '@/components/support/DirectorStudentPanel'
+import { directorInbox, teamLoad } from '@/lib/directorOps'
 import { Attendance, CaseSummary, FamilyFromVisit, Grades, MicButton } from './DeskExtras'
 
 const MASCOT = assetUrl('ChatBot.png')
@@ -63,7 +66,10 @@ export function TeacherStudentDesk() {
   const nav = useNavigate()
   const { push } = useToast()
   const { user, log, built } = useFollowCases()
-  const mayAct = canWorkCases(user)
+  // ผอ. ใช้หน้าเดียวกับครู แต่ไม่ทำงานแทนครู — ปุ่มของครูซ่อนหมด ผอ. มีกล่องของ ผอ. แทน
+  const director = user?.role === 'school'
+  const mayAct = canWorkCases(user) && !director
+  const [deciding, setDeciding] = useState(false)
   const by = byOf(user)
   const loading = useSimulatedLoading(450)
   const [params, setParams] = useSearchParams()
@@ -162,7 +168,7 @@ export function TeacherStudentDesk() {
   if (!fc)
     return (
       <div className="rounded-2xl border border-dashed border-surface-border bg-white px-6 py-10 text-center">
-        <p className="text-[17px] font-semibold text-ink">ยังไม่มีนักเรียนในความดูแลของคุณ</p>
+        <p className="text-[17px] font-semibold text-ink">{director ? 'ยังไม่มีนักเรียนในโรงเรียนที่ต้องติดตาม' : 'ยังไม่มีนักเรียนในความดูแลของคุณ'}</p>
         <p className="mt-1 text-[14px] text-ink-muted">เมื่อมีนักเรียนในเคสของคุณ จะเปิดดูแลรายคนได้ที่นี่</p>
       </div>
     )
@@ -207,7 +213,7 @@ export function TeacherStudentDesk() {
         }}
       />
     ),
-    note: (
+    note: mayAct && (
       <section>
         <SectionTitle>บันทึกสั้น</SectionTitle>
         {mayAct && (
@@ -248,7 +254,7 @@ export function TeacherStudentDesk() {
         icon={<IconStudent width={22} height={22} />}
         breadcrumb={<Breadcrumb items={[t('app.areaShort'), t('nav.student')]} />}
         title={t('nav.student')}
-        subtitle="โต๊ะทำงานของคุณสำหรับดูแลเด็กหนึ่งคน — ครูรู้ปัญหา AI ช่วยหาวิธี"
+        subtitle={director ? 'ดูว่าครูกำลังช่วยเด็กคนนี้อย่างไร — ผอ. ช่วยเฉพาะเรื่องที่ต้องใช้ ผอ.' : 'โต๊ะทำงานของคุณสำหรับดูแลเด็กหนึ่งคน — ครูรู้ปัญหา AI ช่วยหาวิธี'}
       />
 
       <div className="grid gap-5 xl:grid-cols-[280px_minmax(0,1fr)]">
@@ -272,6 +278,16 @@ export function TeacherStudentDesk() {
           {/* หัวการ์ดแบบเดิม: ตัวตน + สถานะ + เกจ แล้วตามด้วยสิ่งที่ต้องทำต่อในการ์ดเดียวกัน */}
           <section className="overflow-hidden rounded-3xl border border-surface-border bg-white">
             <Summary fc={fc} />
+            {director ? (
+              <DirectorStudentPanel
+                fc={fc}
+                by={by}
+                log={log}
+                lastContact={entries.find((e) => !isScheduleOnly(e))?.date}
+                onDecide={() => setDeciding(true)}
+                onExport={() => setSummaryOpen(true)}
+              />
+            ) : (
             <StudentNextStep
               fc={fc}
               mayAct={mayAct}
@@ -282,6 +298,7 @@ export function TeacherStudentDesk() {
               onExport={() => setSummaryOpen(true)}
               exportLabel="สรุปเคส / ส่งออก"
             />
+            )}
           </section>
           {sec.close}
 
@@ -370,8 +387,9 @@ export function TeacherStudentDesk() {
         <CaseSummary fc={fc} entries={entries} obs={obs.filter((o) => !o.resolvedTs).map((o) => o.text)} by={by} t={t} onClose={() => setSummaryOpen(false)} />
       )}
       {logMode && <LogForm mode={logMode} student={fc.s} actor={by} onCancel={() => setLogMode(null)} onSave={saveLogForm} th={th} t={t} />}
+      {deciding && director && <DirectorDrawer fc={fc} list={list} log={log} by={by} push={push} onClose={() => setDeciding(false)} onOpenFile={() => setDeciding(false)} />}
       {picking && (
-        <Drawer label="เลือกนักเรียน" head={<p className="text-[19px] font-bold text-ink">เด็กในความดูแล</p>} onClose={() => setPicking(false)}>
+        <Drawer label="เลือกนักเรียน" head={<p className="text-[19px] font-bold text-ink">{director ? 'นักเรียนที่ติดตามอยู่' : 'เด็กในความดูแล'}</p>} onClose={() => setPicking(false)}>
           <StudentList list={list} activeId={fc.s.id} onPick={pick} />
         </Drawer>
       )}
@@ -380,6 +398,32 @@ export function TeacherStudentDesk() {
 }
 
 // ── ชิ้นส่วน ─────────────────────────────────────────────────
+
+/** ลิ้นชักตัดสินใจของ ผอ. บนแฟ้มเด็ก — ตัวเดียวกับหน้าเรื่องที่ต้องตัดสินใจ ไม่ต้องออกจากหน้านี้ */
+function DirectorDrawer({
+  fc,
+  list,
+  log,
+  by,
+  push,
+  onClose,
+  onOpenFile,
+}: {
+  fc: FollowCase
+  list: FollowCase[]
+  log: ReturnType<typeof useFollowCases>['log']
+  by: string
+  push: (m: string) => void
+  onClose: () => void
+  onOpenFile: () => void
+}) {
+  const requests = useMemo(() => Object.values(log.requests), [log.requests])
+  const inbox = useMemo(() => directorInbox(list, requests), [list, requests])
+  const load = useMemo(() => teamLoad(list), [list])
+  const x = itemFor(fc.s.id, inbox, list, requests)
+  if (!x) return null
+  return <DirectorCaseDetail x={x} heavy={load.insight?.owner} load={load.rows} by={by} team={teamOf(list)} log={log} push={push} onClose={onClose} onOpenFile={onOpenFile} />
+}
 
 function SectionTitle({ children, right }: { children: React.ReactNode; right?: React.ReactNode }) {
   return (
@@ -1185,16 +1229,17 @@ function Team({ fc, entries, me }: { fc: FollowCase; entries: CaseLogEntry[]; me
 }
 
 /** 15. งานที่เกี่ยวข้อง — สถานะของงาน ไม่ใช่เมนูระบบ */
-function Related({ fc }: { fc: FollowCase; entries?: CaseLogEntry[]; mayAct?: boolean; onVisit?: () => void }) {
+function Related({ fc, mayAct = true }: { fc: FollowCase; entries?: CaseLogEntry[]; mayAct?: boolean; onVisit?: () => void }) {
   const nav = useNavigate()
   const openRefs = fc.refs.filter((r) => r.bucket !== 'done')
   // นัดหมายและการเยี่ยมบ้านมีส่วนของตัวเองบนหน้านี้แล้ว — ที่นี่เหลือเฉพาะงานที่อยู่หน้าอื่น
   const rows: { k: string; v: string; cta?: string; go?: () => void }[] = [
-    { k: 'แผนช่วยเหลือ', v: fc.hasPlan ? 'มีแผนแล้ว' : 'ยังไม่มี', cta: fc.hasPlan ? 'ดูแผน' : 'สร้างแผน', go: () => nav(`/plan?child=${fc.s.id}`) },
+    { k: 'แผนช่วยเหลือ', v: fc.hasPlan ? 'มีแผนแล้ว' : 'ยังไม่มี', // ดูอย่างเดียว (ผอ.) — สร้างแผน/ส่งต่อเป็นงานของครู เหลือแค่ปุ่มดู
+      cta: fc.hasPlan ? 'ดูแผน' : mayAct ? 'สร้างแผน' : undefined, go: () => nav(`/plan?child=${fc.s.id}`) },
     {
       k: 'การส่งต่อ',
       v: openRefs.length ? `${openRefs.length} รายการ · ${openRefs[0].next.th}` : fc.refs.length ? `ปิดแล้ว ${fc.refs.length} รายการ` : 'ยังไม่มี',
-      cta: openRefs.length ? 'ดูการส่งต่อ' : 'พิจารณาส่งต่อ',
+      cta: openRefs.length ? 'ดูการส่งต่อ' : mayAct ? 'พิจารณาส่งต่อ' : undefined,
       go: () => nav(openRefs[0] ? `/referral?ref=${openRefs[0].id}` : `/referral?child=${fc.s.id}`),
     },
   ]
