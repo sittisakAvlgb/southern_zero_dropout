@@ -241,8 +241,12 @@ const HIDDEN_ROLES = new Set<Role>(['exec', 'agency'])
 
 export const isHiddenRole = (role: Role): boolean => HIDDEN_ROLES.has(role)
 
-/** The roles this build offers, in ROLES order. */
-export const LOGIN_ROLES: Role[] = ROLES.filter((r) => !HIDDEN_ROLES.has(r))
+/** ลำดับในตัวเลือกบทบาท (หน้าเข้าสู่ระบบ · ลงทะเบียน) — คนที่ใช้บ่อยที่สุดอยู่บนสุด:
+ *  ครูใช้ทุกวัน → ผอ. → เขตพื้นที่ → สพฐ. ส่วนกลาง (ROLES ยังเรียงตามลำดับชั้นของหน่วยงาน) */
+const LOGIN_ORDER: Role[] = ['teacher', 'school', 'esa', 'obec', 'exec', 'agency']
+
+/** The roles this build offers, most-used first. */
+export const LOGIN_ROLES: Role[] = LOGIN_ORDER.filter((r) => ROLES.includes(r) && !HIDDEN_ROLES.has(r))
 
 type NavUser = Pick<User, 'role' | 'provinceKey' | 'districtKey'> | null
 
