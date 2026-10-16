@@ -8,7 +8,7 @@ import { buildCase, PRIORITY_META, sortCases, type PlanCase, type Priority } fro
 import { teamLoad } from '@/lib/directorOps'
 import { RISK_COLOR } from '@/lib/risk'
 import { GRADE_LABEL } from '@/lib/schoolOps'
-import { handledBy, planBrief, planNeedsDirector, planRank, planTag, type DeskOption } from '@/lib/directorDeskOps'
+import { inPlanQueue, planBrief, planNeedsDirector, planRank, planTag, type DeskOption } from '@/lib/directorDeskOps'
 import type { Student } from '@/types'
 import { useFollowCases } from '@/components/followup/useFollowCases'
 import { byOf, useRefCases } from '@/components/referrals/useRefCases'
@@ -74,8 +74,9 @@ export function DirectorPlanDesk({ onFullView }: { onFullView: () => void }) {
   const isClosed = (c: PlanCase) => c.next.kind === 'done'
   const active = cases.filter((c) => !isClosed(c))
   const closedCases = cases.filter(isClosed)
+  // กฎคิวเดียวกับตัวเลขบนเมนู (inPlanQueue)
   const queue = active
-    .filter((c) => planNeedsDirector(c, ownerOf(c.plan.childId)) && !handledBy(log.entries, c.plan.childId))
+    .filter((c) => inPlanQueue(c, ownerOf(c.plan.childId), log.entries))
     .sort((a, b) => planRank(b, ownerOf(b.plan.childId)) - planRank(a, ownerOf(a.plan.childId)))
   const rest = active.filter((c) => !queue.includes(c))
   const groups = ORDER.map((k) => ({ k, items: rest.filter((c) => c.priority === k) })).filter((g) => g.items.length)

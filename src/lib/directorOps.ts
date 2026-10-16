@@ -134,6 +134,46 @@ export function execSummary(c: FollowCase, req?: SupportRequest, heavy?: string)
 }
 
 /** action ที่กลับไปหาครูตามสิ่งที่ ผอ. เลือก — เป็นค่าตั้งต้นให้ ผอ. แก้ได้ */
+/** ACTS ตามลำดับที่แสดง — ใช้เรียงสิ่งที่ติ๊กไว้ให้ */
+const ACT_ORDER: DirectorAct[] = ['homeVisitTeam', 'addGuidance', 'community', 'coordinator', 'resource', 'referral', 'meeting', 'owner', 'escalate']
+
+/** คำในคำขอของครู → สิ่งที่ ผอ. ทำให้ */
+const ASK_WORDS: [RegExp, DirectorAct][] = [
+  [/เยี่ยมบ้าน/, 'homeVisitTeam'],
+  [/ผู้นำชุมชน|อสม|ชุมชน|อิหม่าม/, 'community'],
+  [/ครูแนะแนว|นักจิตวิทยา|คนช่วย/, 'addGuidance'],
+  [/ผู้ประสาน/, 'coordinator'],
+  [/ทรัพยากร|งบ|ทุน|ค่าเดินทาง|อุปกรณ์/, 'resource'],
+  [/ส่งต่อ|หน่วยงาน/, 'referral'],
+  [/ประชุม/, 'meeting'],
+  [/เขตพื้นที่|ยกระดับ|อำเภอ/, 'escalate'],
+  [/เปลี่ยนผู้รับผิดชอบ|ย้ายเคส|เปลี่ยนครู/, 'owner'],
+]
+const REASON_ACT: Partial<Record<SupportRequest['reasons'][number], DirectorAct>> = {
+  parent: 'community',
+  people: 'addGuidance',
+  resource: 'resource',
+  referral: 'referral',
+  meeting: 'meeting',
+  complex: 'meeting',
+}
+
+/**
+ * สิ่งที่ติ๊กไว้ให้ ผอ. ในใบตัดสินใจ — ตามที่ครูขอก่อน (คำในคำขอ + เหตุผลที่ครูเลือก)
+ * ไม่ติ๊ก "เปลี่ยนผู้รับผิดชอบหลัก" ให้เอง เว้นแต่ครูขอ: ครูมาขอความช่วยเหลือ ไม่ได้ขอให้ย้ายเคสออกจากตัวเอง
+ * ถ้าคำขอไม่บอกอะไรเลย จึงใช้ทางที่ AI เสนอ (ยกเว้นการย้ายผู้รับผิดชอบ)
+ */
+export function actsFromRequest(req: SupportRequest, aiActs: DirectorAct[]): DirectorAct[] {
+  const want = new Set<DirectorAct>()
+  for (const [re, act] of ASK_WORDS) if (re.test(req.ask)) want.add(act)
+  for (const r of req.reasons) {
+    const a = REASON_ACT[r]
+    if (a) want.add(a)
+  }
+  if (!want.size) for (const a of aiActs.filter((x) => x !== 'owner').slice(0, 2)) want.add(a)
+  return ACT_ORDER.filter((a) => want.has(a))
+}
+
 export function directiveFor(acts: DirectorAct[], extra: { meetingDate?: string; resource?: string; newOwner?: string }): { th: string; support: string[]; dueDays: number } {
   const th: string[] = []
   const support = new Set<string>()

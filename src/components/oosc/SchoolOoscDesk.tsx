@@ -4,7 +4,7 @@ import { useScopedData } from '@/auth/scope'
 import { useI18n } from '@/i18n/LanguageContext'
 import { useSimulatedLoading } from '@/lib/useLoading'
 import { fmtDay, isoIn, teamLoad, type TeamRow } from '@/lib/directorOps'
-import { STEP_ORDER, STEP_SHORT, STEP_TH, needsDirector, ooscBrief, priorityOf, viewOosc, type OoscOption, type OoscStep, type OoscView } from '@/lib/ooscOps'
+import { inOoscQueue, STEP_ORDER, STEP_SHORT, STEP_TH, needsDirector, ooscBrief, priorityOf, viewOosc, type OoscOption, type OoscStep, type OoscView } from '@/lib/ooscOps'
 import { useFollowCases } from '@/components/followup/useFollowCases'
 import { byOf } from '@/components/referrals/useRefCases'
 import { Drawer, Label, PrimaryBtn, inputCls, textareaCls } from '@/components/referrals/ui'
@@ -87,7 +87,8 @@ export function SchoolOoscDesk({ onFullView }: { onFullView: () => void }) {
 
   const views = useMemo(() => oosc.map((r) => viewOosc(r, log)), [oosc, log])
   const byPrio = (a: OoscView, b: OoscView) => priorityOf(b) - priorityOf(a)
-  const queue = views.filter((v) => needsDirector(v) && !v.handled).sort(byPrio)
+  // กฎคิวเดียวกับตัวเลขบนเมนู (inOoscQueue)
+  const queue = views.filter(inOoscQueue).sort(byPrio)
   const waiting = views.filter((v) => needsDirector(v) && v.handled).sort(byPrio)
   const following = views.filter((v) => v.step === 'follow').sort(byPrio)
   const done = views.filter((v) => v.step === 'done')

@@ -23,6 +23,8 @@ import {
 import { ESA_BY_KEY } from '@/data/esa'
 import { navLabelKey, NAV_BY_PATH } from './navItems'
 import { SmartSearch } from './SmartSearch'
+import { useDirectorWork } from '../director/useDirectorWork'
+import { IconPathway, IconReferral, IconShield, IconRegistry } from '../icons'
 
 export function TopBar({ onToggleSidebar }: { onToggleSidebar: () => void }) {
   const { t, lang, toggle, pn, pick } = useI18n()
@@ -31,6 +33,7 @@ export function TopBar({ onToggleSidebar }: { onToggleSidebar: () => void }) {
   const { pathname } = useLocation()
   const th = lang === 'th'
   const { cases, oosc, referrals } = useScopedData()
+  const work = useDirectorWork()
 
   const [searchOpen, setSearchOpen] = useState(false)
   const [bellOpen, setBellOpen] = useState(false)
@@ -79,6 +82,16 @@ export function TopBar({ onToggleSidebar }: { onToggleSidebar: () => void }) {
   /** Alerts computed from the rows this account can actually see — the panel
    *  used to list provinces that are not even in this platform's scope. */
   const alerts = useMemo(() => {
+    // ผอ.: กระดิ่งบอกเรื่องที่รอ ผอ. จากแหล่งเดียวกับเมนูและหน้าต่าง ๆ — คำขอจากครูขึ้นก่อน
+    if (work)
+      return [
+        { key: 'asks', n: work.asks, icon: IconShield, color: '#dc2626', title: 'คำขอจากครูรอ ผอ.', body: 'ครูกดขอการสนับสนุนจากแฟ้มเด็ก — ตัดสินใจแล้วงานกลับไปที่ครู', to: '/decisions' },
+        { key: 'lateBack', n: work.lateBack, icon: IconClock, color: '#dc2626', title: 'งานที่ ผอ. ส่งกลับเลยกำหนด', body: 'ครูยังไม่ได้ทำตามที่ ผอ. อนุมัติ', to: '/decisions' },
+        { key: 'found', n: work.found, icon: IconAlert, color: '#ea580c', title: 'เคสที่ค้างจนครูขยับเองไม่ได้', body: 'ไม่มีผู้รับผิดชอบ หรือเสี่ยงสูงและไม่ขยับ 14 วัน', to: '/decisions' },
+        { key: 'refs', n: work.referrals, icon: IconReferral, color: '#ea580c', title: 'การส่งต่อที่ต้องใช้ ผอ.', body: 'หน่วยงานเกินกำหนด หรือค้างที่ครูนาน', to: '/referral' },
+        { key: 'plans', n: work.plans, icon: IconPathway, color: '#ea580c', title: 'แผนที่ต้องใช้ ผอ.', body: 'ติดที่หน่วยงาน ค้างที่ครู หรือครอบครัวยังไม่เห็นชอบ', to: '/plan' },
+        { key: 'oosc', n: work.oosc, icon: IconRegistry, color: '#eab308', title: 'เด็กนอกระบบที่ต้องใช้ ผอ.', body: 'ยังไม่มีผู้รับผิดชอบ หรือค้างขั้นลงพื้นที่ · ความยินยอม · แผน', to: '/oosc' },
+      ].filter((a) => a.n > 0)
     const overdueCases = cases.filter((c) => c.slaBreached).length
     const urgentCases = cases.filter((c) => c.urgent && !c.slaBreached).length
     const unowned = oosc.filter((r) => !r.ownerName).length
@@ -121,7 +134,7 @@ export function TopBar({ onToggleSidebar }: { onToggleSidebar: () => void }) {
         to: '/referral',
       },
     ].filter((a) => a.n > 0)
-  }, [cases, oosc, referrals, th])
+  }, [cases, oosc, referrals, th, work])
 
   const alertTotal = alerts.reduce((s, a) => s + a.n, 0)
   const teacher = user?.role === 'teacher'

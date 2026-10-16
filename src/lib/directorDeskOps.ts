@@ -344,3 +344,14 @@ export function directorQueue(inbox: InboxItem[], entries: CaseLogEntry[]) {
   const nudged = inbox.filter((x) => x.kind !== 'request' && handledBy(entries, x.c.s.id))
   return { asks, found, nudged, waiting: asks.length + found.length }
 }
+
+// ── คิวของ ผอ. แต่ละหน้า — นิยามเดียว ใช้ทั้งในหน้า บนเมนู ในกระดิ่ง และบนภาพรวม ──
+// เดิมแต่ละที่กรองเอง ตัวเลขจึงไม่ตรงกัน (ภาพรวม 5 · เมนู 3 · กระดิ่ง 13 ขณะที่หน้าบอก 14)
+
+/** แผนนี้อยู่ในคิว "ต้องใช้ ผอ." ของหน้าเส้นทางโอกาส */
+export const inPlanQueue = (c: PlanCase, owner: string | undefined, entries: CaseLogEntry[]) =>
+  c.next.kind !== 'done' && planNeedsDirector(c, owner) && !handledBy(entries, c.plan.childId)
+
+/** การส่งต่อนี้อยู่ในคิว "ต้องใช้ ผอ." ของหน้าส่งต่อ */
+export const inRefQueue = (r: RefCase, now: number, by: string) =>
+  r.stage !== 'draft' && r.bucket !== 'done' && refNeedsDirector(r, now) && !refHandled(r, { by, now })

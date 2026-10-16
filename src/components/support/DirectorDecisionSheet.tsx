@@ -1,13 +1,14 @@
 import { useMemo, useState } from 'react'
 import {
   DIRECTOR_ACT_TH,
+  SUPPORT_REASON_TH,
   VERDICT_TH,
   type DirectorAct,
   type DirectorVerdict,
   type SupportRequest,
 } from '@/lib/caseLog'
 import type { FollowCase } from '@/lib/followOps'
-import { directiveFor, execSummary, fmtDay, isoIn, type TeamRow } from '@/lib/directorOps'
+import { actsFromRequest, directiveFor, execSummary, fmtDay, isoIn, type TeamRow } from '@/lib/directorOps'
 import type { Log } from '@/components/referrals/useRefCases'
 import { Label, PrimaryBtn, inputCls, textareaCls } from '@/components/referrals/ui'
 
@@ -123,12 +124,17 @@ export function DirectorDecisionSheet({
 }) {
   const ai = useMemo(() => execSummary(c, req, heavy), [c, req, heavy])
   const [verdict, setVerdict] = useState<DirectorVerdict>('approve')
-  const [acts, setActs] = useState<DirectorAct[]>(() => ai.options.slice(0, 2).map((o) => o.act))
+  // ติ๊กตามที่ครูขอก่อน — เดิมติ๊กตาม AI ซึ่งรวม "เปลี่ยนผู้รับผิดชอบหลัก" ทั้งที่ครูมาขอความช่วยเหลือ
+  const [acts, setActs] = useState<DirectorAct[]>(() => actsFromRequest(req, ai.options.map((o) => o.act)))
   const [meetingDate, setMeetingDate] = useState(isoIn(2))
   const [resource, setResource] = useState('')
   const [newOwner, setNewOwner] = useState('')
   const [escalateTo, setEscalateTo] = useState('สพท. (เขตพื้นที่การศึกษา)')
-  const [reason, setReason] = useState('')
+  // เหตุผลตั้งต้นของการอนุมัติ — ปุ่มยืนยันกดได้ทันที ผอ. แก้ได้ (ขอข้อมูลเพิ่ม · ส่งกลับ · ไม่อนุมัติ ต้องเขียนเอง)
+  const [reasonEdit, setReasonEdit] = useState<string>()
+  const reasonDefault = verdict === 'approve' ? `อนุมัติตามที่ครูขอ — ${req.reasons.filter((r) => r !== 'other').map((r) => SUPPORT_REASON_TH[r]).join(' · ') || req.ask}` : ''
+  const reason = reasonEdit ?? reasonDefault
+  const setReason = (v: string) => setReasonEdit(v)
   const owner0 = c.s.caseOwner || req.by
   const draft = directiveFor(acts, { meetingDate, resource, newOwner })
   const [nextTh, setNextTh] = useState<string>()
@@ -195,7 +201,10 @@ export function DirectorDecisionSheet({
       {verdict === 'approve' && (
         <>
           <Label>สิ่งที่ ผอ. ทำให้ (เลือกได้หลายข้อ)</Label>
-          {ai.options.length > 0 && <p className="-mt-1 mb-1.5 text-[13px] text-ink-muted">ติ๊กไว้ให้ตามทางเลือกที่ AI เสนอ — ผอ. เปลี่ยนได้</p>}
+          <p className="-mt-1 mb-1.5 text-[13px] text-ink-muted">
+            ติ๊กไว้ให้ตามที่ครูขอ — ผอ. เปลี่ยนได้
+            {ai.options.some((o) => o.act === 'owner') && !acts.includes('owner') ? ' · AI เห็นว่าผู้รับผิดชอบงานล้นมือ อาจพิจารณา "เปลี่ยนผู้รับผิดชอบหลัก" ด้วย' : ''}
+          </p>
           <div className="flex flex-wrap gap-2" role="group" aria-label="สิ่งที่ ผอ. ทำให้">
             {ACTS.map((a) => (
               <button key={a} type="button" aria-pressed={acts.includes(a)} onClick={() => toggle(a)} className="rounded-full border px-4 py-2.5 text-[14px] font-medium" style={pill(acts.includes(a))}>

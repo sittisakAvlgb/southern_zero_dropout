@@ -6,6 +6,7 @@ import { BottomNav } from './BottomNav'
 import { ErrorBoundary } from '../ErrorBoundary'
 import { AIChatWidget } from '../ai/AIChatWidget'
 import { useAuth } from '@/auth/AuthContext'
+import { DirectorWorkProvider } from '../director/useDirectorWork'
 
 export function AppLayout() {
   const [collapsed, setCollapsed] = useState(false)
@@ -23,6 +24,7 @@ export function AppLayout() {
   }, [location.pathname])
 
   return (
+    <DirectorWorkProvider>
     <div className="flex min-h-screen bg-surface-muted">
       <Sidebar collapsed={collapsed} onToggle={() => setCollapsed((v) => !v)} />
       <div className="flex min-w-0 flex-1 flex-col">
@@ -46,5 +48,6 @@ export function AppLayout() {
       <BottomNav />
       {!assistantOnPage && <AIChatWidget />}
     </div>
+    </DirectorWorkProvider>
   )
 }

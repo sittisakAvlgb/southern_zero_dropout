@@ -105,6 +105,9 @@ export function viewOosc(
 /** ต้องใช้ ผอ. ไหม — ขั้นที่ ผอ. ขยับได้ (มีคน · ลงพื้นที่ · ความยินยอม · แผน · ไม่พบตัว) */
 export const needsDirector = (v: OoscView) => ['owner', 'verify', 'consent', 'plan', 'notFound'].includes(v.step)
 
+/** เด็กคนนี้อยู่ในคิว "ต้องใช้ ผอ." — ผอ. ลงมือไปแล้วใน 3 วันย้ายไป "รอผล" */
+export const inOoscQueue = (v: OoscView) => needsDirector(v) && !v.handled
+
 /** ลำดับความสำคัญ — ไม่มีคนรับผิดชอบมาก่อน แล้วข้อมูลน่าเชื่อถือสูง เด็กเล็กที่ยังอยู่วัยเรียนภาคบังคับ และออกมานาน */
 export function priorityOf(v: OoscView): number {
   const stepW: Record<OoscStep, number> = { owner: 50, notFound: 35, verify: 30, consent: 20, plan: 15, follow: 0, done: -100 }

@@ -8,7 +8,7 @@ import { needsAgency } from '@/lib/recommend'
 import { RISK_COLOR } from '@/lib/risk'
 import { GRADE_LABEL } from '@/lib/schoolOps'
 import { BUCKET_META, type Bucket, type RefCase } from '@/lib/refOps'
-import { refBrief, refHandled, refNeedsDirector, refRank, type DeskOption } from '@/lib/directorDeskOps'
+import { inRefQueue, refBrief, refNeedsDirector, refRank, type DeskOption } from '@/lib/directorDeskOps'
 import type { Student } from '@/types'
 import { useFollowCases } from '@/components/followup/useFollowCases'
 import { byOf, groupByChild, useRefCases } from '@/components/referrals/useRefCases'
@@ -77,7 +77,8 @@ export function DirectorReferralDesk({ onFullView }: { onFullView: () => void })
 
   const active = live.filter((r) => r.bucket !== 'done')
   const done = live.filter((r) => r.bucket === 'done')
-  const queue = active.filter((r) => refNeedsDirector(r, now) && !refHandled(r, { by, now })).sort((a, b) => refRank(b, now) - refRank(a, now))
+  // กฎคิวเดียวกับตัวเลขบนเมนู (inRefQueue)
+  const queue = active.filter((r) => inRefQueue(r, now, by)).sort((a, b) => refRank(b, now) - refRank(a, now))
   const inQueue = new Set(queue.map((r) => r.id))
   const count = (b: Bucket) => live.filter((r) => r.bucket === b).length
   const breach = count('breach')

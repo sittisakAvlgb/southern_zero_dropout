@@ -30,6 +30,7 @@ import { useToast } from '@/components/ui/Toast'
 import { Skeleton } from '@/components/ui/Skeleton'
 import { useSimulatedLoading } from '@/lib/useLoading'
 import { DirectorCaseDetail, itemFor, teamOf } from '@/pages/DirectorDecisions'
+import { useDirectorWork } from '@/components/director/useDirectorWork'
 
 const MASCOT = assetUrl('ChatBot.png')
 
@@ -75,6 +76,7 @@ export function DirectorHome() {
   const { push } = useToast()
   const { schools, students, cases: caseRecords, stats } = useScopedData()
   const { user, log, built } = useFollowCases()
+  const work = useDirectorWork()
   const loading = useSimulatedLoading(400)
   const by = byOf(user)
   const [spread, setSpread] = useState<string | null>(null)
@@ -135,11 +137,30 @@ export function DirectorHome() {
         <div className="flex items-center gap-3">
           <img src={MASCOT} alt="" className="h-11 w-11 shrink-0 rounded-2xl bg-white object-contain p-1" draggable={false} />
           <h2 id="brief-h" className="min-w-0 text-[17px] font-semibold leading-snug text-ink">
-            {brief.length
-              ? `สวัสดีครับ ผอ.${firstName} — วันนี้มี ${brief.length} เรื่องที่ต้องใช้ ผอ. เริ่มจากเรื่องที่สำคัญที่สุด`
-              : `สวัสดีครับ ผอ.${firstName} — วันนี้ไม่มีเรื่องที่ต้องตัดสินใจเร่งด่วน`}
+            {work && work.total
+              ? `สวัสดีครับ ผอ.${firstName} — งานที่รอ ผอ. วันนี้ ${work.total} เรื่อง${brief.length ? ` AI คัด ${brief.length} เรื่องที่สำคัญที่สุดให้ด้านล่าง` : ''}`
+              : brief.length
+                ? `สวัสดีครับ ผอ.${firstName} — วันนี้มี ${brief.length} เรื่องที่ควรดู เริ่มจากเรื่องที่สำคัญที่สุด`
+                : `สวัสดีครับ ผอ.${firstName} — วันนี้ไม่มีเรื่องที่ต้องตัดสินใจเร่งด่วน`}
           </h2>
         </div>
+        {/* งานที่รอ ผอ. แยกตามหน้า — ตัวเลขเดียวกับป้ายบนเมนูและ "ต้องใช้ ผอ." ในแต่ละหน้า */}
+        {work && work.total > 0 && (
+          <div className="mt-3 flex flex-wrap gap-2" aria-label="งานที่รอ ผอ. แยกตามหน้า">
+            {[
+              { to: '/decisions', th: 'เรื่องที่ต้องตัดสินใจ', n: work.decisions },
+              { to: '/plan', th: 'เส้นทางโอกาส', n: work.plans },
+              { to: '/referral', th: 'ส่งต่อ', n: work.referrals },
+              { to: '/oosc', th: 'เด็กนอกระบบ', n: work.oosc },
+            ]
+              .filter((x) => x.n > 0)
+              .map((x) => (
+                <button key={x.to} type="button" onClick={() => nav(x.to)} className="rounded-full border border-surface-border bg-white px-3.5 py-2 text-[14px] font-semibold text-ink hover:border-brand-300">
+                  {x.th} <span className="text-red-600">{x.n}</span>
+                </button>
+              ))}
+          </div>
+        )}
 
         {brief.length ? (
           (() => {
