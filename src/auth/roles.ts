@@ -224,8 +224,12 @@ export const ROLE_NAV: Record<Role, string[]> = {
 
 /** Routes a role may still open (links · the full table) but that are not shown in its menu.
  *  ผอ.: "การช่วยเหลือ" รวมเข้ากับ "เรื่องที่ต้องตัดสินใจ" แล้ว — สองเมนูที่นับเคสชุดเดียวกันด้วยตัวเลขต่างกัน
- *  ทำให้ ผอ. ไม่รู้ว่าต้องทำอะไร ตารางเต็ม (/intervention?view=full) ยังเปิดได้จากหน้าตัดสินใจ */
-export const NAV_HIDDEN: Partial<Record<Role, string[]>> = { school: ['/intervention'] }
+ *  ทำให้ ผอ. ไม่รู้ว่าต้องทำอะไร ตารางเต็ม (/intervention?view=full) ยังเปิดได้จากหน้าตัดสินใจ
+ *  สพฐ. · เขต: "เจาะลึกเขต / อำเภอ" รวมเข้ากับแผนที่เป็นเมนูเดียว สลับมุมมองด้วยแท็บ (AreaViewTabs)
+ *  ลิงก์ /area?p=..&d=.. จากการค้นหาและหน้าอื่นยังเปิดได้ตามเดิม */
+export const NAV_HIDDEN: Partial<Record<Role, string[]>> = { school: ['/intervention'], obec: ['/area'], esa: ['/area'] }
+/** A hidden route lights up the menu item it was merged into. */
+export const NAV_MERGED_INTO: Record<string, string> = { '/area': '/geo' }
 export const inMenu = (user: NavUser, path: string) => canAccess(user, path) && !(user && NAV_HIDDEN[user.role]?.includes(path))
 
 /** Roles withheld from this build.

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { AreaViewTabs } from '@/components/layout/AreaViewTabs'
 import { motion } from 'framer-motion'
 import Chart from 'react-apexcharts'
 import { Card, CardHeader } from '@/components/ui/Card'
@@ -374,6 +375,7 @@ export default function GeoIntelligence() {
 
   return (
     <div className="animate-page-rise">
+      <AreaViewTabs />
       {/* ── breadcrumb + filters ──────────────────────────── */}
       <div className="mb-3 flex flex-col gap-2.5 rounded-2xl border border-surface-border bg-white px-4 py-3 shadow-card lg:flex-row lg:items-center lg:justify-between">
         <nav aria-label="breadcrumb" className="flex min-w-0 flex-wrap items-center gap-1 text-[13px]">

@@ -1,9 +1,9 @@
 import { useState } from 'react'
-import { NavLink, useNavigate } from 'react-router-dom'
+import { NavLink, useLocation, useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { useI18n } from '@/i18n/LanguageContext'
 import { useAuth } from '@/auth/AuthContext'
-import { canAccess, inMenu, ROLE_META } from '@/auth/roles'
+import { canAccess, inMenu, NAV_MERGED_INTO, ROLE_META } from '@/auth/roles'
 import { useScopedData } from '@/auth/scope'
 import { logKeyOf, useCaseLog, waitsOnDirector } from '@/lib/caseLog'
 import { useDirectorWork } from '@/components/director/useDirectorWork'
@@ -40,6 +40,9 @@ export function Sidebar({
   const caseLog = useCaseLog(logKeyOf(user), user?.id)
 
   const visible = NAV_ITEMS.filter((n) => !user || inMenu(user, n.to))
+  // อยู่บนหน้าที่ถูกรวมเข้าเมนูอื่น (เช่น /area ของเขต) — ให้เมนูที่รวมเข้าไปติดสถานะเลือกแทน
+  const { pathname } = useLocation()
+  const mergedActive = user && !inMenu(user, pathname) ? NAV_MERGED_INTO[pathname] : undefined
   // ผอ.: ตัวเลขบนเมนูมาจากแหล่งเดียวกับ "ต้องใช้ ผอ." ในแต่ละหน้า
   const work = useDirectorWork()
   const meta = ROLE_META[user?.role ?? 'exec']
@@ -117,7 +120,9 @@ export function Sidebar({
                         title={collapsed ? t(navLabelKey(item, user)) : undefined}
                         className="group relative block"
                       >
-                        {({ isActive }) => (
+                        {({ isActive: own }) => {
+                          const isActive = own || mergedActive === item.to
+                          return (
                           <motion.div
                             whileHover={isActive ? undefined : { x: 2 }}
                             whileTap={{ scale: 0.985 }}
@@ -157,7 +162,8 @@ export function Sidebar({
                               />
                             )}
                           </motion.div>
-                        )}
+                          )
+                        }}
                       </NavLink>
                     </li>
                   )

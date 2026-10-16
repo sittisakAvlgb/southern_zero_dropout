@@ -26,7 +26,9 @@ export const thSBP: Dict = {
   'app.demoData': 'ข้อมูลจำลองเพื่อการสาธิต — ชื่อพื้นที่เป็นของจริง ตัวเลขเป็นข้อมูลตัวอย่าง',
 
   // ── Navigation ────────────────────────────────────────────
-  'nav.geo': 'แผนที่อัจฉริยะเชิงพื้นที่',
+  'nav.geo': 'แผนที่และเจาะลึกพื้นที่',
+  'area.view.map': 'แผนที่',
+  'area.view.detail': 'เจาะลึกรายพื้นที่',
   'nav.overview': 'ภาพรวมชายแดนใต้',
   'nav.overview.esa': 'ภาพรวมเขตพื้นที่',
   'nav.overview.teacher': 'เคสของฉัน',
@@ -469,7 +471,9 @@ export const enSBP: Dict = {
   'app.scopeNote': 'Pattani, Yala, Narathiwat — TOR pilot area',
   'app.demoData': 'Demonstration data — place names are real, figures are simulated',
 
-  'nav.geo': 'Geo Intelligence',
+  'nav.geo': 'Map & area detail',
+  'area.view.map': 'Map',
+  'area.view.detail': 'Area detail',
   'nav.overview': 'Area Overview',
   'nav.overview.esa': 'Service Area Overview',
   'nav.overview.teacher': 'My caseload',
@@ -907,7 +911,9 @@ export const ms: Dict = {
   'app.scopeNote': 'Patani, Jala, Menara — kawasan perintis TOR',
   'app.demoData': 'Data demonstrasi — nama tempat adalah benar, angka adalah simulasi',
 
-  'nav.geo': 'Peta Geo Perisikan',
+  'nav.geo': 'Peta & perincian kawasan',
+  'area.view.map': 'Peta',
+  'area.view.detail': 'Perincian kawasan',
   'nav.overview': 'Gambaran Keseluruhan',
   'nav.overview.esa': 'Gambaran Kawasan PPD',
   'nav.overview.teacher': 'Kes saya',

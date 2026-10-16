@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
+import { AreaViewTabs } from '@/components/layout/AreaViewTabs'
 import { motion } from 'framer-motion'
 import {
   CartesianGrid,
@@ -238,6 +239,7 @@ export default function AreaInsight() {
 
   return (
     <div className="animate-page-rise">
+      <AreaViewTabs />
       <PageHeader
         icon={<IconProvince width={22} height={22} />}
         breadcrumb={
