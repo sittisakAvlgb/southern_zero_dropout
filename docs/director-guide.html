@@ -1,0 +1,446 @@
+<meta charset="utf-8">
+<title>คู่มือ ผอ. สถานศึกษา</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bai+Jamjuree:wght@600;700&family=Noto+Sans+Thai+Looped:wght@400;500;600;700&display=swap">
+<style>
+/* Layout: แผ่นคู่มือคอลัมน์เดียว ชุดเดียวกับคู่มือครู — ผอ. ทำอะไร · วงคำขอจากครู · วันละ 10 นาที · ทีละงาน · ตารางอ่านสถานะ */
+:root {
+  --bg: #f6f8fc;
+  --paper: #ffffff;
+  --ink: #0f1b2d;
+  --muted: #46566c;
+  --line: #e2e8f2;
+  --brand: #2f66f6;
+  --brand-soft: #eef4ff;
+  --navy: #0f2a6b;
+  --ok: #15803d;   --ok-soft: #e9f7ee;
+  --watch: #a16207; --watch-soft: #fdf6dc;
+  --high: #c2410c; --high-soft: #fff0e6;
+  --crit: #b91c1c; --crit-soft: #fdecec;
+  --display: "Bai Jamjuree", "Noto Sans Thai Looped", system-ui, sans-serif;
+  --body: "Noto Sans Thai Looped", "Leelawadee UI", "Tahoma", system-ui, sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0b1324; --paper: #121c31; --ink: #e8eef8; --muted: #a9b6ca; --line: #24324d;
+    --brand: #7aa2ff; --brand-soft: #1a2a4f; --navy: #c9d8ff;
+    --ok: #4ade80; --ok-soft: #12301f; --watch: #facc15; --watch-soft: #33290b;
+    --high: #fb923c; --high-soft: #3a1f0e; --crit: #f87171; --crit-soft: #3a1414;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0b1324; --paper: #121c31; --ink: #e8eef8; --muted: #a9b6ca; --line: #24324d;
+  --brand: #7aa2ff; --brand-soft: #1a2a4f; --navy: #c9d8ff;
+  --ok: #4ade80; --ok-soft: #12301f; --watch: #facc15; --watch-soft: #33290b;
+  --high: #fb923c; --high-soft: #3a1f0e; --crit: #f87171; --crit-soft: #3a1414;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+body {
+  background: var(--bg); color: var(--ink);
+  font-family: var(--body); font-size: 17px; line-height: 1.7; font-weight: 500;
+  padding-inline: 16px; padding-block: 0 64px;
+}
+.wrap { max-width: 860px; margin: 0 auto; display: grid; gap: 40px; }
+h1, h2, h3 { font-family: var(--display); line-height: 1.3; text-wrap: balance; margin: 0; color: var(--navy); }
+h1 { font-size: clamp(30px, 6vw, 42px); }
+h2 { font-size: clamp(23px, 4vw, 28px); }
+h3 { font-size: 19px; color: var(--ink); }
+p { margin: 0; }
+.muted { color: var(--muted); }
+.label { font-size: 13px; font-weight: 700; letter-spacing: .06em; color: var(--brand); }
+kbd, .btn {
+  display: inline-block; font-family: var(--body); font-size: 15px; font-weight: 700; line-height: 1.4;
+  padding: 1px 9px; border-radius: 8px; border: 1.5px solid var(--brand); color: var(--brand);
+  background: var(--brand-soft); white-space: nowrap;
+}
+.tab { display: inline-block; font-weight: 700; border-bottom: 2.5px solid var(--brand); padding: 0 2px; }
+
+/* ── หัวคู่มือ ── */
+header.hero { padding-top: 40px; display: grid; gap: 14px; }
+.hero p.lead { font-size: 19px; max-width: 62ch; }
+.login {
+  display: flex; flex-wrap: wrap; gap: 8px 24px; padding: 14px 18px; border-radius: 14px;
+  background: var(--paper); border: 1px solid var(--line); font-size: 15.5px;
+}
+.login b { font-weight: 700; }
+.login code { font-family: var(--body); font-weight: 700; color: var(--navy); user-select: all; }
+
+nav.jump { display: flex; flex-wrap: wrap; gap: 8px; }
+nav.jump a {
+  font-size: 15px; font-weight: 600; color: var(--ink); text-decoration: none;
+  padding: 7px 14px; border-radius: 999px; border: 1px solid var(--line); background: var(--paper);
+}
+nav.jump a:hover, nav.jump a:focus-visible { border-color: var(--brand); color: var(--brand); outline: none; }
+
+section { display: grid; gap: 18px; scroll-margin-top: 16px; }
+.intro { max-width: 64ch; }
+
+/* ── วงจรเคส ── */
+.cycle { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; counter-reset: step; }
+.cycle li {
+  position: relative; background: var(--paper); border: 1px solid var(--line); border-radius: 14px;
+  padding: 14px 14px 16px; display: grid; gap: 4px; align-content: start;
+}
+.cycle li::before {
+  counter-increment: step; content: counter(step);
+  font-family: var(--display); font-weight: 700; font-size: 15px; color: var(--paper); background: var(--brand);
+  width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center;
+}
+.cycle b { font-family: var(--display); font-size: 17px; line-height: 1.35; }
+.cycle span { font-size: 14.5px; color: var(--muted); line-height: 1.5; }
+.cycle li.end::before { background: var(--ok); }
+.loop {
+  display: flex; gap: 10px; align-items: center; padding: 12px 16px; border-radius: 12px;
+  background: var(--watch-soft); color: var(--ink); font-size: 15.5px;
+}
+.loop svg { flex: none; color: var(--watch); }
+
+/* ── วันละ 10 นาที ── */
+.day { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 12px; }
+.day div { background: var(--paper); border: 1px solid var(--line); border-radius: 14px; padding: 16px; display: grid; gap: 6px; align-content: start; }
+.day .min { font-family: var(--display); font-size: 15px; font-weight: 700; color: var(--brand); }
+
+/* ── เมนู ── */
+.menus { display: grid; gap: 0; background: var(--paper); border: 1px solid var(--line); border-radius: 14px; overflow: hidden; }
+.menus > div { display: grid; grid-template-columns: minmax(150px, 210px) 1fr; gap: 6px 18px; padding: 14px 18px; border-top: 1px solid var(--line); }
+.menus > div:first-child { border-top: 0; }
+.menus dt { font-weight: 700; }
+.menus dd { margin: 0; color: var(--muted); min-width: 0; }
+@media (max-width: 560px) { .menus > div { grid-template-columns: 1fr; } }
+
+/* ── ขั้นตอนละเอียด ── */
+.stage { background: var(--paper); border: 1px solid var(--line); border-radius: 16px; padding: 20px; display: grid; gap: 14px; }
+.stage-head { display: flex; gap: 14px; align-items: baseline; flex-wrap: wrap; }
+.stage-head .n { font-family: var(--display); font-weight: 700; font-size: 30px; color: var(--brand); line-height: 1; }
+.where { font-size: 15px; color: var(--muted); }
+.where b { color: var(--ink); }
+ol.steps { margin: 0; padding-left: 1.4em; display: grid; gap: 8px; }
+ol.steps li { padding-left: 4px; }
+.see { border-left: 3px solid var(--ok); background: var(--ok-soft); padding: 10px 14px; border-radius: 0 10px 10px 0; font-size: 15.5px; }
+.see b { color: var(--ok); }
+.tip { border-left: 3px solid var(--watch); background: var(--watch-soft); padding: 10px 14px; border-radius: 0 10px 10px 0; font-size: 15.5px; }
+.tip b { color: var(--watch); }
+.warn { border-left: 3px solid var(--crit); background: var(--crit-soft); padding: 10px 14px; border-radius: 0 10px 10px 0; font-size: 15.5px; }
+.warn b { color: var(--crit); }
+
+/* ── แถบขั้นการส่งต่อ ── */
+.track { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 6px; }
+.track li { text-align: center; font-size: 14.5px; font-weight: 600; padding: 10px 4px; border-radius: 10px; background: var(--brand-soft); color: var(--navy); }
+.track li small { display: block; font-weight: 500; color: var(--muted); font-size: 12.5px; }
+@media (max-width: 560px) { .track { grid-template-columns: 1fr; } .track li { text-align: left; padding: 8px 12px; } .track li small { display: inline; margin-left: 6px; } }
+
+.sla { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 10px; }
+.sla div { border-radius: 12px; padding: 12px 14px; display: grid; gap: 2px; }
+.sla .h { font-family: var(--display); font-weight: 700; font-size: 22px; font-variant-numeric: tabular-nums; }
+.sla div:nth-child(1) { background: var(--watch-soft); } .sla div:nth-child(1) .h { color: var(--watch); }
+.sla div:nth-child(2) { background: var(--high-soft); } .sla div:nth-child(2) .h { color: var(--high); }
+.sla div:nth-child(3) { background: var(--crit-soft); } .sla div:nth-child(3) .h { color: var(--crit); }
+
+/* ── ตารางอ่านสถานะ ── */
+.tbl { overflow-x: auto; background: var(--paper); border: 1px solid var(--line); border-radius: 14px; }
+table { border-collapse: collapse; width: 100%; font-size: 15.5px; }
+th, td { text-align: left; padding: 11px 16px; border-top: 1px solid var(--line); vertical-align: top; }
+thead th { border-top: 0; font-size: 13.5px; color: var(--muted); font-weight: 700; letter-spacing: .03em; }
+td.num { font-variant-numeric: tabular-nums; white-space: nowrap; font-weight: 700; }
+.chip { display: inline-block; padding: 1px 10px; border-radius: 999px; font-size: 14px; font-weight: 700; white-space: nowrap; }
+.c-ok { background: var(--ok-soft); color: var(--ok); }
+.c-watch { background: var(--watch-soft); color: var(--watch); }
+.c-high { background: var(--high-soft); color: var(--high); }
+.c-crit { background: var(--crit-soft); color: var(--crit); }
+.c-brand { background: var(--brand-soft); color: var(--brand); }
+
+.checks { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.checks li { display: flex; gap: 10px; }
+.checks li::before { content: "✓"; color: var(--ok); font-weight: 700; flex: none; }
+
+.faq { display: grid; gap: 10px; }
+details { background: var(--paper); border: 1px solid var(--line); border-radius: 12px; padding: 12px 16px; }
+summary { font-weight: 700; cursor: pointer; }
+summary:focus-visible { outline: 2px solid var(--brand); outline-offset: 4px; border-radius: 4px; }
+details p { margin-top: 8px; color: var(--muted); }
+
+footer { font-size: 14px; color: var(--muted); border-top: 1px solid var(--line); padding-top: 16px; }
+@media (prefers-reduced-motion: no-preference) { html { scroll-behavior: smooth; } }
+
+/* ── เพิ่มสำหรับคู่มือ ผอ.: ใครทำอะไร · วงคำขอ · คิวของ AI ── */
+.roles3 { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px; }
+.roles3 div { background: var(--paper); border: 1px solid var(--line); border-radius: 14px; padding: 14px 16px; display: grid; gap: 4px; align-content: start; }
+.roles3 b { font-family: var(--display); font-size: 18px; color: var(--navy); }
+.roles3 .me { border: 2px solid var(--brand); background: var(--brand-soft); }
+.roles3 span { font-size: 15px; color: var(--muted); }
+.lane { list-style: none; margin: 0; padding: 0; display: grid; gap: 0; background: var(--paper); border: 1px solid var(--line); border-radius: 14px; overflow: hidden; }
+.lane li { display: grid; grid-template-columns: 92px 1fr; gap: 4px 14px; padding: 12px 16px; border-top: 1px solid var(--line); align-items: baseline; }
+.lane li:first-child { border-top: 0; }
+.lane .who { font-size: 13px; font-weight: 700; letter-spacing: .03em; padding: 2px 10px; border-radius: 999px; text-align: center; white-space: nowrap; }
+.lane .t { background: var(--ok-soft); color: var(--ok); }
+.lane .d { background: var(--brand-soft); color: var(--brand); }
+.lane .s { background: var(--watch-soft); color: var(--watch); }
+.lane p { min-width: 0; }
+@media (max-width: 560px) { .lane li { grid-template-columns: 1fr; } .lane .who { justify-self: start; } }
+.never { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 10px; }
+.never div { border-radius: 12px; padding: 12px 16px; font-size: 15.5px; }
+.never .yes { background: var(--ok-soft); }
+.never .no { background: var(--crit-soft); }
+.never b { display: block; font-family: var(--display); margin-bottom: 4px; }
+.never .yes b { color: var(--ok); }
+.never .no b { color: var(--crit); }
+.never ul { margin: 0; padding-left: 1.2em; display: grid; gap: 4px; }
+</style>
+
+<div class="wrap">
+
+<header class="hero">
+  <p class="label">SOUTHERN ZERO DROPOUT · บทบาทผู้อำนวยการสถานศึกษา</p>
+  <h1>คู่มือ ผอ. สถานศึกษา</h1>
+  <p class="lead">ครูเป็นคนลงมือช่วยเด็ก ผอ. ทำให้การช่วยเหลือเดินต่อได้ ระบบรวบรวมเรื่องที่ไม่มีใครขยับได้นอกจาก ผอ. ไว้ให้ AI อ่านตัวเลขและเสนอทางเลือก แต่ ผอ. เป็นคนตัดสินใจเสมอ เมื่อตัดสินใจแล้ว งานกลับไปที่ครูพร้อมผู้รับผิดชอบและกำหนดวัน</p>
+  <div class="login">
+    <span><b>บัญชีทดลอง</b> <code>school@zerodropout.go.th</code></span>
+    <span><b>รหัสผ่าน</b> <code>demo</code></span>
+    <span class="muted">นายอิสมาแอ หะยีสาแม · ร.ร.สายบุรี "แจ้งประชาคาร" · นักเรียนที่ติดตาม 21 คน · เด็กนอกระบบที่โรงเรียนแจ้ง 18 คน</span>
+  </div>
+  <nav class="jump" aria-label="ไปยังหัวข้อ">
+    <a href="#role">ผอ. ทำอะไร</a>
+    <a href="#loop">วงคำขอจากครู</a>
+    <a href="#daily">วันละ 10 นาที</a>
+    <a href="#menus">เมนู</a>
+    <a href="#steps">ทีละงาน</a>
+    <a href="#queue">AI ยกเรื่องขึ้นมาเมื่อไร</a>
+    <a href="#status">อ่านสถานะ</a>
+    <a href="#pdpa">ข้อมูลส่วนบุคคล</a>
+    <a href="#faq">คำถามที่พบบ่อย</a>
+  </nav>
+</header>
+
+<section id="role">
+  <h2>ผอ. ทำอะไรในระบบนี้</h2>
+  <p class="intro">ทุกหน้าของ ผอ. ออกแบบตามหลักเดียว ผอ. ไม่รับเคสไปทำแทนครู แต่รับคำขอและเรื่องที่ค้าง ตัดสินใจ แล้วส่งงานกลับไปให้ทีมทำต่อ</p>
+  <div class="roles3">
+    <div><b>ครู</b><span>คนลงมือช่วยเด็ก ติดต่อผู้ปกครอง เยี่ยมบ้าน ทำแผน ส่งต่อ และปิดเคส</span></div>
+    <div><b>AI</b><span>คนช่วยคิด อ่านตัวเลข หาสาเหตุ เสนอทางเลือกด้วยคำว่า "อาจพิจารณา" ไม่สั่ง ผอ.</span></div>
+    <div class="me"><b>ผอ.</b><span>คนทำให้การช่วยเหลือเดินต่อได้ ตัดสินใจ มอบหมายคน อนุมัติทรัพยากร และยกระดับเรื่องที่ติดกับหน่วยงาน</span></div>
+  </div>
+  <div class="never">
+    <div class="yes"><b>ผอ. ทำได้</b>
+      <ul>
+        <li>ตัดสินใจคำขอจากครู</li>
+        <li>มอบหมายหรือเปลี่ยนครูผู้รับผิดชอบ</li>
+        <li>เตือนผู้รับผิดชอบ</li>
+        <li>ยกระดับหน่วยงานที่เกินกำหนด</li>
+        <li>นัดคุยกับครอบครัวพร้อมครู</li>
+        <li>เขียนบันทึกของ ผอ. ลงไทม์ไลน์</li>
+      </ul>
+    </div>
+    <div class="no"><b>เป็นงานของครู ผอ. ไม่ทำแทน</b>
+      <ul>
+        <li>บันทึกการติดต่อหรือเยี่ยมบ้าน</li>
+        <li>สร้างหรือแก้แผนช่วยเหลือ</li>
+        <li>ส่งต่อหน่วยงาน</li>
+        <li>ปิดเคส</li>
+        <li>แก้บันทึกของครู</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section id="loop">
+  <h2>วงของคำขอจากครูหนึ่งเรื่อง</h2>
+  <p class="intro">เมื่อครูช่วยเองแล้วติดอุปสรรค ครูกด <span class="btn">ขอการสนับสนุนจาก ผอ.</span> ในแฟ้มเด็ก เรื่องจะเดินตามลำดับนี้ ทุกขั้นลงไทม์ไลน์เดียวของเด็ก ครูและ ผอ. เห็นตรงกัน</p>
+  <ol class="lane">
+    <li><span class="who t">ครู</span><p>เลือกเหตุผล (ต้องการคนช่วย · ประสานผู้ปกครอง · อนุมัติทรัพยากร · ส่งต่อ · ประชุมทีม ฯลฯ) เขียนว่าต้องการให้ ผอ. ช่วยอะไร ระบบดึงสิ่งที่ครูทำแล้วมาใส่ให้</p></li>
+    <li><span class="who s">ระบบ</span><p>เรื่องขึ้นที่ <b>กระดิ่ง</b> บรรทัดแรก "คำขอจากครูรอ ผอ." ป้ายแดงบนเมนู <b>เรื่องที่ต้องตัดสินใจ</b> และการ์ดบนหน้าภาพรวม</p></li>
+    <li><span class="who d">ผอ.</span><p>เปิดอ่าน ครูเห็นทันทีว่า "ผอ. รับเรื่องแล้ว" จากนั้นกด <span class="btn">ตัดสินใจคำขอนี้</span></p></li>
+    <li><span class="who d">ผอ.</span><p>เลือก <b>อนุมัติ · ขอข้อมูลเพิ่ม · ส่งกลับพร้อมคำแนะนำ · ไม่อนุมัติ</b> สิ่งที่ครูขอติ๊กไว้ให้แล้ว เหตุผลกรอกไว้ให้แล้ว แก้ได้ทุกช่อง</p></li>
+    <li><span class="who t">ครู</span><p>งานขึ้นเป็น "งานจาก ผอ." บนสุดของหน้าแรกครู พร้อมสิ่งที่ต้องทำ ผู้รับผิดชอบ ทีมช่วย และกำหนดวัน ครูทำแล้วกด <span class="btn">บันทึกว่าทำแล้ว</span></p></li>
+    <li><span class="who d">ผอ.</span><p>เห็นเรื่องย้ายไปกลุ่ม <b>ครูทำเสร็จแล้ว</b> พร้อมผลที่ครูเขียน ถ้าเลยกำหนดแล้วครูยังไม่ทำ เรื่องจะกลับมาที่กระดิ่ง "งานที่ ผอ. ส่งกลับเลยกำหนด"</p></li>
+  </ol>
+</section>
+
+<section id="daily">
+  <h2>วันละ 10 นาที</h2>
+  <p class="intro">ผอ. ไม่ต้องเปิดทุกหน้า ตัวเลขบนเมนูบอกอยู่แล้วว่าหน้าไหนมีเรื่องรอ ทำตามสามช่วงนี้พอ</p>
+  <div class="day">
+    <div>
+      <span class="min">นาทีที่ 1–2</span>
+      <h3>เปิด ภาพรวมโรงเรียน</h3>
+      <p>บรรทัดแรกบอก "งานที่รอ ผอ. วันนี้ N เรื่อง" พร้อมปุ่มแยกตามหน้า AI คัดเรื่องที่สำคัญที่สุดมาเป็นการ์ดทีละเรื่อง บอกว่าใคร ทำไม สาเหตุ และทางเลือก</p>
+    </div>
+    <div>
+      <span class="min">นาทีที่ 3–8</span>
+      <h3>ตัดสินใจทีละเรื่อง</h3>
+      <p>กดทางเลือกที่ติดป้าย <span class="chip c-brand">AI แนะนำ</span> หรือทางอื่นที่เห็นว่าดีกว่า ยืนยันในลิ้นชัก แล้วกด <span class="btn">เรื่องถัดไป</span> คำขอจากครูมาก่อนเสมอ</p>
+    </div>
+    <div>
+      <span class="min">นาทีที่ 9–10</span>
+      <h3>ดูภาระงานของทีม</h3>
+      <p>ที่ <b>เรื่องที่ต้องตัดสินใจ</b> กดชื่อครูเพื่อดูเคสของคนนั้น ถ้าเคสเกิน SLA กระจุกที่ครูคนเดียว AI จะบอกและเสนอคนที่ว่างกว่า</p>
+    </div>
+  </div>
+</section>
+
+<section id="menus">
+  <h2>เมนูของ ผอ.</h2>
+  <p class="intro">เมนูจัดตามงานของ ผอ. ตัวเลขบนเมนูคือ "งานที่รอ ผอ." ในหน้านั้น และเท่ากับตัวเลขในหน้าเสมอ</p>
+  <dl class="menus">
+    <div><dt>ภาพรวมโรงเรียน</dt><dd>งานที่รอ ผอ. วันนี้ทั้งหมด การ์ด AI ทีละเรื่อง และข้อมูลประกอบที่พับไว้ (สิ่งที่ทำให้ติด · ภาระงานทีม · แนวโน้ม · ถาม AI)</dd></div>
+    <div><dt>เรื่องที่ต้องตัดสินใจ <span class="chip c-crit">แดง</span></dt><dd>หน้าทำงานหลัก แบ่งกลุ่ม: ครูขอให้ ผอ. ช่วย · AI พบว่าค้าง · ผอ. ตัดสินใจแล้ว รอครู · ครูดูแลอยู่ (พับไว้) · ครูทำเสร็จแล้ว กดชื่อครูเพื่อดูทีละคน ท้ายหน้ามีตารางเคสทั้งหมดสำหรับค้นหาและส่งออก CSV</dd></div>
+    <div><dt>ข้อมูลเด็กรายบุคคล</dt><dd>แฟ้มเด็กหน้าเดียวกับครู สี่แท็บ <span class="tab">ดูแลช่วยเหลือ</span> <span class="tab">ไทม์ไลน์</span> <span class="tab">การมาเรียนและการเรียน</span> <span class="tab">ครอบครัวและทีม</span> ดูได้อย่างเดียว ใต้หัวแฟ้มมีกล่อง "ครูกำลังทำ" และปุ่มของ ผอ.</dd></div>
+    <div><dt>เด็กนอกระบบ <span class="chip c-high">ส้ม</span></dt><dd>เด็กที่โรงเรียนแจ้งว่าหลุดจากระบบ บอกว่าแต่ละคนติดขั้นไหน (ผู้รับผิดชอบ → ยืนยันตัวตน → ความยินยอม → แผน → ดึงกลับ → กลับเข้าเรียน)</dd></div>
+    <div><dt>เส้นทางโอกาส <span class="chip c-high">ส้ม</span></dt><dd>แผนช่วยเหลือของเด็กทุกคน กลุ่ม "ต้องใช้ ผอ." ขึ้นก่อน ที่เหลือบอกว่าครูคนไหนดูแลและถึงขั้นไหน</dd></div>
+    <div><dt>ส่งต่อหน่วยงาน <span class="chip c-high">ส้ม</span></dt><dd>การส่งต่อทุกเรื่องพร้อมนาฬิกา SLA กรองได้ตามสถานะและ "ต้องใช้ ผอ."</dd></div>
+    <div><dt>ผลการดำเนินงาน</dt><dd>AI อ่านตัวชี้วัดทั้งโรงเรียนเทียบโรงเรียนนำร่อง 46 แห่ง บอกอันดับ สาเหตุ และสิ่งที่อาจพิจารณา พร้อมแนวโน้มรายสัปดาห์และผลลัพธ์ของเด็ก</dd></div>
+    <div><dt>รายงาน · ตั้งค่า</dt><dd>ส่งออกรายงาน · ภาษา การแจ้งเตือน และปุ่มล้างข้อมูลทดสอบ</dd></div>
+  </dl>
+</section>
+
+<section id="steps">
+  <h2>ทำงานทีละงาน</h2>
+  <p class="intro">ทุกหน้าของ ผอ. ใช้แบบเดียวกัน กล่อง <b>ผู้ช่วย AI ของคุณ</b> ด้านบนบอกตัวเลขกับข้อสังเกตหนึ่งประโยค และปุ่มเดียวที่ควรกดก่อน กดแถวใดก็เปิดลิ้นชักที่เรียงว่า สถานะ → AI มองว่า → ทางเลือกของ ผอ.</p>
+
+  <article class="stage">
+    <div class="stage-head"><span class="n">1</span><h3>ตัดสินใจคำขอจากครู</h3></div>
+    <p class="where">ที่ <b>เรื่องที่ต้องตัดสินใจ → ครูขอให้ ผอ. ช่วย</b> หรือบรรทัดแรกของกระดิ่ง</p>
+    <ol class="steps">
+      <li>กดแถวของเด็ก อ่านสิ่งที่ครูขอ สิ่งที่ครูทำแล้ว และสิ่งที่ AI มองว่าเป็นสาเหตุ แล้วกด <span class="btn">ตัดสินใจคำขอนี้</span></li>
+      <li>เลือกผลการพิจารณา ถ้าอนุมัติ ตรวจ "สิ่งที่ ผอ. ทำให้" ระบบติ๊กตามที่ครูขอไว้แล้ว เช่น <b>อนุมัติทีมเยี่ยมบ้าน</b> <b>ประสานผู้นำชุมชน / อสม.</b></li>
+      <li>ตรวจ "สิ่งที่ต้องทำต่อ" ผู้รับผิดชอบ กำหนดวัน และทีมช่วย ระบบเขียนไว้ให้ตามสิ่งที่เลือก แล้วกด <span class="btn">ยืนยันและส่งงานถึงครู</span></li>
+    </ol>
+    <p class="see"><b>จะเห็น</b> เรื่องย้ายไป "ผอ. ตัดสินใจแล้ว รอครู" ตัวเลขบนเมนูและกระดิ่งลดลงทันที และครูเห็น "งานจาก ผอ." บนสุดของหน้าแรก</p>
+    <p class="tip"><b>เคล็ดลับ</b> ระบบไม่ติ๊ก "เปลี่ยนผู้รับผิดชอบหลัก" ให้เอง เพราะครูมาขอความช่วยเหลือ ไม่ได้ขอให้ย้ายเคส ถ้า AI เห็นว่าครูงานล้นมือ จะบอกเป็นข้อความให้ ผอ. พิจารณาเอง</p>
+  </article>
+
+  <article class="stage">
+    <div class="stage-head"><span class="n">2</span><h3>ขยับเคสที่ค้าง</h3></div>
+    <p class="where">ที่ <b>เรื่องที่ต้องตัดสินใจ → AI พบว่าค้าง</b> หรือการ์ดบนหน้าภาพรวม</p>
+    <ol class="steps">
+      <li>แถวบอกว่าติดอะไรและ AI แนะนำอะไร เช่น "ไม่มีความคืบหน้า 14 วัน — AI แนะนำ: ย้ายให้ นักจิตวิทยา สุไรยา"</li>
+      <li>กดแถว เลือกทางที่เหมาะ <span class="btn">เตือนผู้รับผิดชอบ</span> · <span class="btn">เปลี่ยนผู้รับผิดชอบ</span> · <span class="btn">Escalate หน่วยงาน</span> เหตุผลกรอกไว้ให้แล้ว</li>
+      <li>ถ้าไม่ตรงกับที่ AI เสนอ กด <span class="btn">ทางอื่น: เตือน · เปลี่ยนผู้รับผิดชอบ · Escalate</span> ท้ายลิ้นชัก</li>
+    </ol>
+    <p class="see"><b>จะเห็น</b> เรื่องย้ายไป "ผอ. ตัดสินใจแล้ว รอครู" ป้าย <span class="chip c-brand">รอผล</span> และไม่ถูกเสนอซ้ำ 3 วัน ถ้ายังไม่ขยับ AI จะยกขึ้นมาอีกครั้ง</p>
+  </article>
+
+  <article class="stage">
+    <div class="stage-head"><span class="n">3</span><h3>มอบหมายหรือเปลี่ยนครูผู้รับผิดชอบ</h3></div>
+    <p class="where">ปุ่ม <span class="btn">มอบหมาย / เตือนผู้รับผิดชอบ</span> ในแฟ้มเด็ก หรือทางเลือก "มอบหมาย" ในทุกลิ้นชัก</p>
+    <ol class="steps">
+      <li>รายชื่อแบ่งสองกลุ่ม <b>มีเคสอยู่</b> (บอกจำนวนเคส · เสี่ยงสูง · เกิน SLA ของแต่ละคน) และ <b>บุคลากรที่ยังไม่มีเคส</b></li>
+      <li>คนที่ติดป้าย <span class="chip c-brand">AI แนะนำ</span> คือคนที่ว่างที่สุด ผอ. เลือกคนอื่นได้ รวมถึงครูที่ยังไม่มีเคส</li>
+      <li>ตรวจเหตุผลแล้วกด <span class="btn">มอบหมาย</span></li>
+    </ol>
+    <p class="see"><b>จะเห็น</b> ชื่อครูเจ้าของเคสในแฟ้มเด็กเปลี่ยนทันที เคสขึ้นในงานวันนี้ของครูคนใหม่ และไทม์ไลน์มีบันทึกพร้อมป้าย "ผอ."</p>
+  </article>
+
+  <article class="stage">
+    <div class="stage-head"><span class="n">4</span><h3>เด็กนอกระบบ</h3></div>
+    <p class="where">เมนู <b>เด็กนอกระบบ</b> → กลุ่ม "ต้องใช้ ผอ." หรือปุ่ม <span class="btn">เปิดคนแรก</span></p>
+    <ol class="steps">
+      <li><b>ยังไม่มีผู้รับผิดชอบ</b> กด <span class="btn">มอบหมายผู้ลงพื้นที่</span> เลือกคนและวันที่ต้องลงพื้นที่ (ค่าตั้งต้นภายใน 7 วัน)</li>
+      <li><b>รอลงพื้นที่</b> เมื่อผู้รับผิดชอบแจ้งผล กด <span class="btn">บันทึกผลลงพื้นที่</span> เลือกพบตัวหรือไม่พบตัว ระบบบันทึกว่าใครเป็นคนแจ้ง ไม่อ้างว่า ผอ. ไปเอง</li>
+      <li><b>รอความยินยอม · ยังไม่มีแผน · ลงพื้นที่แล้วไม่พบตัว</b> AI เสนอให้เตือนผู้รับผิดชอบหรือมอบหมายลงพื้นที่อีกครั้งพร้อมผู้นำชุมชน</li>
+    </ol>
+    <p class="see"><b>จะเห็น</b> ครูที่ได้รับมอบหมายเห็นงานลงพื้นที่บนหน้าแรกของตัวเอง ขึ้นก่อนเด็กในคิว และบันทึกผลกับความยินยอมได้จากที่นั่น</p>
+  </article>
+
+  <article class="stage">
+    <div class="stage-head"><span class="n">5</span><h3>แผนและการส่งต่อที่ติดกับหน่วยงาน</h3></div>
+    <p class="where">เมนู <b>เส้นทางโอกาส</b> และ <b>ส่งต่อหน่วยงาน</b> กลุ่ม "ต้องใช้ ผอ."</p>
+    <ol class="steps">
+      <li>หน่วยงานเกินกำหนด กด <span class="btn">ยกระดับถึงหัวหน้าหน่วยงาน</span> ระบบลงเป็นเหตุการณ์บนการส่งต่อ ครูและหน่วยงานเห็นตรงกัน</li>
+      <li>ยกระดับแล้วยังไม่ขยับ AI เสนอ <span class="btn">ยกระดับถึงระดับจังหวัด</span> หรือให้ครูส่งต่อหน่วยงานอื่น (ครูเป็นคนส่ง ผอ. ไม่ส่งเอง)</li>
+      <li>ครอบครัวยังไม่เห็นชอบแผนหรือยังไม่ยินยอม กด <span class="btn">นัดคุยกับครอบครัวพร้อมครู</span> เลือกวันที่ นัดขึ้นในงานของครู</li>
+      <li>ดูรายละเอียดได้จาก <span class="btn">ดูแผนทั้งหมด (อ่านอย่างเดียว)</span> หรือ <span class="btn">ดูไทม์ไลน์การส่งต่อ (อ่านอย่างเดียว)</span></li>
+    </ol>
+    <p class="warn"><b>รู้ไว้</b> ระบบยังไม่ส่งเรื่องถึงหน่วยงานอัตโนมัติ การยกระดับคือการบันทึกว่า ผอ. ประสานแล้ว ผอ. ยังต้องโทรหรือทำหนังสือถึงหัวหน้าหน่วยงานตามช่องทางปกติ</p>
+  </article>
+
+  <article class="stage">
+    <div class="stage-head"><span class="n">6</span><h3>ดูผลการดำเนินงานและขอทรัพยากร</h3></div>
+    <p class="where">เมนู <b>ผลการดำเนินงาน</b></p>
+    <ol class="steps">
+      <li>อ่านกล่อง AI สรุป ตัวชี้วัดไหนดีกว่าโรงเรียนนำร่อง ตัวไหนยังสู้ไม่ได้ และสาเหตุที่ AI เห็นจากเคสจริง</li>
+      <li>ตัวชี้วัดเรียงจากจุดที่ควรดูก่อน แต่ละตัวบอกค่า ค่าเฉลี่ยนำร่อง อันดับจาก 46 แห่ง และลิงก์ไปดูเคสที่เกี่ยวข้อง</li>
+      <li>ถ้าโรงเรียนต้องการทรัพยากร กด <span class="btn">ขอสนับสนุนทรัพยากร</span> AI ร่างเหตุผลจากตัวเลขของโรงเรียนให้ แก้ได้ทุกบรรทัด แล้วกด <span class="btn">ส่งคำขอไปที่เขต</span></li>
+    </ol>
+    <p class="tip"><b>ตัวเลขสองแหล่ง</b> ตัวชี้วัดทั้งโรงเรียนมาจากรายงานประจำภาค ส่วนเคส SLA และผลลัพธ์ของเด็กมาจากเคสที่ครูติดตามในระบบ ซึ่งเป็นแหล่งเดียวกับทุกหน้า</p>
+  </article>
+</section>
+
+<section id="queue">
+  <h2>AI ยกเรื่องขึ้นมาให้ ผอ. เมื่อไร</h2>
+  <p class="intro">เรื่องจะเข้ากลุ่ม "ต้องใช้ ผอ." เมื่อเข้าเงื่อนไขด้านล่าง ถ้า ผอ. ลงมือแล้ว (เตือน มอบหมาย ยกระดับ) เรื่องจะย้ายไป "รอผล" 3 วัน ก่อนถูกเสนออีกครั้งถ้ายังไม่ขยับ ยกเว้นคำขอจากครูซึ่งขึ้นเสมอจนกว่า ผอ. จะตัดสินใจ</p>
+  <div class="tbl">
+    <table>
+      <thead><tr><th>หน้า</th><th>เงื่อนไข</th></tr></thead>
+      <tbody>
+        <tr><td>เรื่องที่ต้องตัดสินใจ</td><td>ครูส่งคำขอ · เด็กยังไม่มีครูผู้รับผิดชอบ · เด็กเสี่ยงสูงและไม่มีความคืบหน้าตั้งแต่ <b>14 วัน</b></td></tr>
+        <tr><td>เส้นทางโอกาส</td><td>แผนไม่มีผู้รับผิดชอบ · มีขั้นที่ติดขัด · ขั้นเลยกำหนด · เริ่มแผนมาตั้งแต่ <b>14 วัน</b> แล้วครอบครัวยังไม่เห็นชอบ</td></tr>
+        <tr><td>ส่งต่อหน่วยงาน</td><td>เกิน SLA · ถูกส่งกลับแล้วค้าง <b>2 วัน</b> · หน่วยงานขอข้อมูลเพิ่มแล้วค้าง <b>3 วัน</b> · รอความยินยอม <b>7 วัน</b></td></tr>
+        <tr><td>เด็กนอกระบบ</td><td>ยังไม่มีผู้รับผิดชอบ · รอลงพื้นที่ · ลงพื้นที่แล้วไม่พบตัว · รอความยินยอม · ยังไม่มีแผน</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section id="status">
+  <h2>อ่านสถานะให้เร็ว</h2>
+  <h3>ป้ายบนเมนูและกระดิ่ง</h3>
+  <div class="tbl">
+    <table>
+      <thead><tr><th>เห็น</th><th>หมายความว่า</th></tr></thead>
+      <tbody>
+        <tr><td><span class="chip c-crit">2</span> ทึบแดง</td><td>เรื่องที่ต้องตัดสินใจ งานหลักของ ผอ.</td></tr>
+        <tr><td><span class="chip c-high">6</span> พื้นอ่อน</td><td>เรื่องที่ต้องใช้ ผอ. ในหน้าเด็กนอกระบบ เส้นทางโอกาส หรือส่งต่อ</td></tr>
+        <tr><td>ตัวเลขบนกระดิ่ง</td><td>ยอดรวมทุกหน้า เท่ากับ "งานที่รอ ผอ. วันนี้" บนหน้าภาพรวม</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3>ป้ายในแถวของเรื่อง</h3>
+  <div class="tbl">
+    <table>
+      <thead><tr><th>ป้าย</th><th>หมายความว่า</th></tr></thead>
+      <tbody>
+        <tr><td><span class="chip c-crit">คำขอใหม่</span></td><td>ครูส่งมา ผอ. ยังไม่ได้ตัดสินใจ</td></tr>
+        <tr><td><span class="chip c-brand">ครูตอบแล้ว</span></td><td>ผอ. ขอข้อมูลเพิ่ม ครูตอบกลับมาแล้ว รอ ผอ. ตัดสินใจ</td></tr>
+        <tr><td><span class="chip c-high">ค้างนาน</span></td><td>AI พบว่าเสี่ยงสูงและไม่มีใครขยับ ครูยังไม่ได้ขอ</td></tr>
+        <tr><td><span class="chip c-crit">ไม่มีผู้รับผิดชอบ</span></td><td>ยังไม่มีใครถูกนับว่าต้องตามเด็กคนนี้</td></tr>
+        <tr><td><span class="chip c-watch">ในกำหนด</span> · <span class="chip c-crit">เลยกำหนด</span></td><td>งานที่ ผอ. ส่งกลับไปที่ครู ยังอยู่ในหรือเลยวันที่กำหนด</td></tr>
+        <tr><td><span class="chip c-brand">รอครูตอบ</span></td><td>ผอ. ขอข้อมูลเพิ่ม รอครูตอบ</td></tr>
+        <tr><td><span class="chip c-brand">รอผล</span></td><td>ผอ. ลงมือแล้วใน 3 วัน รอผู้รับผิดชอบแจ้งผล</td></tr>
+        <tr><td><span class="chip c-ok">✓ ครูทำแล้ว</span></td><td>ครูทำตามที่ ผอ. อนุมัติแล้ว พร้อมผลที่ได้</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section id="pdpa">
+  <h2>ข้อมูลส่วนบุคคล (PDPA)</h2>
+  <ul class="checks">
+    <li>ผอ. เห็นเด็กในโรงเรียนของตนเอง และเด็กนอกระบบเฉพาะคนที่โรงเรียนแจ้ง ไม่รวมเด็กที่พบจากแหล่งอื่น</li>
+    <li>การเข้าถึงตามด้วยหน้าที่ ไม่ใช่ตำแหน่ง ผอ. ดูแฟ้มเด็กได้อย่างเดียว ไม่แก้บันทึกของครู</li>
+    <li>บันทึกของ ผอ. และทุกการตัดสินใจลงไทม์ไลน์ของเด็กพร้อมป้าย "ผอ." ชื่อผู้ตัดสินใจ วันที่ และเหตุผล</li>
+    <li>คำขอทรัพยากรที่ส่งถึงเขตใช้ตัวเลขรวมของโรงเรียน ไม่มีชื่อเด็กรายคน</li>
+    <li>ตารางเคสทั้งหมดและ <span class="btn">สรุปเคส / ส่งออก</span> ใช้เมื่อจำเป็น ส่งต่อเฉพาะคนที่เกี่ยวข้อง</li>
+  </ul>
+</section>
+
+<section id="faq">
+  <h2>คำถามที่พบบ่อย</h2>
+  <div class="faq">
+    <details><summary>เมนู "การช่วยเหลือ" หายไปไหน</summary><p>รวมเข้ากับ "เรื่องที่ต้องตัดสินใจ" แล้ว เคสที่ครูดูแลอยู่พับไว้ท้ายหน้า กดชื่อครูเพื่อดูทีละคน ตารางเคสทั้งหมดเปิดได้จากปุ่มท้ายหน้า</p></details>
+    <details><summary>ทำไมเรื่องที่เพิ่งกดเตือนหายจากคิว</summary><p>ผอ. ลงมือแล้ว เรื่องจึงย้ายไป "ผอ. ตัดสินใจแล้ว รอครู" ป้าย "รอผล" 3 วัน ถ้ายังไม่ขยับ AI จะยกขึ้นมาอีกครั้ง</p></details>
+    <details><summary>มอบหมายครูที่ยังไม่มีเคสได้ไหม</summary><p>ได้ รายชื่อบุคลากรทั้งโรงเรียนอยู่ในกลุ่ม "บุคลากรที่ยังไม่มีเคส" ท้ายรายการ</p></details>
+    <details><summary>ไม่เห็นด้วยกับสิ่งที่ AI แนะนำ</summary><p>เลือกทางอื่นได้ทุกครั้ง ในลิ้นชักมีทางเลือกอื่นเรียงอยู่ใต้ทางที่ AI แนะนำ และปุ่ม "ทางอื่น" ท้ายลิ้นชัก AI ไม่ตัดสินใจแทน ผอ.</p></details>
+    <details><summary>อยากดูตารางแบบเดิม หรือส่งออก CSV</summary><p>ทุกหน้ามีปุ่ม "เปิดตาราง/รายการแบบเต็ม" ท้ายหน้า ในตารางมีปุ่ม "กลับไปมุมมองของ ผอ." ด้านบน</p></details>
+    <details><summary>ใช้บนมือถือได้ไหม</summary><p>ได้ทุกหน้า แถบล่างมีห้าเมนูที่ใช้บ่อย: ภาพรวม · เรื่องที่ต้องตัดสินใจ · เด็กนอกระบบ · เส้นทางโอกาส · ส่งต่อ</p></details>
+    <details><summary>ข้อมูลที่บันทึกหายเมื่อเปลี่ยนเครื่อง</summary><p>ในเดโมนี้ข้อมูลเก็บในเบราว์เซอร์เครื่องที่ใช้ ระบบจริงจะเก็บที่เซิร์ฟเวอร์ คำขอทรัพยากรถึงเขตในเดโมยังไม่ส่งออกจากระบบจริง</p></details>
+    <details><summary>อยากเริ่มทดสอบใหม่</summary><p>ตั้งค่า → ข้อมูลทดสอบ → ล้างข้อมูลที่ฉันบันทึก → ยืนยัน (ข้อมูลตั้งต้นของนักเรียนไม่ถูกลบ)</p></details>
+  </div>
+</section>
+
+<footer>Southern Zero Dropout Platform · คู่มือบทบาทผู้อำนวยการสถานศึกษา ฉบับเดโม ต.ค. 2569 · ข้อมูลในระบบเป็นข้อมูลจำลองเพื่อสาธิต</footer>
+</div>
