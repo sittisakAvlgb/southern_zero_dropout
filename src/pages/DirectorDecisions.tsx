@@ -19,6 +19,7 @@ import { Skeleton } from '@/components/ui/Skeleton'
 import { PageHeader, Breadcrumb } from '@/components/ui/PageHeader'
 import { useToast } from '@/components/ui/Toast'
 import { IconShield } from '@/components/icons'
+import { staffOf } from '@/data/staff'
 
 /** เรื่องของเด็กคนหนึ่งในมุม ผอ. — ใช้รายการในกล่องถ้ามี ไม่มีก็สร้างจากเคส (ติดตามผล · ลิงก์จาก AI) */
 export function itemFor(id: string, inbox: InboxItem[], cases: FollowCase[], requests: SupportRequest[]): InboxItem | undefined {
@@ -30,9 +31,12 @@ export function itemFor(id: string, inbox: InboxItem[], cases: FollowCase[], req
   return { kind: req ? 'request' : c.s.caseOwner ? 'stuck' : 'noOwner', c, req, why: c.because, today: false, waitedDays: 0 }
 }
 
-/** รายชื่อครูของโรงเรียน — จากผู้รับผิดชอบเคสจริง ไม่ใช่รายชื่อสมมติ */
-export function teamOf(cases: FollowCase[]): string[] {
-  return [...new Set(cases.map((c) => c.s.caseOwner).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'th'))
+/** รายชื่อที่ ผอ. มอบหมายได้ — ผู้รับผิดชอบเคสปัจจุบัน + บุคลากรทั้งโรงเรียน (รวมคนที่ยังไม่มีเคส)
+ *  คนที่มีเคสอยู่ขึ้นก่อน (เรียงตามชื่อ) แล้วตามด้วยคนที่ยังไม่มีเคส — ผอ. เห็นภาระงานของคนที่ทำอยู่ก่อน */
+export function teamOf(cases: FollowCase[], schoolKey?: string): string[] {
+  const owners = [...new Set(cases.map((c) => c.s.caseOwner).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'th'))
+  const rest = staffOf(schoolKey).filter((n) => !owners.includes(n))
+  return [...owners, ...rest]
 }
 
 const todayIso = () => isoIn(0)

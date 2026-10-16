@@ -40,15 +40,21 @@ export function OwnerPicker({
 }) {
   const rowOf = (n: string) => load?.find((r) => r.owner === n)
   const names = [...new Set([...(current ? [current] : []), ...team])]
+  // บุคลากรที่ยังไม่มีเคสอยู่ท้ายรายการ แยกหัวข้อให้เห็นว่าเป็นคนที่ยังว่างทั้งหมด
+  const busy = names.filter((n) => rowOf(n) || n === current)
+  const free = names.filter((n) => !rowOf(n) && n !== current)
+  const head = (t: string) => <p className="px-1 pt-1 text-[13px] font-semibold text-ink-muted">{t}</p>
   return (
     <div role="radiogroup" aria-labelledby={id} className="space-y-2">
-      {names.map((n) => {
+      {free.length > 0 && busy.length > 0 && head('มีเคสอยู่')}
+      {[...busy, ...free].map((n, i) => {
         const r = rowOf(n)
         const isCurrent = n === current
         const on = value === n
         return (
+          <div key={n} className="space-y-2">
+          {i === busy.length && free.length > 0 && head(`บุคลากรที่ยังไม่มีเคส (${free.length})`)}
           <button
-            key={n}
             type="button"
             role="radio"
             aria-checked={on}
@@ -71,6 +77,7 @@ export function OwnerPicker({
               </span>
             </span>
           </button>
+          </div>
         )
       })}
     </div>

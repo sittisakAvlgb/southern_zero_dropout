@@ -44,7 +44,8 @@ const LAST = [
 /** the guidance teacher the demo account signs in as — see auth/roles.ts */
 const GUIDANCE_OWNER = 'ครูแนะแนว นูรียะ'
 
-const OWNERS = [
+/** ผู้รับผิดชอบเคสในข้อมูลจำลอง — data/staff.ts ใช้รายชื่อเดียวกันเป็นส่วนหนึ่งของบุคลากรโรงเรียน */
+export const OWNERS = [
   'ครูฟาตีฮะห์ ม.', 'ครูอับดุลรอฮิม ส.', GUIDANCE_OWNER, 'ครูประจำชั้น อารีนา',
   'นักจิตวิทยา สุไรยา', 'นักสังคมสงเคราะห์ ซัลมา', 'ครูสมชาย ท.', 'อสม. ยาวารี',
 ]
