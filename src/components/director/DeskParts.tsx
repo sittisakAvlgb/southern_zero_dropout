@@ -233,12 +233,12 @@ export function DeskActionSheet({
 }
 
 /** แถบบนสุดของตารางแบบเต็มเมื่อ ผอ. เปิดดู — กลับไปมุมมองของ ผอ. ได้ในคลิกเดียว ไม่ติดค้างที่ ?view=full */
-export function BackToDesk({ onBack }: { onBack: () => void }) {
+export function BackToDesk({ onBack, label = '← กลับไปมุมมองของ ผอ.' }: { onBack: () => void; label?: string }) {
   return (
     <div className="mb-4 flex flex-col gap-2 rounded-2xl border border-brand-200 bg-brand-50/60 px-4 py-3 sm:flex-row sm:items-center">
       <p className="min-w-0 flex-1 text-[14.5px] text-ink">กำลังดูตารางแบบเต็ม — สำหรับค้นหา กรอง และส่งออกข้อมูล</p>
       <button type="button" onClick={onBack} className="shrink-0 rounded-xl bg-brand-500 px-4 py-2.5 text-[14.5px] font-semibold text-white shadow-card hover:bg-brand-600">
-        ← กลับไปมุมมองของ ผอ.
+        {label}
       </button>
     </div>
   )

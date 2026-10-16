@@ -638,7 +638,7 @@ export function AreaOpsCenter() {
  *   ขออะไร → โรงเรียนทำอะไรไปแล้ว / ติดตรงไหน → AI แนะนำอะไร (ปุ่มเดียว) → หรือทางอื่น
  * ไม่มีกรอบซ้อนกรอบ และ AI ไม่เล่าคำขอซ้ำ บอกเฉพาะสิ่งที่เพิ่มจากคำขอ (ใครรับ · งานในมือ)
  */
-function RequestDrawer({ r, team, patterns, onClose, onDecide }: { r: AreaRequest; team: TeamRow[]; patterns: Pattern[]; onClose: () => void; onDecide: (acts: AreaAct[]) => void }) {
+export function RequestDrawer({ r, team, patterns, onClose, onDecide }: { r: AreaRequest; team: TeamRow[]; patterns: Pattern[]; onClose: () => void; onDecide: (acts: AreaAct[]) => void }) {
   const b = requestBrief(r, team, patterns)
   const rec = b.acts.map((a) => AREA_ACT_TH[a]).join(' + ')
   const others: { acts: AreaAct[]; label: string }[] = [
@@ -783,7 +783,7 @@ function DistrictDrawer({ v, name, onClose, onSupport, onOpenArea }: { v: Distri
 }
 
 /** ตัดสินใจคำขอ หรือวางแผนสนับสนุนโรงเรียน — action ของเขต · ผู้รับผิดชอบ · กำหนด · ผลที่คาดหวัง */
-function SupportSheet({
+export function SupportSheet({
   title,
   sub,
   context,

@@ -18,6 +18,7 @@ import { canAccess } from '@/auth/roles'
 import { ScopeBanner } from '@/components/auth/ScopeBanner'
 import { DirectorSchoolDesk } from '@/components/director/DirectorSchoolDesk'
 import { BackToDesk } from '@/components/director/DeskParts'
+import { EsaSchoolDesk } from '@/components/area/EsaSchoolDesk'
 import { SCHOOLS } from '@/data/schools'
 import type { School } from '@/types'
 import {
@@ -68,13 +69,27 @@ export default function SchoolPerformance() {
         }}
       />
     )
+  // เขต: โรงเรียนในเขตเรียงตามความจำเป็น + สถานะกับเขต — ตารางเต็มเปิดจาก "ดูข้อมูลโรงเรียน"
+  if (user?.role === 'esa' && params.get('view') !== 'full')
+    return (
+      <EsaSchoolDesk
+        onFull={(id) => {
+          const next = new URLSearchParams(params)
+          next.set('view', 'full')
+          if (id) next.set('s', id)
+          setParams(next)
+        }}
+      />
+    )
   return (
     <>
-      {user?.role === 'school' && (
+      {(user?.role === 'school' || user?.role === 'esa') && (
         <BackToDesk
+          label={user?.role === 'esa' ? '← กลับไปโรงเรียนในเขต' : undefined}
           onBack={() => {
             const next = new URLSearchParams(params)
             next.delete('view')
+            next.delete('s')
             setParams(next)
           }}
         />
