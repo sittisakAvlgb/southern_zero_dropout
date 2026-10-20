@@ -8,8 +8,6 @@ import {
   Cell,
   BarChart,
   Bar,
-  LineChart,
-  Line,
   XAxis,
   YAxis,
   Tooltip,
@@ -29,8 +27,11 @@ import { useI18n } from '@/i18n/LanguageContext'
 import { REASON_GROUP, isDropCause, reasonFor, type ReasonGroup } from '@/data/dropReasons'
 import { formatNumber, formatPct, makeRng, hashSeed } from '@/lib/format'
 import { RISK_COLOR } from '@/lib/risk'
-import type { CauseKey, CauseWeight, Province } from '@/types'
+import type { CauseKey } from '@/types'
 import { useScopedData } from '@/auth/scope'
+import { atRiskOf, byDistrict, causeMix, stillOutOf } from '@/lib/causeOps'
+import { ownerOfCause } from '@/data/dropReasons'
+import { ESA_BY_KEY } from '@/data/esa'
 import { ScopeBanner } from '@/components/auth/ScopeBanner'
 import {
   IconCause,
@@ -53,33 +54,6 @@ const PALETTE = [
 const OTHER_COLOR = '#cbd5e1'
 const GRID = '#eef2f8'
 
-/** Aggregate a cause distribution over a set of provinces (weighted by high-risk pop). */
-function causeDistributionFor(provs: Province[]): CauseWeight[] {
-  const acc: Record<string, number> = {}
-  for (const p of provs) {
-    for (const c of p.topCauses) {
-      acc[c.key] = (acc[c.key] ?? 0) + c.value * p.highRiskStudents
-    }
-  }
-  const total = Object.values(acc).reduce((s, v) => s + v, 0) || 1
-  return (Object.entries(acc) as [CauseKey, number][])
-    .map(([key, v]) => ({ key, value: Math.round((v / total) * 1000) / 10 }))
-    .sort((a, b) => b.value - a.value)
-}
-
-/** Deterministic 6-month synthetic series ending at the cause's current share. */
-function synthTrend(key: CauseKey, base: number): number[] {
-  const rng = makeRng(hashSeed(`cause-trend-${key}`))
-  const out: number[] = []
-  let v = base * (0.82 + rng() * 0.14)
-  for (let i = 0; i < 5; i++) {
-    v += (rng() - 0.42) * base * 0.09
-    out.push(Math.max(0.5, Math.round(v * 10) / 10))
-  }
-  out.push(Math.round(base * 10) / 10)
-  return out
-}
-
 /** The four bands `intensityColor` puts each bar into — spelled out so the
  *  colours on the ranking chart are readable rather than decorative. */
 const TIERS = [
@@ -98,13 +72,13 @@ function intensityColor(ratio: number): string {
 }
 
 export default function CauseAnalysis() {
-  const { t, lang, pn } = useI18n()
+  const { t, lang, pn, dn, pick } = useI18n()
   const th = lang === 'th'
   const toast = useToast()
   const loading = useSimulatedLoading(600)
   const [provinceKey, setProvinceKey] = useState<string>('all')
 
-  const { provinces: scopedProvinces, user } = useScopedData()
+  const { provinces: scopedProvinces, students, oosc, user } = useScopedData()
 
   // The scope is three border provinces, all in one region — so the filter and
   // the comparison chart work at province level. A region filter here offered
@@ -117,10 +91,19 @@ export default function CauseAnalysis() {
     [provinceKey, scopedProvinces],
   )
 
-  const dist = useMemo<CauseWeight[]>(
-    () => causeDistributionFor(scopeProvinces),
-    [scopeProvinces],
-  )
+  /** สัดส่วนสาเหตุคิดจาก `causeKeys` ของเด็กที่อยู่ในขอบเขตบัญชีนี้จริง ไม่ใช่
+   *  `Province.topCauses` ที่เป็นค่าระดับจังหวัด — เขตเคยเห็นสัดส่วนของทั้ง
+   *  ปัตตานีอยู่ข้างจำนวนเด็กเสี่ยงสูงของเขตเอง (ดูหมายเหตุใน lib/causeOps.ts)
+   *  ตัวกรองจังหวัดยังกรองเด็กตามจังหวัดเหมือนเดิม */
+  const inScope = useMemo(() => {
+    const keys = new Set(scopeProvinces.map((p) => p.key))
+    return {
+      students: students.filter((s) => keys.has(s.provinceKey)),
+      oosc: oosc.filter((r) => keys.has(r.provinceKey)),
+    }
+  }, [scopeProvinces, students, oosc])
+  const mix = useMemo(() => causeMix(inScope.students, inScope.oosc), [inScope])
+  const dist = mix.dist
 
   const totalHighRisk = useMemo(
     () => scopeProvinces.reduce((s, p) => s + p.highRiskStudents, 0),
@@ -194,45 +177,33 @@ export default function CauseAnalysis() {
       .sort((a, b) => b.value - a.value)
   }, [dist])
 
-  // Trend: top 3 causes over 6 months
-  const topThree = dist.slice(0, 3)
-  const months = useMemo(
-    () =>
-      Array.from({ length: 6 }, (_, i) => {
-        const d = new Date(2026, 6 - (5 - i), 1)
-        return d.toLocaleDateString(lang === 'th' ? 'th-TH' : 'en-US', {
-          month: 'short',
-        })
-      }),
-    [lang],
-  )
-  const trendData = useMemo(() => {
-    const series = topThree.map((c) => ({
-      key: c.key,
-      values: synthTrend(c.key, c.value),
-    }))
-    return months.map((m, i) => {
-      const row: Record<string, string | number> = { month: m }
-      for (const s of series) row[s.key] = s.values[i]
-      return row
-    })
-  }, [months, topThree])
-
-  // Compare by region: scoped regions on X, scoped top-4 causes stacked
-  const top4 = useMemo(
-    () => causeDistributionFor(scopedProvinces).slice(0, 4).map((c) => c.key),
-    [scopedProvinces],
-  )
-  const byProvinceData = useMemo(
-    () =>
-      scopedProvinces.map((p) => {
-        const d = causeDistributionFor([p])
-        const row: Record<string, string | number> = { area: pn(p.key) }
-        for (const k of top4) row[k] = d.find((c) => c.key === k)?.value ?? 0
+  /** เทียบรายอำเภอ ไม่ใช่รายจังหวัด
+   *
+   *  เขตมีจังหวัดเดียว กราฟ "เปรียบเทียบรายจังหวัด" จึงมีแท่งเดียวให้เทียบ และ
+   *  ค่าของมันมาจาก `causeDistributionFor()` ระดับจังหวัด ซึ่งขัดกับกราฟจัด
+   *  อันดับด้านบนที่ตอนนี้คิดจากเด็กจริง — เลขชุดเดียวกันสองค่าบนหน้าเดียว
+   *  อำเภอคือหน่วยที่เขตลงไปหนุนได้จริง และนับจากชุดเดียวกับทั้งหน้า */
+  const top4 = useMemo(() => dist.slice(0, 4).map((c) => c.key), [dist])
+  const byAreaData = useMemo(() => {
+    const rows = [...atRiskOf(inScope.students), ...stillOutOf(inScope.oosc)]
+    const acc = new Map<string, { total: number; counts: Record<string, number> }>()
+    for (const r of rows) {
+      const k = r.causeKeys[0]
+      if (!k) continue
+      const e = acc.get(r.districtKey) ?? { total: 0, counts: {} }
+      e.total++
+      e.counts[k] = (e.counts[k] ?? 0) + 1
+      acc.set(r.districtKey, e)
+    }
+    return [...acc.entries()]
+      .sort((a, b) => b[1].total - a[1].total)
+      .slice(0, 8)
+      .map(([key, e]) => {
+        const row: Record<string, string | number> = { area: dn(key) }
+        for (const k of top4) row[k] = Math.round(((e.counts[k] ?? 0) / Math.max(1, e.total)) * 1000) / 10
         return row
-      }),
-    [scopedProvinces, top4, pn],
-  )
+      })
+  }, [inScope, top4, dn])
 
   /** "ทั้ง 3 จังหวัด" is only a real choice for an account without a territory.
    *  Offering it to a เขต or province seat promised data the scope filter was
@@ -243,12 +214,39 @@ export default function CauseAnalysis() {
   ]
 
   const lead = dist[0]
+
+  /** ขอบเขตของบัญชีนี้ตามชื่อจริง — เขตเคยอ่านว่า "ในพื้นที่นำร่อง 3 จังหวัด"
+   *  ทั้งที่ดูอยู่ 4 อำเภอของเขตเดียว ซึ่งเป็นบั๊กแบบเดียวกับ "ทั้งประเทศ /
+   *  77 จังหวัด" ที่ CLAUDE.md สั่งให้ไล่เก็บ */
+  const scopeTh = useMemo(() => {
+    if (provinceKey !== 'all') return `ใน${pn(provinceKey)}`
+    if (user?.esaKey && ESA_BY_KEY[user.esaKey]) return `ใน${pick(ESA_BY_KEY[user.esaKey])}`
+    if (user?.provinceKey) return `ใน${pn(user.provinceKey)}`
+    return 'ในพื้นที่นำร่อง 3 จังหวัด'
+  }, [provinceKey, user, pn, pick])
+  const scopeEn = provinceKey !== 'all' ? `in ${pn(provinceKey)}` : user?.provinceKey ? `in ${pn(user.provinceKey)}` : 'across the three pilot provinces'
+
+  /** สาเหตุนำกระจุกอยู่อำเภอไหน และใครเป็นเจ้าภาพแก้ — สองอย่างนี้คือสิ่งที่
+   *  ทำให้บรรทัดนี้ใช้ตัดสินใจได้ แทนที่จะบอกแค่ว่าสาเหตุอันดับ 1 คืออะไร */
+  const leadWhere = useMemo(
+    () => (lead ? byDistrict(lead.key, inScope.students, inScope.oosc).slice(0, 2) : []),
+    [lead, inScope],
+  )
+  const leadOwner = lead ? ownerOfCause(lead.key) : undefined
+
   const aiText =
     lead === undefined
       ? ''
       : lang === 'th'
-        ? `สาเหตุอันดับ 1 ที่ทำให้นักเรียนเสี่ยงหลุดจากระบบคือ “${t(`cause.${lead.key}`)}” คิดเป็น ${formatPct(lead.value)} ของกรณีเสี่ยงทั้งหมด${provinceKey === 'all' ? 'ในพื้นที่นำร่อง 3 จังหวัด' : `ใน${pn(provinceKey)}`} ควรเร่งออกแบบมาตรการช่วยเหลือที่ตรงจุด เพื่อลดโอกาสหลุดออกจากระบบการศึกษา`
-        : `The leading driver of dropout risk is “${t(`cause.${lead.key}`)}”, accounting for ${formatPct(lead.value)} of at-risk cases ${provinceKey === 'all' ? 'across the three pilot provinces' : `in ${pn(provinceKey)}`}. Prioritise targeted interventions here to reduce the chance students leave the system.`
+        ? `สาเหตุหลักอันดับ 1 คือ “${t(`cause.${lead.key}`)}” ${formatPct(lead.value)} ของเด็ก ${formatNumber(mix.base.total, lang)} คน${scopeTh}` +
+          (leadWhere.length
+            ? ` · กระจุกที่อำเภอ${leadWhere.map((w) => `${dn(w.districtKey)} ${w.n} คน`).join(' และ ')}`
+            : '') +
+          (leadOwner ? ` · เจ้าภาพหลักของสาเหตุกลุ่มนี้คือ${leadOwner}` : '') +
+          ' — อาจพิจารณาเริ่มจากอำเภอที่กระจุกมากที่สุด'
+        : `The leading primary cause is “${t(`cause.${lead.key}`)}” — ${formatPct(lead.value)} of ${formatNumber(mix.base.total, lang)} children ${scopeEn}` +
+          (leadWhere.length ? `, concentrated in ${leadWhere.map((w) => `${dn(w.districtKey)} (${w.n})`).join(' and ')}` : '') +
+          '.'
 
   const pctTooltip = (v: number | string) => formatPct(Number(v))
 
@@ -304,17 +302,27 @@ export default function CauseAnalysis() {
       <Card className="mt-4">
         <div className="grid divide-y divide-surface-border lg:grid-cols-3 lg:divide-x lg:divide-y-0">
           <div className="p-5">
-            <p className="text-xs font-medium text-ink-muted">{t('kpi.highrisk')}</p>
+            <p className="text-xs font-medium text-ink-muted">
+              {th ? 'เด็กที่ใช้คิดสัดส่วนสาเหตุ' : 'Children behind every share'}
+            </p>
             <p
               className="tabular mt-1 text-[32px] font-bold leading-none"
               style={{ color: RISK_COLOR.high }}
             >
-              <AnimatedCounter value={totalHighRisk} />
+              <AnimatedCounter value={mix.base.total} />
             </p>
+            {/* ตัวหารจริงต้องอยู่บนหน้า ไม่ใช่ให้เดา — เดิมบรรทัดนี้โชว์จำนวน
+                เด็กเสี่ยงสูงรวมของพื้นที่ แล้วบอกว่าเป็น "ฐานที่ใช้คิดสัดส่วน
+                ด้านขวา" ทั้งที่สัดส่วนมาจากค่าระดับจังหวัดคนละชุด */}
             <p className="mt-2 text-[11px] leading-snug text-ink-faint">
               {th
-                ? `ฐานที่ใช้คิดสัดส่วนสาเหตุทั้งหมดด้านขวา · ${scopeProvinces.length} จังหวัด`
-                : `The base every share on the right is measured against · ${scopeProvinces.length} provinces`}
+                ? `เสี่ยงสูงในระบบ ${formatNumber(mix.base.atRisk, lang)} · ยังอยู่นอกระบบ ${formatNumber(mix.base.stillOut, lang)} · นับสาเหตุหลักคนละหนึ่ง`
+                : `${formatNumber(mix.base.atRisk, lang)} at risk in school · ${formatNumber(mix.base.stillOut, lang)} still out · one primary cause each`}
+            </p>
+            <p className="mt-1 text-[11px] leading-snug text-ink-faint">
+              {th
+                ? `เด็กเสี่ยงสูงทั้งพื้นที่ตามรายงาน ${formatNumber(totalHighRisk, lang)} คน`
+                : `${formatNumber(totalHighRisk, lang)} high-risk students reported area-wide`}
             </p>
           </div>
 
@@ -578,50 +586,11 @@ export default function CauseAnalysis() {
             </ChartCard>
           </div>
 
-          {/* 3. Trend of top-3 causes */}
-          <div className="lg:col-span-6">
-          <ChartCard title={t('cause.trend')} delay={0.15} fill>
+          {/* 4. Compare by district — the unit an area office can actually go to */}
+          <div className="lg:col-span-12">
+          <ChartCard title={th ? 'เปรียบเทียบรายอำเภอ' : 'By district'} delay={0.2} fill>
             <ResponsiveContainer width="100%" height={280}>
-              <LineChart data={trendData} margin={{ left: 4, right: 12, top: 8, bottom: 4 }}>
-                <CartesianGrid stroke={GRID} vertical={false} />
-                <XAxis
-                  dataKey="month"
-                  tick={{ fontSize: 11, fill: '#64748b' }}
-                  axisLine={false}
-                  tickLine={false}
-                />
-                <YAxis
-                  tickFormatter={(v) => `${v}%`}
-                  tick={{ fontSize: 11, fill: '#64748b' }}
-                  axisLine={false}
-                  tickLine={false}
-                  width={38}
-                />
-                <Tooltip formatter={pctTooltip} />
-                <Legend iconType="plainline" wrapperStyle={{ fontSize: 11 }} />
-                {topThree.map((c, i) => (
-                  <Line
-                    key={c.key}
-                    type="monotone"
-                    dataKey={c.key}
-                    name={t(`cause.${c.key}`)}
-                    stroke={PALETTE[i]}
-                    strokeWidth={2.4}
-                    dot={{ r: 2.5 }}
-                    activeDot={{ r: 5 }}
-                  />
-                ))}
-              </LineChart>
-            </ResponsiveContainer>
-          </ChartCard>
-
-          </div>
-
-          {/* 4. Compare by province */}
-          <div className="lg:col-span-6">
-          <ChartCard title={t('cause.byRegion')} delay={0.2} fill>
-            <ResponsiveContainer width="100%" height={280}>
-              <BarChart data={byProvinceData} margin={{ left: 4, right: 12, top: 8, bottom: 4 }}>
+              <BarChart data={byAreaData} margin={{ left: 4, right: 12, top: 8, bottom: 4 }}>
                 <CartesianGrid stroke={GRID} vertical={false} />
                 <XAxis
                   dataKey="area"
