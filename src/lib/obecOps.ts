@@ -224,3 +224,26 @@ export function esaBrief(views: EsaView[]): ObecBriefItem[] {
   }
   return out
 }
+
+/** ข้อสังเกตระดับ สพฐ. สำหรับหน้าติดตามการช่วยเหลือ
+ *
+ *  ผู้บริหารเปิดหน้านี้มาเพื่อรู้ว่า "ทั้งประเทศในความดูแลติดอะไร และเขตไหน
+ *  หนักสุด" ก่อนจะเจาะลงไปทีละเขต — ตัวเลขทุกตัวมาจาก `esaViews()` ชุดเดียว
+ *  กับที่ชิปเลือกเขตใช้จัดอันดับ จึงไม่มีทางบอกคนละเรื่องกัน */
+export function followInsight(views: EsaView[]): { headline: string; detail: string } {
+  if (!views.length) return { headline: 'ยังไม่มีข้อมูลเคสในขอบเขตนี้', detail: '' }
+  const overdue = views.reduce((a, v) => a + v.overdue, 0)
+  const open = views.reduce((a, v) => a + v.openCases, 0)
+  const noOwner = views.reduce((a, v) => a + v.unassigned, 0)
+  const worstOverdue = [...views].sort((a, b) => b.overdue - a.overdue)[0]
+  const worstOwner = [...views].sort((a, b) => b.unassigned - a.unassigned)[0]
+  return {
+    headline: `เคสเกิน SLA ${overdue} จาก ${open} เคสที่เปิดอยู่ทั้ง ${views.length} เขต`,
+    detail: [
+      worstOverdue?.overdue ? `มากที่สุดที่${worstOverdue.esa.th} ${worstOverdue.overdue} เคส` : '',
+      noOwner ? `ยังไม่มีผู้รับผิดชอบรวม ${noOwner} เคส — มากที่สุดที่${worstOwner.esa.th} ${worstOwner.unassigned} เคส` : '',
+    ]
+      .filter(Boolean)
+      .join(' · '),
+  }
+}

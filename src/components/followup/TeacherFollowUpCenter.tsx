@@ -1,7 +1,8 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { canWorkCases } from '@/auth/roles'
 import { useScopedData } from '@/auth/scope'
+import { esaOfDistrict } from '@/data/esa'
 import { DirectOnlyNotice } from '@/components/auth/DirectOnlyNotice'
 import { useI18n } from '@/i18n/LanguageContext'
 import { useSimulatedLoading } from '@/lib/useLoading'
@@ -40,7 +41,7 @@ const groupOf = (c: FollowCase): Group => (c.relapse ? 'relapse' : c.attn)
  * "วันนี้ต้องติดตาม" ซึ่งไม่จริงสำหรับคนที่กำกับดูแลแต่ไม่ได้ถือเคส
  * และแถวต้องบอกโรงเรียน เพราะเขตดูข้ามหลายโรงเรียน
  */
-export function TeacherFollowUpCenter() {
+export function TeacherFollowUpCenter({ esaKey }: { esaKey?: string } = {}) {
   const { t } = useI18n()
   const nav = useNavigate()
   const { user, log, built } = useFollowCases()
@@ -63,7 +64,12 @@ export function TeacherFollowUpCenter() {
     }
   }, [])
 
-  const all = 'list' in built ? built.list : []
+  /** สพฐ. ดูทีละเขต — ย่อรายการเคสให้เหลือเด็กในเขตนั้น (กติกาเดียวกับหน้าอื่น
+   *  ที่ยกของเขตมาใช้) ไม่ส่ง esaKey ก็ไม่กรอง ครูและเขตจึงเหมือนเดิม */
+  const all = useMemo(() => {
+    const list = 'list' in built ? built.list : []
+    return esaKey ? list.filter((c) => esaOfDistrict(c.s.districtKey) === esaKey) : list
+  }, [built, esaKey])
   const open = all.filter((c) => c.open)
   const today = all.filter((c) => c.today)
   const doneToday = open.filter((c) => c.doneToday)

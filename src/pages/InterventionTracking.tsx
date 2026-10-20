@@ -16,6 +16,9 @@ import { useToast } from '@/components/ui/Toast'
 import { useScopedData } from '@/auth/scope'
 import { canAccess, canWorkCases } from '@/auth/roles'
 import { TeacherFollowUpCenter } from '@/components/followup/TeacherFollowUpCenter'
+import { EsaPicker, useEsaPick } from '@/components/area/EsaPicker'
+import { esaViews, followInsight } from '@/lib/obecOps'
+import { assetUrl } from '@/lib/asset'
 import { ScopeBanner } from '@/components/auth/ScopeBanner'
 import { DirectOnlyNotice } from '@/components/auth/DirectOnlyNotice'
 import type { CaseRecord, CaseStage, RiskLevel } from '@/types'
@@ -48,6 +51,8 @@ const PAGE_SIZE = 10
 type Focus = 'none' | 'overdue' | 'urgent' | 'unassigned'
 
 /** ครูได้ศูนย์ติดตามงานของตัวเอง บทบาทอื่นยังเห็นหน้ากำกับดูแลเดิม */
+const MASCOT = assetUrl('ChatBot.png')
+
 export default function InterventionTracking() {
   const { user } = useScopedData()
   const [params] = useSearchParams()
@@ -65,6 +70,15 @@ export default function InterventionTracking() {
   // เขตใช้ศูนย์ติดตามหน้าเดียวกับครู แต่ `canWorkCases()` คืน false ให้ esa
   // ทุกปุ่มลงมือจึงปิดเอง — ตารางเต็มเดิม (ค้นหา · กรอง · ส่งออก) ยังเปิดได้ด้วย ?view=full
   if (user?.role === 'esa' && params.get('view') !== 'full') return <TeacherFollowUpCenter />
+  // สพฐ.: สรุประดับทุกเขตก่อน แล้วเจาะลงทีละเขตด้วยศูนย์ติดตามตัวเดียวกับเขต
+  if (user?.role === 'obec' && params.get('view') !== 'full') return <ObecFollowDesk />
+  if (user?.role === 'obec')
+    return (
+      <>
+        <BackToDesk label="← กลับไปมุมมองของ สพฐ." onBack={() => nav('/intervention')} />
+        <OversightTracking />
+      </>
+    )
   if (user?.role === 'esa')
     return (
       <>
@@ -73,6 +87,36 @@ export default function InterventionTracking() {
       </>
     )
   return <OversightTracking />
+}
+
+/**
+ * ติดตามการช่วยเหลือ — มุมมอง สพฐ.
+ *
+ * หน้าเดิมเปิดด้วย "339 เคสเกิน SLA" รวมทุกเขต แถบ pipeline สิบสถานะ แล้วตาราง
+ * ที่ต้องกรองเอง ซึ่งบอกขนาดของปัญหาแต่ไม่ได้บอกว่าเขตไหนหนักและติดเพราะอะไร
+ *
+ * ลำดับใหม่: AI สรุประดับทุกเขต → เลือกเขต → ศูนย์ติดตามตัวเดียวกับที่เขตใช้
+ * ตัวเลขในบรรทัด AI มาจาก `esaViews()` ชุดเดียวกับที่ชิปเลือกเขตใช้จัดอันดับ
+ */
+function ObecFollowDesk() {
+  const { districts, schools, cases, oosc } = useScopedData()
+  const { current } = useEsaPick()
+  const views = useMemo(() => esaViews(districts, schools, cases, oosc), [districts, schools, cases, oosc])
+  const insight = useMemo(() => followInsight(views), [views])
+  return (
+    <div className="animate-page-rise space-y-4">
+      <section className="flex items-start gap-3 rounded-2xl bg-white p-4 ring-1 ring-brand-200 sm:p-5">
+        <img src={MASCOT} alt="" className="h-9 w-9 shrink-0 rounded-xl bg-brand-50 object-contain p-0.5" draggable={false} />
+        <div className="min-w-0">
+          <p className="text-[11.5px] font-semibold uppercase tracking-wide text-brand-600">AI อ่านให้แล้ว · ทุกเขต</p>
+          <p className="mt-0.5 text-[17px] font-bold leading-snug text-ink">{insight.headline}</p>
+          {insight.detail && <p className="mt-1 text-[14.5px] leading-snug text-ink-muted">{insight.detail}</p>}
+        </div>
+      </section>
+      <EsaPicker />
+      {current && <TeacherFollowUpCenter key={current} esaKey={current} />}
+    </div>
+  )
 }
 
 function OversightTracking() {
