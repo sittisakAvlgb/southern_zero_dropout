@@ -51,18 +51,25 @@ const CAUSE_TH: Partial<Record<string, string>> = {
   grades: 'ผลการเรียนต่ำ',
 }
 
-function bottleneckOf(students: Student[]): string | undefined {
+/** ปัญหาหลักของเด็กเสี่ยงสูงในโรงเรียนนี้ พร้อม "กี่คนจากกี่คน"
+ *
+ *  คืนจำนวนมาด้วย ไม่ใช่แค่ชื่อปัญหา เพราะบรรทัด AI ในหน้าโรงเรียนของเขตต้อง
+ *  อ้างตัวเลขของโรงเรียนนั้นจริง ๆ ไม่งั้นสองโรงเรียนที่ติดปัญหาเดียวกันจะได้
+ *  ประโยคเดียวกันคำต่อคำ และอ่านเหมือนข้อความสำเร็จรูป */
+function bottleneckOf(students: Student[]): { label: string; n: number; of: number } | undefined {
   const high = students.filter((x) => x.riskLevel === 'high' || x.riskLevel === 'critical')
   if (!high.length) return undefined
+  const of = high.length
   const noContact = high.filter((x) => x.parentContact === 'unreachable').length
-  if (noContact * 2 >= high.length) return 'ติดต่อผู้ปกครองไม่ได้'
+  if (noContact * 2 >= of) return { label: 'ติดต่อผู้ปกครองไม่ได้', n: noContact, of }
   const m = new Map<string, number>()
   for (const x of high) {
     const k = x.causeKeys[0]
     if (k) m.set(k, (m.get(k) ?? 0) + 1)
   }
   const top = [...m.entries()].sort((a, b) => b[1] - a[1])[0]
-  return top ? CAUSE_TH[top[0]] ?? undefined : undefined
+  const label = top ? CAUSE_TH[top[0]] : undefined
+  return label ? { label, n: top[1], of } : undefined
 }
 
 export function schoolViews(schools: School[], cases: CaseRecord[], students: Student[]): SchoolView[] {
@@ -84,28 +91,48 @@ export function schoolViews(schools: School[], cases: CaseRecord[], students: St
       if (unassigned > 0) pts += 1
       if (s.interventionSuccessRate < avgSuccess - 5) pts += 1
       if (s.needsResources) pts += 1
-      const bottleneck = bottleneckOf(students.filter((x) => x.schoolKey === s.id))
+      const bn = bottleneckOf(students.filter((x) => x.schoolKey === s.id))
+      // ชื่อปัญหาล้วน ๆ ยังคงรูปเดิมไว้ให้ฝั่งอำเภอ (`mainProblem`) ใช้นับความถี่
+      const bottleneck = bn?.label
       const why = [
         `เด็กเสี่ยงสูง ${s.highRiskStudents.toLocaleString('th-TH')} คน (${r1(rate)}%${rate >= avgRate * 1.3 ? ` · ${r1(rate / Math.max(0.1, avgRate))} เท่าของค่าเฉลี่ยเขต` : ''})`,
         `เคสเกิน SLA ${overdue} จาก ${open} เคสที่เปิดอยู่${unassigned ? ` · ไม่มีผู้รับผิดชอบ ${unassigned}` : ''}`,
         `อัตราช่วยสำเร็จ ${s.interventionSuccessRate}% ${s.interventionSuccessRate < avgSuccess - 5 ? 'ต่ำกว่า' : 'ใกล้หรือสูงกว่า'}ค่าเฉลี่ยเขต (${r1(avgSuccess)}%)`,
       ]
       const suggest: AreaAct[] = []
+      /** ปัญหาหลักพร้อมจำนวนของโรงเรียนนี้ — ต่อท้ายได้ทุกสาขาโดยไม่ซ้ำรูปประโยค
+       *
+       *  **ตัวหารต้องบอกว่าเป็นกลุ่มไหน** `bottleneckOf()` นับจากเด็กที่ติดตาม
+       *  อยู่ในระบบ (ประมาณ 20 คนต่อโรงเรียน) ไม่ใช่เด็กเสี่ยงสูงทั้งโรงเรียน
+       *  ที่แถวเดียวกันรายงานเป็น % เขียนลอย ๆ ว่า "จาก 2 เคสเสี่ยงสูง" ข้าง
+       *  "เสี่ยงสูง 15.8%" คือตัวเลขสองชุดบนแถวเดียว */
+      const problem = bn ? `${bn.label} ${bn.n} จาก ${bn.of} เคสที่ติดตามอยู่` : ''
+      /** ขนาดของงานตามที่โรงเรียนรายงาน — ชุดเดียวกับ `rate` และคอลัมน์ในตาราง */
+      const scale = `เด็กเสี่ยงสูงทั้งโรงเรียน ${s.highRiskStudents.toLocaleString('th-TH')} คน`
+      /** ทุกสาขาต้องอ้างตัวเลขของโรงเรียนนี้อย่างน้อยหนึ่งตัว ไม่ใช่ประโยคคงที่:
+       *  โรงเรียนที่ติดปัญหาแบบเดียวกันเคยได้ข้อความเดียวกันคำต่อคำ เรียงติดกัน
+       *  ห้าแถวแล้วอ่านเหมือนข้อความสำเร็จรูป ไม่ใช่การอ่านรายโรงเรียน
+       *  ตัวเลขทุกตัวมาจากค่าที่คำนวณไว้ข้างบนชุดเดียวกับที่ `why` และแถวในหน้าใช้ */
       let ai: string
-      if (bottleneck === 'ติดต่อผู้ปกครองไม่ได้') {
-        ai = `ปัญหาหลักคือติดต่อผู้ปกครองไม่ได้ — อาจพิจารณาส่งทีมเยี่ยมบ้านจากเขตช่วยร่วมกับผู้นำชุมชน`
+      if (bn?.label === 'ติดต่อผู้ปกครองไม่ได้') {
+        // สองโรงเรียนติดปัญหาเดียวกันด้วยสัดส่วนเดียวกันได้ (เช่น 1 จาก 2) ขนาด
+        // ของงานจึงต่อท้ายเสมอ — และเป็นสิ่งที่เขตใช้ตัดสินว่าจะส่งทีมไปที่ไหนก่อน
+        ai = `ติดต่อผู้ปกครองไม่ได้ ${bn.n} จาก ${bn.of} เคสที่ติดตามอยู่ · ${scale} — อาจพิจารณาส่งทีมเยี่ยมบ้านจากเขตร่วมกับผู้นำชุมชน`
         suggest.push('sendTeam')
       } else if (overdueShare >= 0.5 && overdue >= 3) {
-        ai = `เคสค้างเกินครึ่งของเคสที่เปิดอยู่ — น่าจะติดที่ขั้นตอนการทำงานหรือคนไม่พอ มากกว่าจำนวนเด็ก`
+        ai = `เคสค้าง ${overdue} จาก ${open} เคสที่เปิดอยู่ (${r1(overdueShare * 100)}%)${unassigned ? ` · ยังไม่มีผู้รับผิดชอบ ${unassigned}` : ''} — น่าจะติดที่ขั้นตอนการทำงานหรือคนไม่พอ มากกว่าจำนวนเด็ก`
         suggest.push('sendTeam', 'meeting')
       } else if (s.needsResources) {
-        ai = `โรงเรียนระบุว่าต้องการทรัพยากรเพิ่ม${bottleneck ? ` ปัญหาหลัก: ${bottleneck}` : ''}`
+        ai = `โรงเรียนแจ้งว่าต้องการทรัพยากรเพิ่ม — ช่วยสำเร็จ ${s.interventionSuccessRate}% เทียบค่าเฉลี่ยเขต ${r1(avgSuccess)}%${problem ? ` · ${problem}` : ''}`
         suggest.push('budget')
       } else if (rate >= avgRate * 1.3) {
-        ai = `สัดส่วนเด็กเสี่ยงสูงที่สุดในเขต${bottleneck ? ` ปัญหาหลัก: ${bottleneck}` : ''} — อาจพิจารณาจัดนักจิตวิทยาเขตช่วยเคสเสี่ยงสูง`
+        // เดิมเขียนว่า "สัดส่วนเด็กเสี่ยงสูงที่สุดในเขต" ซึ่งไม่ใช่สิ่งที่เงื่อนไขนี้วัด
+        // (เข้าได้หลายโรงเรียน และไม่จำเป็นต้องเป็นที่สุด) จึงบอกตามที่คำนวณจริง
+        ai = `เด็กเสี่ยงสูง ${r1(rate)}% เป็น ${r1(rate / Math.max(0.1, avgRate))} เท่าของค่าเฉลี่ยเขต (${r1(avgRate)}%)${problem ? ` · ${problem}` : ''} — อาจพิจารณาจัดนักจิตวิทยาเขตช่วยเคสเสี่ยงสูง`
         suggest.push('psychologist')
       } else {
-        ai = bottleneck ? `ปัญหาหลัก: ${bottleneck} — โรงเรียนยังดูแลเองได้` : 'โรงเรียนยังดูแลเองได้'
+        const load = open ? `เคสเกิน SLA ${overdue} จาก ${open} เคสที่เปิดอยู่` : 'ยังไม่มีเคสที่เปิดค้างอยู่'
+        ai = `${problem ? `${problem} · ` : ''}${load} — โรงเรียนยังดูแลเองได้`
         suggest.push('advise')
       }
       return { s, tier: tierOf(pts), rate, open, overdue, unassigned, bottleneck, why, ai, suggest }
