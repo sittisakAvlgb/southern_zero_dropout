@@ -227,9 +227,12 @@ export const ROLE_NAV: Record<Role, string[]> = {
  *  ทำให้ ผอ. ไม่รู้ว่าต้องทำอะไร ตารางเต็ม (/intervention?view=full) ยังเปิดได้จากหน้าตัดสินใจ
  *  สพฐ. · เขต: "เจาะลึกเขต / อำเภอ" รวมเข้ากับแผนที่เป็นเมนูเดียว สลับมุมมองด้วยแท็บ (AreaViewTabs)
  *  ลิงก์ /area?p=..&d=.. จากการค้นหาและหน้าอื่นยังเปิดได้ตามเดิม
- *  เขต: "รายงาน" ซ่อนไว้ก่อน — หน้ายังเปิดด้วย URL ตรงได้ ไม่ได้ถอดสิทธิ์ออกจาก ESA_NAV
- *  เอาออกจากรายการนี้บรรทัดเดียวก็กลับมา (ปุ่มในหน้าแรกของเขตถูกถอดคู่กันใน AreaOpsCenter) */
-export const NAV_HIDDEN: Partial<Record<Role, string[]>> = { school: ['/intervention'], obec: ['/area'], esa: ['/area', '/reports'] }
+ *  "รายงาน" ซ่อนไว้ก่อนทุกที่นั่งที่มีมัน (ผอ. · เขต · สพฐ.) — หน้ายังเปิดด้วย URL ตรงได้
+ *  ไม่ได้ถอดสิทธิ์ออกจาก nav list ใด เอาออกจากรายการนี้ก็กลับมาทันที
+ *  ที่ต้องแก้คู่กันคือหัวข้อกลุ่มเมนูที่เอ่ยถึงรายงาน (เขต · ผอ.) และปุ่ม "รายงาน"
+ *  ในหน้าแรกของเขต (AreaOpsCenter) ลิงก์ตามบริบทที่เหลืออยู่ยังพาไปได้ตามกติกาของ
+ *  NAV_HIDDEN เหมือนที่ /area ถูกซ่อนแต่ยังลิงก์ถึงได้ */
+export const NAV_HIDDEN: Partial<Record<Role, string[]>> = { school: ['/intervention', '/reports'], obec: ['/area', '/reports'], esa: ['/area', '/reports'] }
 /** A hidden route lights up the menu item it was merged into. */
 export const NAV_MERGED_INTO: Record<string, string> = { '/area': '/geo' }
 export const inMenu = (user: NavUser, path: string) => canAccess(user, path) && !(user && NAV_HIDDEN[user.role]?.includes(path))
