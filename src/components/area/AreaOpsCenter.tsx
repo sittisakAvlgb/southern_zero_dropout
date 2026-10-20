@@ -554,13 +554,12 @@ export function AreaOpsCenter() {
             <DecisionLog area={area} />
           </Fold>
 
-          <Fold title="ข้อมูลเชิงลึก" summary="แผนที่อัจฉริยะ · เจาะลึกเขต / อำเภอ · ผลการดำเนินงานโรงเรียน · รายงาน" open={Boolean(folds.links)} onToggle={() => toggle('links')}>
+          <Fold title="ข้อมูลเชิงลึก" summary="แผนที่อัจฉริยะ · เจาะลึกเขต / อำเภอ · ผลการดำเนินงานโรงเรียน" open={Boolean(folds.links)} onToggle={() => toggle('links')}>
             <div className="flex flex-wrap gap-2">
               {[
                 { to: '/geo', th: 'แผนที่อัจฉริยะเชิงพื้นที่' },
                 { to: '/area', th: 'เจาะลึกเขต / อำเภอ' },
                 { to: '/school', th: 'ผลการดำเนินงานโรงเรียน' },
-                { to: '/reports', th: 'รายงาน' },
               ].map((x) => (
                 <button key={x.to} type="button" onClick={() => link(x.to)} className={btnSecondary}>
                   {x.th}

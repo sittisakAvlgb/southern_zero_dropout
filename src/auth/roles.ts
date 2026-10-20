@@ -226,8 +226,10 @@ export const ROLE_NAV: Record<Role, string[]> = {
  *  ผอ.: "การช่วยเหลือ" รวมเข้ากับ "เรื่องที่ต้องตัดสินใจ" แล้ว — สองเมนูที่นับเคสชุดเดียวกันด้วยตัวเลขต่างกัน
  *  ทำให้ ผอ. ไม่รู้ว่าต้องทำอะไร ตารางเต็ม (/intervention?view=full) ยังเปิดได้จากหน้าตัดสินใจ
  *  สพฐ. · เขต: "เจาะลึกเขต / อำเภอ" รวมเข้ากับแผนที่เป็นเมนูเดียว สลับมุมมองด้วยแท็บ (AreaViewTabs)
- *  ลิงก์ /area?p=..&d=.. จากการค้นหาและหน้าอื่นยังเปิดได้ตามเดิม */
-export const NAV_HIDDEN: Partial<Record<Role, string[]>> = { school: ['/intervention'], obec: ['/area'], esa: ['/area'] }
+ *  ลิงก์ /area?p=..&d=.. จากการค้นหาและหน้าอื่นยังเปิดได้ตามเดิม
+ *  เขต: "รายงาน" ซ่อนไว้ก่อน — หน้ายังเปิดด้วย URL ตรงได้ ไม่ได้ถอดสิทธิ์ออกจาก ESA_NAV
+ *  เอาออกจากรายการนี้บรรทัดเดียวก็กลับมา (ปุ่มในหน้าแรกของเขตถูกถอดคู่กันใน AreaOpsCenter) */
+export const NAV_HIDDEN: Partial<Record<Role, string[]>> = { school: ['/intervention'], obec: ['/area'], esa: ['/area', '/reports'] }
 /** A hidden route lights up the menu item it was merged into. */
 export const NAV_MERGED_INTO: Record<string, string> = { '/area': '/geo' }
 export const inMenu = (user: NavUser, path: string) => canAccess(user, path) && !(user && NAV_HIDDEN[user.role]?.includes(path))

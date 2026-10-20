@@ -62,7 +62,7 @@ export const thSBP: Dict = {
   'nav.intervention.esa': 'ติดตามเคส',
   'nav.section.esa.work': 'งานของเขต',
   'nav.section.esa.children': 'พื้นที่และเด็ก',
-  'nav.section.esa.results': 'วิเคราะห์และรายงาน',
+  'nav.section.esa.results': 'วิเคราะห์',
 
   'top.search': 'ค้นหาจังหวัด อำเภอ ตำบล สถานศึกษา หรือเด็ก',
   'top.searchTeacher': 'ค้นหานักเรียน (ชื่อหรือรหัส)',
@@ -512,7 +512,7 @@ export const enSBP: Dict = {
   'nav.intervention.esa': 'Case tracking',
   'nav.section.esa.work': 'Area office work',
   'nav.section.esa.children': 'Areas & children',
-  'nav.section.esa.results': 'Analysis & reports',
+  'nav.section.esa.results': 'Analysis',
 
   'top.search': 'Search province, district, tambon, provider or child',
   'top.searchTeacher': 'Find a student (name or ID)',
@@ -957,7 +957,7 @@ export const ms: Dict = {
   'nav.intervention.esa': 'Jejak kes',
   'nav.section.esa.work': 'Kerja pejabat kawasan',
   'nav.section.esa.children': 'Kawasan & kanak-kanak',
-  'nav.section.esa.results': 'Analisis & laporan',
+  'nav.section.esa.results': 'Analisis',
 
   'top.search': 'Cari wilayah, daerah, mukim, sekolah atau anak',
   'top.searchTeacher': 'Cari murid (nama atau ID)',
