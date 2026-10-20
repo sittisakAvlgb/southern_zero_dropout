@@ -68,6 +68,10 @@ export function TeacherStudentDesk() {
   const { user, log, built } = useFollowCases()
   // ผอ. ใช้หน้าเดียวกับครู แต่ไม่ทำงานแทนครู — ปุ่มของครูซ่อนหมด ผอ. มีกล่องของ ผอ. แทน
   const director = user?.role === 'school'
+  // เขตก็ใช้หน้าเดียวกัน แต่เป็นผู้กำกับ ไม่ใช่เจ้าของเคส: `canWorkCases()` คืน false
+  // ให้ esa อยู่แล้ว ปุ่มของครูจึงซ่อนเองโดยไม่ต้องมีเงื่อนไขเพิ่ม ตัวแปรนี้มีไว้
+  // แก้ "ถ้อยคำ" เท่านั้น — เด็กกลุ่มนี้คือเด็กของโรงเรียนในเขต ไม่ใช่เคสของเขต
+  const area = user?.role === 'esa'
   const mayAct = canWorkCases(user) && !director
   const [deciding, setDeciding] = useState(false)
   const by = byOf(user)
@@ -168,8 +172,8 @@ export function TeacherStudentDesk() {
   if (!fc)
     return (
       <div className="rounded-2xl border border-dashed border-surface-border bg-white px-6 py-10 text-center">
-        <p className="text-[17px] font-semibold text-ink">{director ? 'ยังไม่มีนักเรียนในโรงเรียนที่ต้องติดตาม' : 'ยังไม่มีนักเรียนในความดูแลของคุณ'}</p>
-        <p className="mt-1 text-[14px] text-ink-muted">เมื่อมีนักเรียนในเคสของคุณ จะเปิดดูแลรายคนได้ที่นี่</p>
+        <p className="text-[17px] font-semibold text-ink">{area ? 'ยังไม่มีนักเรียนที่ต้องติดตามในเขตนี้' : director ? 'ยังไม่มีนักเรียนในโรงเรียนที่ต้องติดตาม' : 'ยังไม่มีนักเรียนในความดูแลของคุณ'}</p>
+        <p className="mt-1 text-[14px] text-ink-muted">{area ? 'เมื่อโรงเรียนในเขตเปิดเคส จะเปิดดูรายคนได้ที่นี่' : 'เมื่อมีนักเรียนในเคสของคุณ จะเปิดดูแลรายคนได้ที่นี่'}</p>
       </div>
     )
 
@@ -254,7 +258,7 @@ export function TeacherStudentDesk() {
         icon={<IconStudent width={22} height={22} />}
         breadcrumb={<Breadcrumb items={[t('app.areaShort'), t('nav.student')]} />}
         title={t('nav.student')}
-        subtitle={director ? 'ดูว่าครูกำลังช่วยเด็กคนนี้อย่างไร — ผอ. ช่วยเฉพาะเรื่องที่ต้องใช้ ผอ.' : 'โต๊ะทำงานของคุณสำหรับดูแลเด็กหนึ่งคน — ครูรู้ปัญหา AI ช่วยหาวิธี'}
+        subtitle={area ? 'ดูว่าโรงเรียนกำลังช่วยเด็กคนนี้อย่างไร — เขตกำกับและสนับสนุน ไม่ลงมือแทนครู' : director ? 'ดูว่าครูกำลังช่วยเด็กคนนี้อย่างไร — ผอ. ช่วยเฉพาะเรื่องที่ต้องใช้ ผอ.' : 'โต๊ะทำงานของคุณสำหรับดูแลเด็กหนึ่งคน — ครูรู้ปัญหา AI ช่วยหาวิธี'}
       />
 
       <div className="grid gap-5 xl:grid-cols-[280px_minmax(0,1fr)]">
@@ -389,7 +393,7 @@ export function TeacherStudentDesk() {
       {logMode && <LogForm mode={logMode} student={fc.s} actor={by} onCancel={() => setLogMode(null)} onSave={saveLogForm} th={th} t={t} />}
       {deciding && director && <DirectorDrawer fc={fc} list={list} log={log} by={by} push={push} onClose={() => setDeciding(false)} onOpenFile={() => setDeciding(false)} />}
       {picking && (
-        <Drawer label="เลือกนักเรียน" head={<p className="text-[19px] font-bold text-ink">{director ? 'นักเรียนที่ติดตามอยู่' : 'เด็กในความดูแล'}</p>} onClose={() => setPicking(false)}>
+        <Drawer label="เลือกนักเรียน" head={<p className="text-[19px] font-bold text-ink">{area ? 'นักเรียนในเขต' : director ? 'นักเรียนที่ติดตามอยู่' : 'เด็กในความดูแล'}</p>} onClose={() => setPicking(false)}>
           <StudentList list={list} activeId={fc.s.id} onPick={pick} />
         </Drawer>
       )}
