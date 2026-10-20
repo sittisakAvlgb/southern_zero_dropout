@@ -58,14 +58,20 @@ function healthOf(p: OpportunityPlan): Health {
 type FocusKey = 'none' | 'blocked' | 'stale' | 'notAgreed'
 
 /** ครูได้ที่ทำงานของตัวเอง (TeacherPlanWorkspace) — เรียงตามความเร่งด่วน
- *  มีขั้นตอนถัดไป AI แนะนำ และทำทุกอย่างจบในเคส บทบาทที่กำกับดูแลหลายแผน
- *  (ผอ. · เขต · สพฐ.) ยังใช้หน้าภาพรวมเดิมซึ่งเหมาะกับการดูทีละมาก ๆ */
+ *  มีขั้นตอนถัดไป AI แนะนำ และทำทุกอย่างจบในเคส
+ *
+ *  ผอ. และเขตใช้ `DirectorPlanDesk` หน้าตาเดียวกัน ต่างกันที่ `canWorkCases()`:
+ *  ผอ. ลงมือกับเคสได้ ส่วนเขตอ่านอย่างเดียวและหนุนที่ระดับโรงเรียน — หน้าเดิม
+ *  ที่เรียงเป็นตารางกรองยังเปิดได้ทั้งคู่ด้วย ?view=full ส่วน สพฐ. ยังใช้หน้าเดิม */
+const DESK_ROLES = ['school', 'esa']
+
 export default function OpportunityPlans() {
   const { user } = useScopedData()
   const [params, setParams] = useSearchParams()
   if (user?.role === 'teacher') return <TeacherPlanWorkspace />
-  // ผอ. เปิดมาเจอแผนทีละเรื่องแบบหน้าครู — รายการแบบเต็มยังเปิดได้ด้วย ?view=full
-  if (user?.role === 'school' && params.get('view') !== 'full')
+  const onDesk = DESK_ROLES.includes(user?.role ?? '')
+  // เปิดมาเจอแผนทีละเรื่องแบบหน้าครู — รายการแบบเต็มยังเปิดได้ด้วย ?view=full
+  if (onDesk && params.get('view') !== 'full')
     return (
       <DirectorPlanDesk
         onFullView={() => {
@@ -75,10 +81,11 @@ export default function OpportunityPlans() {
         }}
       />
     )
-  if (user?.role === 'school')
+  if (onDesk)
     return (
       <>
         <BackToDesk
+          label={user?.role === 'esa' ? '← กลับไปมุมมองของเขต' : undefined}
           onBack={() => {
             const next = new URLSearchParams(params)
             next.delete('view')
