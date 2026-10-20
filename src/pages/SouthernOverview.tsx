@@ -23,6 +23,9 @@ const TeacherWorkspace = lazy(() =>
 const ExecutiveBriefing = lazy(() =>
   import('@/components/ai/ExecutiveBriefing').then((m) => ({ default: m.ExecutiveBriefing })),
 )
+const ObecOpsCenter = lazy(() =>
+  import('@/components/area/ObecOpsCenter').then((m) => ({ default: m.ObecOpsCenter })),
+)
 
 /** ช่วงที่ chunk ของแผงกำลังมา — รูปร่างเดียวกับ skeleton ที่หน้าอื่นใช้
  *  (`SkeletonCard` + `space-y-4`) ไม่มีข้อความ จึงไม่ต้องมีคำแปลสามภาษา
@@ -39,7 +42,7 @@ function PanelFallback() {
 export default function SouthernOverview() {
   const { t, lang, pn, pick } = useI18n()
   const th = lang === 'th'
-  const { schools, stats, user, isExecutive } = useScopedData()
+  const { schools, esas, stats, user, isExecutive } = useScopedData()
 
   const meta = ROLE_META[user?.role ?? 'exec']
 
@@ -62,7 +65,13 @@ export default function SouthernOverview() {
               described a page that is not there. Their heading names the work
               and the one school it happens in. */}
           <h1 className="text-xl font-bold text-ink md:text-2xl">
-            {user?.role === 'teacher' ? t('nav.overview.teacher') : user?.role === 'esa' ? scopeNote : t('app.title')}
+            {user?.role === 'teacher'
+              ? t('nav.overview.teacher')
+              : user?.role === 'esa'
+                ? scopeNote
+                : user?.role === 'obec'
+                  ? user.org || t('app.title')
+                  : t('app.title')}
           </h1>
           <p className="mt-1 text-sm text-ink-muted">
             {user?.role === 'teacher' ? (
@@ -73,9 +82,15 @@ export default function SouthernOverview() {
             ) : (
               <>
                 {/* naming all three provinces beside counts covering four อำเภอ of
-                    one เขต is the contradiction an area account reads first */}
-                {user?.role === 'esa' ? '' : `${scopeNote} · `}
+                    one เขต is the contradiction an area account reads first
+                    สพฐ. กำกับเป็น "เขต" บรรทัดนี้จึงนับเขตนำ ไม่ใช่ไล่ชื่อจังหวัด */}
+                {user?.role === 'esa' || user?.role === 'obec' ? '' : `${scopeNote} · `}
                 <span className="tabular">
+                  {user?.role === 'obec' && (
+                    <>
+                      {esas.length} {th ? 'เขตพื้นที่การศึกษา' : 'area offices'} ·{' '}
+                    </>
+                  )}
                   {stats.districtsCount} {t('geo.districts')} · {stats.tambonsCount}{' '}
                   {t('geo.tambons')} · {formatNumber(schools.length)}{' '}
                   {th ? 'โรงเรียนนำร่อง' : 'pilot schools'}
@@ -103,6 +118,10 @@ export default function SouthernOverview() {
         <Suspense fallback={<PanelFallback />}>
           <AreaOpsCenter />
         </Suspense>
+      ) : user?.role === 'obec' ? (
+        <Suspense fallback={<PanelFallback />}>
+          <ObecOpsCenter />
+        </Suspense>
       ) : user?.role === 'school' ? (
         <Suspense fallback={<PanelFallback />}>
           <DirectorHome />
@@ -129,7 +148,7 @@ export default function SouthernOverview() {
           เป็นงานของระดับพื้นที่ เคยทำให้หน้า ผอ. มี "ปัตตานี 9,422 นักเรียน" ใต้ "นักเรียนทั้งโรงเรียน 1,536" */}
       {/* เขตก็จบที่นี่ — แผนที่ จชต. ภาพรวมรายจังหวัด และกราฟระดับพื้นที่อยู่ในหน้าเจาะลึกและแผนที่ (ลิงก์ใน "ข้อมูลเชิงลึก")
           หน้าแรกของเขตต้องตอบว่าพื้นที่ไหนต้องดูแลก่อนและเขตต้องช่วยอย่างไร ไม่ใช่ข้อมูลเพิ่มอีกชุด */}
-      {user?.role !== 'teacher' && user?.role !== 'school' && user?.role !== 'esa' && (
+      {user?.role !== 'teacher' && user?.role !== 'school' && user?.role !== 'esa' && user?.role !== 'obec' && (
         <Suspense fallback={<PanelFallback />}>
           <AreaOverview />
         </Suspense>

@@ -157,3 +157,70 @@ export function esaInsight(views: EsaView[]): string {
   ].filter(Boolean)
   return parts.join(' · ')
 }
+
+/** หนึ่งเรื่องใน "AI สรุปวันนี้" ของ สพฐ. */
+export interface ObecBriefItem {
+  key: string
+  tone: 'red' | 'amber' | 'blue'
+  text: string
+  to: string
+}
+
+/** เรื่องที่ สพฐ. ควรดูวันนี้ เรียงตามความเร่งด่วน
+ *
+ *  โครงเดียวกับ "AI สรุปวันนี้" ของเขต แต่หน่วยเป็นเขต ไม่ใช่อำเภอ — ทุกข้อ
+ *  ต้องพาไปที่ใดที่หนึ่งได้จริง ข้อที่พาไปไหนไม่ได้คือข้อที่ไม่ควรอยู่ตรงนี้
+ */
+export function esaBrief(views: EsaView[]): ObecBriefItem[] {
+  const out: ObecBriefItem[] = []
+  const urgent = views.filter((v) => v.tier === 'urgent')
+  if (urgent.length) {
+    out.push({
+      key: 'urgent',
+      tone: 'red',
+      text: `${urgent.length} เขตอยู่ในระดับต้องช่วยเร่งด่วน — นำโดย${urgent[0].esa.th} (เด็กเสี่ยงสูง ${r1(urgent[0].riskRate)}%)`,
+      to: `/area?esa=${urgent[0].esa.key}`,
+    })
+  }
+  const noOwner = [...views].sort((a, b) => b.unassigned - a.unassigned)[0]
+  if (noOwner?.unassigned) {
+    const all = views.reduce((a, v) => a + v.unassigned, 0)
+    out.push({
+      key: 'owner',
+      tone: 'red',
+      text: `เคสยังไม่มีผู้รับผิดชอบ ${all} เคส — มากที่สุดที่${noOwner.esa.th} ${noOwner.unassigned} เคส`,
+      to: '/intervention',
+    })
+  }
+  const watch = views.reduce((a, v) => a + v.schoolsToWatch, 0)
+  if (watch) {
+    const lead = [...views].sort((a, b) => b.schoolsToWatch - a.schoolsToWatch)[0]
+    out.push({
+      key: 'schools',
+      tone: 'amber',
+      text: `โรงเรียนที่สัดส่วนเด็กเสี่ยงเกินเกณฑ์ ${watch} แห่ง — กระจุกที่${lead.esa.th} ${lead.schoolsToWatch} แห่ง`,
+      to: '/school',
+    })
+  }
+  const noPlan = views.reduce((a, v) => a + v.oosNoPlan, 0)
+  if (noPlan) {
+    const lead = [...views].sort((a, b) => b.oosNoPlan - a.oosNoPlan)[0]
+    out.push({
+      key: 'oosc',
+      tone: 'amber',
+      text: `เด็กนอกระบบยังไม่มีแผน ${noPlan} คน — มากที่สุดที่${lead.esa.th} ${lead.oosNoPlan} คน`,
+      to: '/oosc',
+    })
+  }
+  const overdue = views.reduce((a, v) => a + v.overdue, 0)
+  if (overdue) {
+    const lead = [...views].sort((a, b) => b.overdue - a.overdue)[0]
+    out.push({
+      key: 'sla',
+      tone: 'blue',
+      text: `เคสเกิน SLA ${overdue} เคสทุกเขต — มากที่สุดที่${lead.esa.th} ${lead.overdue} เคส`,
+      to: '/intervention',
+    })
+  }
+  return out
+}
