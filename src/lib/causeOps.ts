@@ -11,6 +11,7 @@
 // ตัวเลขจึงเปลี่ยนตามบัญชี และตรงกับเด็กที่หน้าอื่นนับ
 // ─────────────────────────────────────────────────────────────
 import type { CauseKey, CauseWeight, OoscRecord, Student } from '@/types'
+import { esaOfDistrict } from '@/data/esa'
 
 /** หนึ่งเด็กนับหนึ่งสาเหตุ — สาเหตุหลัก (`causeKeys[0]`)
  *
@@ -69,4 +70,46 @@ export function byDistrict(
   return [...acc.entries()]
     .map(([districtKey, n]) => ({ districtKey, n, share: Math.round((n / total) * 1000) / 10 }))
     .sort((a, b) => b.n - a.n)
+}
+
+/** จำนวนเด็กของสาเหตุหนึ่ง แยกตามเขตพื้นที่การศึกษา
+ *
+ *  หน่วยของ สพฐ. คือเขต ไม่ใช่จังหวัด (ดู skill.md) — "สาเหตุนี้กระจุกที่เขตไหน"
+ *  คือคำถามที่ สพฐ. เอาไปสั่งการต่อได้ ส่วนอำเภออยู่ในกราฟเปรียบเทียบด้านล่าง */
+export function byEsa(
+  key: CauseKey,
+  students: Student[],
+  oosc: OoscRecord[],
+): { esaKey: string; n: number; share: number }[] {
+  const rows = [...atRiskOf(students), ...stillOutOf(oosc)].filter((c) => primary(c) === key)
+  const acc = new Map<string, number>()
+  for (const r of rows) {
+    const k = esaOfDistrict(r.districtKey)
+    if (!k) continue
+    acc.set(k, (acc.get(k) ?? 0) + 1)
+  }
+  const total = rows.length || 1
+  return [...acc.entries()]
+    .map(([esaKey, n]) => ({ esaKey, n, share: Math.round((n / total) * 1000) / 10 }))
+    .sort((a, b) => b.n - a.n)
+}
+
+/** เด็กในขอบเขต แยกตามเขต — ใช้ทำกราฟเปรียบเทียบรายเขตของ สพฐ. */
+export function esaCauseRows(
+  students: Student[],
+  oosc: OoscRecord[],
+): { esaKey: string; total: number; counts: Record<string, number> }[] {
+  const acc = new Map<string, { total: number; counts: Record<string, number> }>()
+  for (const r of [...atRiskOf(students), ...stillOutOf(oosc)]) {
+    const k = primary(r)
+    const e = esaOfDistrict(r.districtKey)
+    if (!k || !e) continue
+    const row = acc.get(e) ?? { total: 0, counts: {} }
+    row.total++
+    row.counts[k] = (row.counts[k] ?? 0) + 1
+    acc.set(e, row)
+  }
+  return [...acc.entries()]
+    .map(([esaKey, v]) => ({ esaKey, ...v }))
+    .sort((a, b) => b.total - a.total)
 }

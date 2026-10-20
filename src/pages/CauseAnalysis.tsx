@@ -29,9 +29,9 @@ import { formatNumber, formatPct, makeRng, hashSeed } from '@/lib/format'
 import { RISK_COLOR } from '@/lib/risk'
 import type { CauseKey } from '@/types'
 import { useScopedData } from '@/auth/scope'
-import { atRiskOf, byDistrict, causeMix, stillOutOf } from '@/lib/causeOps'
+import { atRiskOf, byDistrict, byEsa, causeMix, esaCauseRows, stillOutOf } from '@/lib/causeOps'
 import { ownerOfCause } from '@/data/dropReasons'
-import { ESA_BY_KEY } from '@/data/esa'
+import { ESA_BY_KEY, esaOfDistrict } from '@/data/esa'
 import { ScopeBanner } from '@/components/auth/ScopeBanner'
 import {
   IconCause,
@@ -78,17 +78,20 @@ export default function CauseAnalysis() {
   const loading = useSimulatedLoading(600)
   const [provinceKey, setProvinceKey] = useState<string>('all')
 
-  const { provinces: scopedProvinces, students, oosc, user } = useScopedData()
+  const { provinces: scopedProvinces, esas, students, oosc, user } = useScopedData()
+  /** หน่วยของตัวกรอง — สพฐ. กำกับเขต จังหวัดเป็นกรอบของ ศอ.บต. (ดู skill.md)
+   *  เขตที่มีเขตเดียวอยู่แล้วไม่ต้องมีตัวกรอง เพราะกรองไปก็ได้ชุดเดิม */
+  const unit: 'esa' | 'province' = user?.role === 'obec' ? 'esa' : 'province'
 
   // The scope is three border provinces, all in one region — so the filter and
   // the comparison chart work at province level. A region filter here offered
   // "all" and "south", which are the same set.
   const scopeProvinces = useMemo(
     () =>
-      provinceKey === 'all'
+      provinceKey === 'all' || unit === 'esa'
         ? scopedProvinces
         : scopedProvinces.filter((p) => p.key === provinceKey),
-    [provinceKey, scopedProvinces],
+    [provinceKey, scopedProvinces, unit],
   )
 
   /** สัดส่วนสาเหตุคิดจาก `causeKeys` ของเด็กที่อยู่ในขอบเขตบัญชีนี้จริง ไม่ใช่
@@ -96,12 +99,17 @@ export default function CauseAnalysis() {
    *  ปัตตานีอยู่ข้างจำนวนเด็กเสี่ยงสูงของเขตเอง (ดูหมายเหตุใน lib/causeOps.ts)
    *  ตัวกรองจังหวัดยังกรองเด็กตามจังหวัดเหมือนเดิม */
   const inScope = useMemo(() => {
+    if (unit === 'esa') {
+      // สพฐ. กรองด้วยเขต — 'all' คือทุกเขตในขอบเขตบัญชี
+      const ok = (dk?: string) => provinceKey === 'all' || esaOfDistrict(dk) === provinceKey
+      return { students: students.filter((s) => ok(s.districtKey)), oosc: oosc.filter((r) => ok(r.districtKey)) }
+    }
     const keys = new Set(scopeProvinces.map((p) => p.key))
     return {
       students: students.filter((s) => keys.has(s.provinceKey)),
       oosc: oosc.filter((r) => keys.has(r.provinceKey)),
     }
-  }, [scopeProvinces, students, oosc])
+  }, [scopeProvinces, students, oosc, unit, provinceKey])
   const mix = useMemo(() => causeMix(inScope.students, inScope.oosc), [inScope])
   const dist = mix.dist
 
@@ -185,6 +193,17 @@ export default function CauseAnalysis() {
    *  อำเภอคือหน่วยที่เขตลงไปหนุนได้จริง และนับจากชุดเดียวกับทั้งหน้า */
   const top4 = useMemo(() => dist.slice(0, 4).map((c) => c.key), [dist])
   const byAreaData = useMemo(() => {
+    // สพฐ. เทียบเขต · ที่นั่งอื่นเทียบอำเภอ — หน่วยเดียวกับที่บรรทัด AI พูดถึง
+    if (unit === 'esa')
+      return esaCauseRows(inScope.students, inScope.oosc)
+        .slice(0, 9)
+        .map((e) => {
+          const row: Record<string, string | number> = {
+            area: ESA_BY_KEY[e.esaKey] ? pick(ESA_BY_KEY[e.esaKey]).replace('สพท.', '') : e.esaKey,
+          }
+          for (const k of top4) row[k] = Math.round(((e.counts[k] ?? 0) / Math.max(1, e.total)) * 1000) / 10
+          return row
+        })
     const rows = [...atRiskOf(inScope.students), ...stillOutOf(inScope.oosc)]
     const acc = new Map<string, { total: number; counts: Record<string, number> }>()
     for (const r of rows) {
@@ -203,15 +222,21 @@ export default function CauseAnalysis() {
         for (const k of top4) row[k] = Math.round(((e.counts[k] ?? 0) / Math.max(1, e.total)) * 1000) / 10
         return row
       })
-  }, [inScope, top4, dn])
+  }, [inScope, top4, dn, unit, pick])
 
   /** "ทั้ง 3 จังหวัด" is only a real choice for an account without a territory.
    *  Offering it to a เขต or province seat promised data the scope filter was
    *  always going to withhold — a control that cannot do what it says. */
-  const provinceOptions = [
-    ...(user?.provinceKey ? [] : [{ value: 'all', label: th ? 'ทั้ง 3 จังหวัด' : 'All 3 provinces' }]),
-    ...scopedProvinces.map((p) => ({ value: p.key, label: pn(p.key) })),
-  ]
+  const provinceOptions =
+    unit === 'esa'
+      ? [
+          { value: 'all', label: th ? 'ทุกเขต' : 'All areas' },
+          ...esas.map((e) => ({ value: e.key, label: pick(e) })),
+        ]
+      : [
+          ...(user?.provinceKey ? [] : [{ value: 'all', label: th ? 'ทั้ง 3 จังหวัด' : 'All 3 provinces' }]),
+          ...scopedProvinces.map((p) => ({ value: p.key, label: pn(p.key) })),
+        ]
 
   const lead = dist[0]
 
@@ -219,19 +244,39 @@ export default function CauseAnalysis() {
    *  ทั้งที่ดูอยู่ 4 อำเภอของเขตเดียว ซึ่งเป็นบั๊กแบบเดียวกับ "ทั้งประเทศ /
    *  77 จังหวัด" ที่ CLAUDE.md สั่งให้ไล่เก็บ */
   const scopeTh = useMemo(() => {
+    if (unit === 'esa')
+      return provinceKey !== 'all' && ESA_BY_KEY[provinceKey]
+        ? `ใน${pick(ESA_BY_KEY[provinceKey])}`
+        : `ใน ${esas.length} เขตพื้นที่การศึกษา`
     if (provinceKey !== 'all') return `ใน${pn(provinceKey)}`
     if (user?.esaKey && ESA_BY_KEY[user.esaKey]) return `ใน${pick(ESA_BY_KEY[user.esaKey])}`
     if (user?.provinceKey) return `ใน${pn(user.provinceKey)}`
     return 'ในพื้นที่นำร่อง 3 จังหวัด'
-  }, [provinceKey, user, pn, pick])
-  const scopeEn = provinceKey !== 'all' ? `in ${pn(provinceKey)}` : user?.provinceKey ? `in ${pn(user.provinceKey)}` : 'across the three pilot provinces'
+  }, [unit, provinceKey, user, pn, pick, esas.length])
+  const scopeEn =
+    unit === 'esa'
+      ? provinceKey !== 'all' && ESA_BY_KEY[provinceKey]
+        ? `in ${ESA_BY_KEY[provinceKey].en}`
+        : `across ${esas.length} area offices`
+      : provinceKey !== 'all'
+        ? `in ${pn(provinceKey)}`
+        : user?.provinceKey
+          ? `in ${pn(user.provinceKey)}`
+          : 'across the three pilot provinces'
 
   /** สาเหตุนำกระจุกอยู่อำเภอไหน และใครเป็นเจ้าภาพแก้ — สองอย่างนี้คือสิ่งที่
    *  ทำให้บรรทัดนี้ใช้ตัดสินใจได้ แทนที่จะบอกแค่ว่าสาเหตุอันดับ 1 คืออะไร */
-  const leadWhere = useMemo(
-    () => (lead ? byDistrict(lead.key, inScope.students, inScope.oosc).slice(0, 2) : []),
-    [lead, inScope],
-  )
+  /** สาเหตุนำกระจุกที่ไหน — สพฐ. ถามเป็นเขต ที่นั่งอื่นถามเป็นอำเภอ */
+  const leadWhere = useMemo(() => {
+    if (!lead) return [] as { label: string; n: number }[]
+    if (unit === 'esa')
+      return byEsa(lead.key, inScope.students, inScope.oosc)
+        .slice(0, 2)
+        .map((w) => ({ label: ESA_BY_KEY[w.esaKey] ? pick(ESA_BY_KEY[w.esaKey]) : w.esaKey, n: w.n }))
+    return byDistrict(lead.key, inScope.students, inScope.oosc)
+      .slice(0, 2)
+      .map((w) => ({ label: `อำเภอ${dn(w.districtKey)}`, n: w.n }))
+  }, [lead, inScope, unit, pick, dn])
   const leadOwner = lead ? ownerOfCause(lead.key) : undefined
 
   const aiText =
@@ -240,12 +285,12 @@ export default function CauseAnalysis() {
       : lang === 'th'
         ? `สาเหตุหลักอันดับ 1 คือ “${t(`cause.${lead.key}`)}” ${formatPct(lead.value)} ของเด็ก ${formatNumber(mix.base.total, lang)} คน${scopeTh}` +
           (leadWhere.length
-            ? ` · กระจุกที่อำเภอ${leadWhere.map((w) => `${dn(w.districtKey)} ${w.n} คน`).join(' และ ')}`
+            ? ` · กระจุกที่${leadWhere.map((w) => `${w.label} ${w.n} คน`).join(' และ ')}`
             : '') +
           (leadOwner ? ` · เจ้าภาพหลักของสาเหตุกลุ่มนี้คือ${leadOwner}` : '') +
-          ' — อาจพิจารณาเริ่มจากอำเภอที่กระจุกมากที่สุด'
+          ` — อาจพิจารณาเริ่มจาก${unit === 'esa' ? 'เขต' : 'อำเภอ'}ที่กระจุกมากที่สุด`
         : `The leading primary cause is “${t(`cause.${lead.key}`)}” — ${formatPct(lead.value)} of ${formatNumber(mix.base.total, lang)} children ${scopeEn}` +
-          (leadWhere.length ? `, concentrated in ${leadWhere.map((w) => `${dn(w.districtKey)} (${w.n})`).join(' and ')}` : '') +
+          (leadWhere.length ? `, concentrated in ${leadWhere.map((w) => `${w.label} (${w.n})`).join(' and ')}` : '') +
           '.'
 
   const pctTooltip = (v: number | string) => formatPct(Number(v))
@@ -268,10 +313,12 @@ export default function CauseAnalysis() {
         }
       />
 
-      {/* Province filter */}
+      {/* ตัวกรองพื้นที่ — เขตสำหรับ สพฐ. · จังหวัดสำหรับที่นั่งอื่น
+          ตัวเลือกเดียวแปลว่ากดแล้วได้ชุดเดิม จึงไม่แสดงปุ่ม เหลือแต่บรรทัดบอก
+          ขอบเขต (คอมเมนต์เดิมในไฟล์นี้เตือนไว้แล้วว่าอย่ามีปุ่มที่ทำอะไรไม่ได้) */}
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div className="flex flex-wrap items-center gap-1.5">
-          {provinceOptions.map((o) => {
+          {(provinceOptions.length > 1 ? provinceOptions : []).map((o) => {
             const on = provinceKey === o.value
             return (
               <motion.button
@@ -291,7 +338,11 @@ export default function CauseAnalysis() {
           })}
         </div>
         <span className="text-[11px] font-medium text-ink-faint">
-          {formatNumber(scopeProvinces.length, lang)} {t('common.province')} ·{' '}
+          {unit === 'esa'
+            ? `${formatNumber(provinceKey === 'all' ? esas.length : 1, lang)} ${th ? 'เขต' : 'area offices'}`
+            : provinceOptions.length > 1
+              ? `${formatNumber(scopeProvinces.length, lang)} ${t('common.province')}`
+              : scopeTh.replace(/^ใน/, '')}{' · '}
           {t('cause.shareOfCases')}
         </span>
       </div>
@@ -457,13 +508,15 @@ export default function CauseAnalysis() {
                     />
                   </PieChart>
                 </ResponsiveContainer>
-                {/* centre figure follows the province filter, like every other number here */}
+                {/* ตัวเลขกลางโดนัทต้องเป็นประชากรเดียวกับที่สไลซ์คิดมา — เดิมเป็น
+                    จำนวนเด็กเสี่ยงสูงทั้งพื้นที่ตามรายงาน (25,411) ขณะที่สัดส่วน
+                    รอบ ๆ คิดจากเด็กที่มีข้อมูลรายคน ซึ่งเป็นคนละชุดกัน */}
                 <div className="pointer-events-none absolute inset-x-0 top-[42%] -translate-y-1/2 text-center">
                   <p className="tabular text-[24px] font-bold leading-none text-ink">
-                    {formatNumber(totalHighRisk, lang)}
+                    {formatNumber(mix.base.total, lang)}
                   </p>
                   <p className="mt-1 text-[10.5px] font-medium text-ink-muted">
-                    {t('kpi.highrisk')}
+                    {th ? 'เด็กที่คิดสัดส่วน' : 'children counted'}
                   </p>
                 </div>
               </div>
@@ -588,7 +641,7 @@ export default function CauseAnalysis() {
 
           {/* 4. Compare by district — the unit an area office can actually go to */}
           <div className="lg:col-span-12">
-          <ChartCard title={th ? 'เปรียบเทียบรายอำเภอ' : 'By district'} delay={0.2} fill>
+          <ChartCard title={th ? (unit === 'esa' ? 'เปรียบเทียบรายเขต' : 'เปรียบเทียบรายอำเภอ') : unit === 'esa' ? 'By area office' : 'By district'} delay={0.2} fill>
             <ResponsiveContainer width="100%" height={280}>
               <BarChart data={byAreaData} margin={{ left: 4, right: 12, top: 8, bottom: 4 }}>
                 <CartesianGrid stroke={GRID} vertical={false} />
