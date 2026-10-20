@@ -302,6 +302,34 @@ Icons are inline SVG in `components/icons.tsx`.
 - HMR after editing `roles.ts` / `AuthContext.tsx` can throw
   "useAuth must be used within AuthProvider" from stale module identity.
   Full-reload before believing the error.
+- **A catch-all in `manualChunks` can deadlock the bundle, and only in a real
+  build.** `vite.config.ts` splits vendors by package name; ending it with
+  `return 'vendor'` for everything else put `@remix-run/router` in `vendor`
+  while `react-router` (which calls it) sat in `react`, and `react-smooth` in
+  `vendor` called React back — two chunks importing each other, so one ran
+  before the other was ready: white screen plus `Cannot read properties of
+  undefined (reading 'PureComponent')`. `npm run dev` does not bundle and shows
+  nothing. A package and what it calls must land in the same chunk; anything
+  unsure returns `undefined` and Rollup orders it. **After touching
+  `manualChunks`, always `npm run build` and open the preview — a passing dev
+  server proves nothing here.**
+
+## Code-splitting (who downloads what)
+
+Pages load through `React.lazy` in `App.tsx`, with the `Suspense` boundary in
+`AppLayout` so the menus stay up while a page arrives. Two splits are about
+*roles*, not routes, and are the reason the teacher's first load is a quarter of
+what it was:
+
+- `/` is the one route every seat shares. `SouthernOverview.tsx` is only the
+  header plus a panel switch; each seat's panel (`TeacherWorkspace`,
+  `DirectorHome`, `AreaOpsCenter`, and the policy-level area read in
+  `pages/overview/AreaOverview.tsx`) is its own lazy chunk. Put anything heavy
+  back into `SouthernOverview.tsx` and every role pays for it again.
+- `StudentRoute` splits the teacher's desk from `Student360`; no account sees
+  both.
+
+Fallbacks reuse `Skeleton` and carry **no text**, so they need no translation.
 
 ## Wording rules
 

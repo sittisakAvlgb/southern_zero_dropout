@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { Suspense, lazy, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { AnimatePresence, motion } from 'framer-motion'
 import { useAuth } from '@/auth/AuthContext'
@@ -12,7 +12,6 @@ import {
 } from '@/auth/roles'
 import { useI18n } from '@/i18n/LanguageContext'
 import { AuthShell, AuthField } from '@/components/auth/AuthShell'
-import { SignInTransition } from '@/components/auth/SignInTransition'
 import { roleIcon } from '@/components/auth/roleIcon'
 import { Button } from '@/components/ui/Button'
 import {
@@ -22,6 +21,14 @@ import {
   IconMail,
   IconSparkle,
 } from '@/components/icons'
+
+/** จอระหว่างคลิกกับหน้าแรก วาดเส้นขอบจังหวัดทั้งประเทศ (`thailandPaths`
+ *  ~116 kB) ซึ่งเป็นข้อมูลก้อนใหญ่ที่สุดในฝั่ง client — และไม่มีใครเห็นมัน
+ *  ก่อนกดเข้าสู่ระบบ จึงแยกไฟล์ออก แล้วสั่งโหลดล่วงหน้าตอนหน้านี้ขึ้น
+ *  (`warm()` ด้านล่าง) ไฟล์จึงมาถึงระหว่างที่คนกำลังกรอกอีเมล ไม่ใช่ตอนกด */
+const SignInTransition = lazy(() =>
+  import('@/components/auth/SignInTransition').then((m) => ({ default: m.SignInTransition })),
+)
 
 export default function Login() {
   const { user, login } = useAuth()
@@ -56,6 +63,13 @@ export default function Login() {
     }
   }, [rolesOpen])
 
+  /** ดึงไฟล์ของจอเปลี่ยนผ่านมาไว้ล่วงหน้าทันทีที่หน้านี้ขึ้น — ไม่บล็อกการวาด
+   *  หน้าจอแรก และเสร็จก่อนคนกรอกอีเมลจบ ถ้าเน็ตช้ามากจนยังไม่มา จอเปลี่ยนผ่าน
+   *  จะขึ้นช้าไปเสี้ยววินาทีเท่านั้น (`fallback={null}` ด้านล่าง) ไม่มีจอว่าง */
+  useEffect(() => {
+    void import('@/components/auth/SignInTransition')
+  }, [])
+
   const submit = (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
@@ -79,7 +93,9 @@ export default function Login() {
   return (
     <>
       {signedIn && user && (
-        <SignInTransition user={user} onDone={() => nav('/', { replace: true })} />
+        <Suspense fallback={null}>
+          <SignInTransition user={user} onDone={() => nav('/', { replace: true })} />
+        </Suspense>
       )}
       <AuthShell
         title={th ? 'เข้าสู่ระบบ' : 'Sign in'}

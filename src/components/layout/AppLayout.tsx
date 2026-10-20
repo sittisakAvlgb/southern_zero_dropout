@@ -1,8 +1,9 @@
-import { useEffect, useState } from 'react'
+import { Suspense, useEffect, useState } from 'react'
 import { Outlet, useLocation } from 'react-router-dom'
 import { Sidebar } from './Sidebar'
 import { TopBar } from './TopBar'
 import { BottomNav } from './BottomNav'
+import { RouteFallback } from './RouteFallback'
 import { ErrorBoundary } from '../ErrorBoundary'
 import { AIChatWidget } from '../ai/AIChatWidget'
 import { useAuth } from '@/auth/AuthContext'
@@ -40,7 +41,13 @@ export function AppLayout() {
               content. */}
           <div key={location.pathname} className="animate-page-rise">
             <ErrorBoundary resetKey={location.pathname}>
-              <Outlet />
+              {/* หน้าแต่ละหน้าถูกแยกเป็นไฟล์ของตัวเอง (`React.lazy` ใน
+                  `App.tsx`) Suspense จึงอยู่ที่นี่ ไม่ใช่ครอบทั้งแอป — เมนู
+                  ด้านข้าง แถบบน และแถบล่างยังอยู่ครบระหว่างที่ไฟล์ของหน้ากำลัง
+                  มา ครูที่กดผิดจึงกดไปหน้าอื่นได้ทันทีโดยไม่เจอจอว่าง */}
+              <Suspense fallback={<RouteFallback />}>
+                <Outlet />
+              </Suspense>
             </ErrorBoundary>
           </div>
         </main>
