@@ -9,6 +9,7 @@ import { formatNumber } from '@/lib/format'
 import { RISK_COLOR } from '@/lib/risk'
 import { ASSUMPTION, SCENARIOS, SIGNAL_LABEL, forecast as runScenario, type Scenario } from '@/lib/decision'
 import { buildBriefing, type Focus } from '@/lib/briefing'
+import { ESA_BY_KEY } from '@/data/esa'
 import { aiErrorMessage, buildSystemPrompt, localAnswer, streamAnswer } from '@/lib/ai'
 import { AnimatedCounter } from '@/components/ui/AnimatedCounter'
 import { Skeleton } from '@/components/ui/Skeleton'
@@ -59,7 +60,7 @@ function SectionLabel({ children }: { children: ReactNode }) {
  * error where the analysis should be.
  */
 export function ExecutiveBriefing() {
-  const { lang, t, pn, dn } = useI18n()
+  const { lang, t, pn, dn, pick } = useI18n()
   const th = lang === 'th'
   const nav = useNavigate()
   const { user, provinces, districts, schools, stats } = useScopedData()
@@ -73,9 +74,16 @@ export function ExecutiveBriefing() {
         schools,
         stats,
         canWorkCases: canWorkCases(user),
+        // สพฐ. เป็นสายการศึกษา หน่วยที่มันกำกับคือเขตพื้นที่การศึกษา ไม่ใช่จังหวัด
+        // ส่วน ศอ.บต. เป็นหน่วยประสานระดับพื้นที่ จึงยังคิดเป็นจังหวัด (ดู skill.md)
+        unit: user?.role === 'obec' ? 'esa' : 'province',
       }),
     [provinces, districts, schools, stats, user],
   )
+
+  /** ชื่อพื้นที่ที่การ์ดกำลังพูดถึง — จังหวัดหรือเขต แล้วแต่ที่นั่ง */
+  const areaName = (a: { areaKey: string; areaKind: 'province' | 'esa' }) =>
+    a.areaKind === 'esa' ? (ESA_BY_KEY[a.areaKey] ? pick(ESA_BY_KEY[a.areaKey]) : a.areaKey) : pn(a.areaKey)
 
   const go = (to: string) => {
     if (!user || canAccess(user, to)) nav(to)
@@ -92,14 +100,14 @@ export function ExecutiveBriefing() {
     const cause = brief.causes[0] ? t(`cause.${brief.causes[0].key}`) : ''
     const dir = brief.trendDelta >= 0
     return th
-      ? `เด็กกลุ่มเสี่ยง ${formatNumber(brief.highRisk, lang)} คน จากนักเรียน ${formatNumber(brief.total, lang)} คน (${brief.riskShare.toFixed(1)}%)\n${a ? `หนักที่สุดที่ ${pn(a.provinceKey)} ${a.rate.toFixed(1)}% ` : ''}ปัจจัยหลักคือ${cause} แนวโน้ม 12 เดือน${dir ? 'เพิ่มขึ้น' : 'ลดลง'} ${Math.abs(brief.trendDelta).toFixed(1)} จุด`
-      : `${formatNumber(brief.highRisk, lang)} children at risk out of ${formatNumber(brief.total, lang)} students (${brief.riskShare.toFixed(1)}%).\n${a ? `${pn(a.provinceKey)} carries the most at ${a.rate.toFixed(1)}%. ` : ''}Leading factor: ${cause}. The 12-month trend is ${dir ? 'up' : 'down'} ${Math.abs(brief.trendDelta).toFixed(1)} points.`
+      ? `เด็กกลุ่มเสี่ยง ${formatNumber(brief.highRisk, lang)} คน จากนักเรียน ${formatNumber(brief.total, lang)} คน (${brief.riskShare.toFixed(1)}%)\n${a ? `หนักที่สุดที่ ${areaName(a)} ${a.rate.toFixed(1)}% ` : ''}ปัจจัยหลักคือ${cause} แนวโน้ม 12 เดือน${dir ? 'เพิ่มขึ้น' : 'ลดลง'} ${Math.abs(brief.trendDelta).toFixed(1)} จุด`
+      : `${formatNumber(brief.highRisk, lang)} children at risk out of ${formatNumber(brief.total, lang)} students (${brief.riskShare.toFixed(1)}%).\n${a ? `${areaName(a)} carries the most at ${a.rate.toFixed(1)}%. ` : ''}Leading factor: ${cause}. The 12-month trend is ${dir ? 'up' : 'down'} ${Math.abs(brief.trendDelta).toFixed(1)} points.`
   }, [brief, pn, t, lang, th])
 
   const run = async () => {
     setText('')
     setMode('streaming')
-    const facts = `students ${brief.total} · at-risk ${brief.highRisk} (${brief.riskShare.toFixed(1)}%) · out of school ${brief.dropout} · worst province ${brief.alert ? pn(brief.alert.provinceKey) : '-'} · 12-month trend ${brief.trendDelta >= 0 ? '+' : ''}${brief.trendDelta.toFixed(1)} points`
+    const facts = `students ${brief.total} · at-risk ${brief.highRisk} (${brief.riskShare.toFixed(1)}%) · out of school ${brief.dropout} · worst area ${brief.alert ? areaName(brief.alert) : '-'} · 12-month trend ${brief.trendDelta >= 0 ? '+' : ''}${brief.trendDelta.toFixed(1)} points`
     try {
       let out = ''
       for await (const chunk of streamAnswer({

@@ -12,6 +12,7 @@
 // front of a committee is worse than an honest gap.
 // ─────────────────────────────────────────────────────────────
 import type { CauseKey, District, Province, RiskLevel, School } from '@/types'
+import { ESA_BY_KEY, esaOfDistrict } from '@/data/esa'
 import { rankDistricts, type RankedDistrict } from './decision'
 import { hashSeed, makeRng } from './format'
 import { rateToLevel } from './risk'
@@ -32,10 +33,19 @@ export function trendFor(key: string, endRate: number): number[] {
   return out
 }
 
+/** หน่วยที่ผู้บริหารคนนี้คิดเป็น
+ *
+ *  ศอ.บต. เป็นหน่วยประสาน จึงคิดเป็น "จังหวัด" ส่วน สพฐ. เป็นสายการศึกษา
+ *  หน่วยที่มันกำกับจริงคือ **เขตพื้นที่การศึกษา** ไม่ใช่จังหวัด (ดู skill.md)
+ *  การ์ดที่พาดหัวว่า "จังหวัดที่ต้องเร่งแก้" จึงเป็นกรอบของอีกหน่วยงานหนึ่ง */
+export type AreaUnit = 'province' | 'esa'
+
 export interface CriticalAlert {
-  provinceKey: string
+  /** คีย์ของจังหวัดหรือเขต แล้วแต่ `unit` — ชื่อถูกแปลงที่ชั้น i18n ไม่ใช่ที่นี่ */
+  areaKey: string
+  areaKind: AreaUnit
   highRisk: number
-  /** pilot schools in that province whose own high-risk share is high/critical */
+  /** pilot schools in that area whose own high-risk share is high/critical */
   schoolsToWatch: number
   rate: number
   level: RiskLevel
@@ -130,21 +140,45 @@ export function buildBriefing(input: {
    *  actions that take them to where the work is, instead of a primary
    *  button inviting them to author a plan they do not own. */
   canWorkCases?: boolean
+  /** หน่วยที่การ์ดแรกพูดถึง — 'esa' สำหรับ สพฐ. · 'province' สำหรับ ศอ.บต. */
+  unit?: AreaUnit
 }): Briefing {
   const { provinces, districts, schools, stats, scopeKey } = input
   const canWork = input.canWorkCases !== false
+  const unit: AreaUnit = input.unit ?? 'province'
 
-  // ── the province that most deserves the executive's attention ──
-  const worstProvince = [...provinces].sort((a, b) => b.riskRate - a.riskRate)[0]
-  const alert: CriticalAlert | null = worstProvince
+  // ── the area that most deserves this executive's attention ──
+  // รวมอำเภอที่อยู่ในขอบเขตเป็น "พื้นที่" ตามหน่วยของบัญชี แล้วคิดสัดส่วน
+  // เด็กเสี่ยงจากอำเภอจริง ๆ ไม่ใช่หยิบ riskRate ของจังหวัดมาใช้ต่อ
+  const groups = new Map<string, District[]>()
+  for (const d of districts) {
+    const k = unit === 'esa' ? esaOfDistrict(d.key) : d.provinceKey
+    if (!k) continue
+    groups.set(k, [...(groups.get(k) ?? []), d])
+  }
+  const areas = [...groups.entries()]
+    .map(([key, rows]) => {
+      const total = rows.reduce((a, d) => a + d.totalStudents, 0)
+      const highRisk = rows.reduce((a, d) => a + d.highRiskStudents, 0)
+      return {
+        key,
+        districtKeys: new Set(rows.map((d) => d.key)),
+        highRiskStudents: highRisk,
+        riskRate: total ? (highRisk / total) * 100 : 0,
+      }
+    })
+    .sort((a, b) => b.riskRate - a.riskRate)
+  const worstArea = areas[0]
+  const alert: CriticalAlert | null = worstArea
     ? {
-        provinceKey: worstProvince.key,
-        highRisk: worstProvince.highRiskStudents,
+        areaKey: worstArea.key,
+        areaKind: unit,
+        highRisk: worstArea.highRiskStudents,
         schoolsToWatch: schools.filter(
-          (s) => s.provinceKey === worstProvince.key && HIGH.has(rateToLevel(schoolRate(s))),
+          (s) => worstArea.districtKeys.has(s.districtKey) && HIGH.has(rateToLevel(schoolRate(s))),
         ).length,
-        rate: worstProvince.riskRate,
-        level: rateToLevel(worstProvince.riskRate),
+        rate: worstArea.riskRate,
+        level: rateToLevel(worstArea.riskRate),
       }
     : null
 
@@ -202,45 +236,50 @@ export function buildBriefing(input: {
   // repeated in a second list further down the panel.
   const focuses: Focus[] = []
 
-  if (worstProvince) {
-    // urgency of a province = how its own districts score in the shared model
-    const own = ranked.filter((r) => r.district.provinceKey === worstProvince.key)
+  if (worstArea) {
+    // urgency of an area = how its own districts score in the shared model
+    const own = ranked.filter((r) => worstArea.districtKeys.has(r.district.key))
+    const esa = unit === 'esa' ? ESA_BY_KEY[worstArea.key] : undefined
+    const areaNameTh = esa ? esa.th : ''
+    const areaNameEn = esa ? esa.en : ''
+    // อำเภอที่เร่งด่วนที่สุด "ภายในพื้นที่นั้น" ไม่ใช่ของทั้งขอบเขต ไม่งั้นการ์ด
+    // ชี้ไปคนละที่กับหัวเรื่องของตัวเอง
+    const ownWorst = own[0]?.district ?? worstDistrict
+    const toArea = esa ? `/area?esa=${worstArea.key}` : `/area?p=${worstArea.key}`
     focuses.push({
-      key: 'province',
+      key: unit === 'esa' ? 'esa' : 'province',
       score: Math.round(mean(own.map((r) => r.score))),
-      level: rateToLevel(worstProvince.riskRate),
-      titleTh: 'จังหวัดที่ต้องเร่งแก้',
-      titleEn: 'Province needing action',
-      value: worstProvince.highRiskStudents,
+      level: rateToLevel(worstArea.riskRate),
+      titleTh: unit === 'esa' ? 'เขตพื้นที่ที่ต้องเร่งแก้' : 'จังหวัดที่ต้องเร่งแก้',
+      titleEn: unit === 'esa' ? 'Area office needing action' : 'Province needing action',
+      value: worstArea.highRiskStudents,
       unitTh: 'เด็กเสี่ยงสูง',
       unitEn: 'at-risk children',
-      reasonTh: `สัดส่วนเด็กเสี่ยง ${worstProvince.riskRate.toFixed(1)}% สูงสุดในขอบเขต แนวโน้ม 12 เดือน${trendDelta >= 0 ? 'เพิ่มขึ้น' : 'ลดลง'} ${Math.abs(trendDelta).toFixed(1)} จุด`,
-      reasonEn: `${worstProvince.riskRate.toFixed(1)}% at-risk share, the highest in scope, trend ${trendDelta >= 0 ? 'up' : 'down'} ${Math.abs(trendDelta).toFixed(1)} points over 12 months`,
-      doTh: worstDistrict
+      reasonTh: `${areaNameTh ? `${areaNameTh} — ` : ''}สัดส่วนเด็กเสี่ยง ${worstArea.riskRate.toFixed(1)}% สูงสุดในขอบเขต แนวโน้ม 12 เดือน${trendDelta >= 0 ? 'เพิ่มขึ้น' : 'ลดลง'} ${Math.abs(trendDelta).toFixed(1)} จุด`,
+      reasonEn: `${areaNameEn ? `${areaNameEn} — ` : ''}${worstArea.riskRate.toFixed(1)}% at-risk share, the highest in scope, trend ${trendDelta >= 0 ? 'up' : 'down'} ${Math.abs(trendDelta).toFixed(1)} points over 12 months`,
+      doTh: ownWorst
         ? `เพิ่มมาตรการ เริ่มที่อำเภอที่เร่งด่วนที่สุด ภายใน 14 วัน`
-        : 'เพิ่มมาตรการช่วยเหลือในจังหวัดนี้',
-      doEn: worstDistrict
+        : `เพิ่มมาตรการช่วยเหลือใน${unit === 'esa' ? 'เขตนี้' : 'จังหวัดนี้'}`,
+      doEn: ownWorst
         ? 'Reinforce, starting with the most urgent district, within 14 days'
-        : 'Reinforce support in this province',
-      impactTh: worstDistrict
-        ? `ครอบคลุมเด็กเสี่ยงสูง ${worstDistrict.highRiskStudents.toLocaleString('th-TH')} คนในอำเภอนั้น`
+        : `Reinforce support in this ${unit === 'esa' ? 'area office' : 'province'}`,
+      impactTh: ownWorst
+        ? `ครอบคลุมเด็กเสี่ยงสูง ${ownWorst.highRiskStudents.toLocaleString('th-TH')} คนในอำเภอนั้น`
         : '',
-      impactEn: worstDistrict
-        ? `Covers ${worstDistrict.highRiskStudents.toLocaleString('en-US')} at-risk children there`
+      impactEn: ownWorst
+        ? `Covers ${ownWorst.highRiskStudents.toLocaleString('en-US')} at-risk children there`
         : '',
       actions: canWork
         ? [
-            { th: 'ดูพื้นที่', en: 'Open the area', to: `/area?p=${worstProvince.key}` },
+            { th: 'ดูพื้นที่', en: 'Open the area', to: toArea },
             { th: 'สร้างแผน', en: 'Build a plan', to: '/plan', primary: true },
           ]
         : [
             // the recommendation above names one อำเภอ; the button opens it
             {
-              th: worstDistrict ? 'เปิดอำเภอที่เร่งด่วนที่สุด' : 'ดูพื้นที่',
-              en: worstDistrict ? 'Open the most urgent district' : 'Open the area',
-              to: worstDistrict
-                ? `/area?p=${worstProvince.key}&d=${worstDistrict.key}`
-                : `/area?p=${worstProvince.key}`,
+              th: ownWorst ? 'เปิดอำเภอที่เร่งด่วนที่สุด' : 'ดูพื้นที่',
+              en: ownWorst ? 'Open the most urgent district' : 'Open the area',
+              to: ownWorst ? `${toArea}&d=${ownWorst.key}` : toArea,
               primary: true,
             },
           ],
