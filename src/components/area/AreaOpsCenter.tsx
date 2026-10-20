@@ -8,6 +8,8 @@ import { assetUrl } from '@/lib/asset'
 import { formatNumber } from '@/lib/format'
 import { isoIn, fmtDay } from '@/lib/directorOps'
 import { buildAreaOps } from '@/lib/areaOps'
+import { FILTERS } from '@/lib/followOps'
+import { useFollowCases } from '@/components/followup/useFollowCases'
 import {
   AREA_ACT_TH,
   AREA_NEED_TH,
@@ -115,6 +117,18 @@ export function AreaOpsCenter() {
     () => buildAreaOps({ scopeKey: `${user?.esaKey ?? 'area'}-esa`, districts, schools, students, cases, oosc, plans, stats }),
     [user, districts, schools, students, cases, oosc, plans, stats],
   )
+
+  /** "เคสเกิน SLA" ของเขตต้องเป็นเลขเดียวกันทั้งสามที่: ป้ายบนเมนู · การ์ดนี้ ·
+   *  หน้าติดตามการช่วยเหลือ ซึ่งตอนนี้นับจาก FollowCase (เคสที่เลย SLA ของตัวเอง
+   *  **หรือ** มีการส่งต่อที่เกินกำหนด) ส่วน `ops.overdue` นับจาก `cases.slaBreached`
+   *  อย่างเดียวจึงได้ 30 ขณะที่อีกสองที่ได้ 32 — ใช้ `FILTERS` ตัวเดียวกับที่หน้าใช้
+   *  ตัวเลขรายโรงเรียน/รายอำเภอในตารางยังนับจาก `cases` ตามเดิม เพราะจับคู่กับ
+   *  "จาก N เคสที่เปิดอยู่" ในแถวเดียวกันซึ่งมาจากชุดเดียวกันอยู่แล้ว */
+  const { built: followBuilt } = useFollowCases()
+  const follow = 'list' in followBuilt ? followBuilt.list : []
+  const slaTest = FILTERS.find((f) => f.k === 'sla')!.test
+  const overdueNow = follow.filter(slaTest).length
+  const openNow = follow.filter((c) => c.open).length
   const views = useMemo(() => schoolViews(schools, cases, students), [schools, cases, students])
   const dviews = useMemo(() => districtViews(districts, views, cases, oosc), [districts, views, cases, oosc])
   const patterns = useMemo(() => crossSchoolPatterns(schools, students, referrals), [schools, students, referrals])
@@ -269,7 +283,7 @@ export function AreaOpsCenter() {
           { k: 'areas', th: 'พื้นที่เร่งด่วน', n: urgentAreas.length, red: urgentAreas.length > 0 },
           { k: 'requests', th: 'รอเขตตัดสินใจ', n: waiting.length, red: waiting.length > 0 },
           { k: 'schools', th: 'โรงเรียนที่ต้องช่วย', n: supportSchools.length, red: false },
-          { k: 'schools', th: 'เคสเกิน SLA', n: ops.overdue, red: false },
+          { k: 'schools', th: 'เคสเกิน SLA', n: overdueNow, red: false },
         ].map((x, i) => (
           <button
             key={x.th}
@@ -496,13 +510,13 @@ export function AreaOpsCenter() {
               </li>
               <li className="flex items-center gap-3 py-2.5">
                 <span className="min-w-0 flex-1 text-ink">เคสเกิน SLA ตอนนี้</span>
-                <span className="w-16 text-right font-bold tabular text-ink">{ops.overdue}</span>
-                <span className="w-20 text-right text-[13.5px] text-ink-muted">จาก {ops.activeCases}</span>
+                <span className="w-16 text-right font-bold tabular text-ink">{overdueNow}</span>
+                <span className="w-20 text-right text-[13.5px] text-ink-muted">จาก {openNow}</span>
               </li>
             </ul>
             <p className="mt-3 rounded-xl bg-brand-50/60 px-4 py-3 text-[14.5px] leading-snug text-ink">
               <span className="font-semibold text-brand-700">AI: </span>
-              {ops.progress.changePct <= 0 && ops.overdue > ops.activeCases * 0.4
+              {ops.progress.changePct <= 0 && overdueNow > openNow * 0.4
                 ? 'จำนวนเด็กเสี่ยงสูงลดลง แต่เคสค้างยังมาก — อาจพิจารณาเน้นเร่งติดตามเคสเดิมมากกว่าค้นหาเคสใหม่'
                 : ops.progress.changePct <= 0
                   ? 'ทิศทางดีขึ้น — รักษาจังหวะเดิมไว้'

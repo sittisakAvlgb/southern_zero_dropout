@@ -81,14 +81,19 @@ export function SchoolTable({ rows, dn, onOpen }: { rows: SchoolView[]; dn: (k: 
   const qColor = (q: number) => (q >= 85 ? 'bg-green-600' : q >= 70 ? 'bg-yellow-500' : 'bg-red-600')
 
   return (
-    <div className="overflow-x-auto rounded-2xl bg-white ring-1 ring-surface-border">
+    <div className="rounded-2xl bg-white ring-1 ring-surface-border">
+      {/* บนมือถือเห็นสองคอลัมน์จากเจ็ด ต้องเลื่อนไปทางขวา — คอลัมน์ชื่อโรงเรียน
+          จึงถูกตรึงไว้ ไม่งั้นเลื่อนไปแล้วไม่รู้ว่ากำลังอ่านแถวของโรงเรียนไหน
+          และบอกเป็นข้อความว่าเลื่อนได้ เพราะแถบเลื่อนบนมือถือซ่อนจนกว่าจะแตะ */}
+      <p className="px-4 pt-3 text-[13px] text-ink-muted md:hidden">เลื่อนตารางไปทางขวาเพื่อดูคอลัมน์อื่น →</p>
+      <div className="overflow-x-auto">
       <table className="w-full min-w-[820px] text-[14.5px]">
-        <thead className="bg-surface-muted/50">
+        <thead className="bg-surface-muted">
           <tr className="text-left">
             {SORTS.map((c) => {
               const on = sort.key === c.key
               return (
-                <th key={c.key} scope="col" aria-sort={on ? (sort.dir === 1 ? 'ascending' : 'descending') : 'none'} className={`px-4 py-3 ${c.align === 'right' ? 'text-right' : ''}`}>
+                <th key={c.key} scope="col" aria-sort={on ? (sort.dir === 1 ? 'ascending' : 'descending') : 'none'} className={`px-4 py-3 ${c.align === 'right' ? 'text-right' : ''} ${c.key === 'name' ? 'sticky left-0 z-20 bg-surface-muted' : ''}`}>
                   <button type="button" onClick={() => toggle(c.key, c.desc)} className={`inline-flex items-center gap-1 whitespace-nowrap text-[13.5px] font-semibold ${on ? 'text-brand-700' : 'text-ink-muted hover:text-ink'}`}>
                     {c.th}
                     {on && <span aria-hidden className="text-[11px]">{sort.dir === 1 ? '▲' : '▼'}</span>}
@@ -101,8 +106,8 @@ export function SchoolTable({ rows, dn, onOpen }: { rows: SchoolView[]; dn: (k: 
         </thead>
         <tbody className="divide-y divide-surface-border">
           {sorted.map((v) => (
-            <tr key={v.s.id} onClick={() => onOpen(v)} className="cursor-pointer align-middle hover:bg-surface-muted/40">
-              <td className="px-4 py-3">
+            <tr key={v.s.id} onClick={() => onOpen(v)} className="cursor-pointer bg-white align-middle hover:bg-surface-muted/40">
+              <td className="sticky left-0 z-10 bg-inherit px-4 py-3">
                 <button type="button" onClick={(e) => { e.stopPropagation(); onOpen(v) }} className="flex items-center gap-3 text-left">
                   <span className="h-9 w-1 shrink-0 rounded-full" style={{ background: TIER_BAR[v.tier] }} aria-hidden />
                   <span>
@@ -147,8 +152,8 @@ export function SchoolTable({ rows, dn, onOpen }: { rows: SchoolView[]; dn: (k: 
         </tbody>
         {rows.length > 1 && (
           <tfoot>
-            <tr className="border-t-2 border-surface-border bg-surface-muted/40 text-[14px] text-ink-muted">
-              <th scope="row" className="px-4 py-3 text-left font-semibold">ค่าเฉลี่ยเขต</th>
+            <tr className="border-t-2 border-surface-border bg-surface-muted text-[14px] text-ink-muted">
+              <th scope="row" className="sticky left-0 z-10 bg-inherit px-4 py-3 text-left font-semibold">ค่าเฉลี่ยเขต</th>
               <td className="px-4 py-3" />
               <td className="px-4 py-3 font-semibold tabular">{avg.rate.toFixed(1)}%</td>
               <td className="px-4 py-3 font-semibold tabular">{avg.overdue.toFixed(1)}</td>
@@ -160,6 +165,7 @@ export function SchoolTable({ rows, dn, onOpen }: { rows: SchoolView[]; dn: (k: 
           </tfoot>
         )}
       </table>
+      </div>
     </div>
   )
 }
