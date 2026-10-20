@@ -8,6 +8,8 @@ import { useScopedData } from '@/auth/scope'
 import { logKeyOf, useCaseLog, waitsOnDirector } from '@/lib/caseLog'
 import { useDirectorWork } from '@/components/director/useDirectorWork'
 import { areaRequestStatus, useAreaLog } from '@/lib/areaLog'
+import { FILTERS } from '@/lib/followOps'
+import { useFollowCases } from '@/components/followup/useFollowCases'
 import { roleIcon } from '@/components/auth/roleIcon'
 import { LogoutDialog } from '@/components/auth/LogoutDialog'
 import { navLabelKey, NAV_ITEMS } from './navItems'
@@ -63,8 +65,19 @@ export function Sidebar({
   // attention badges from scoped data
   // บัญชีกำกับดูแล (เขต · สพฐ. · ศอ.บต.): หน้าการช่วยเหลือเปิดด้วย "N เคสเกิน SLA" ป้ายจึงนับแบบเดียวกัน
   // (เดิมนับเร่งด่วนหรือเกิน SLA ได้ 31 ขณะที่หน้าบอก 30) ครูยังนับแบบเดิม
+  //
+  // **เขตย้ายไปใช้ศูนย์ติดตามแบบเดียวกับครูแล้ว** ซึ่งนับ "เกิน SLA" จาก FollowCase
+  // (รวมการส่งต่อที่เกินกำหนดด้วย) ไม่ใช่จาก `cases.slaBreached` — ป้ายจึงต้องนับ
+  // จากชุดเดียวกัน ไม่งั้นเมนูบอก 30 ขณะที่หน้าบอก 32 ซึ่งเป็นอาการเดียวกับที่
+  // คอมเมนต์ด้านบนเคยแก้ไว้ ใช้ `FILTERS` ตัวเดียวกับที่หน้าใช้ จะได้ไม่หลุดอีก
   const supervising = user?.role === 'esa' || user?.role === 'obec' || user?.role === 'exec'
-  const urgent = cases.filter((c) => (supervising ? c.slaBreached : c.urgent || c.slaBreached)).length
+  const { built: followBuilt } = useFollowCases()
+  const slaTest = FILTERS.find((f) => f.k === 'sla')!.test
+  const urgent = esa
+    ? 'list' in followBuilt
+      ? followBuilt.list.filter(slaTest).length
+      : 0
+    : cases.filter((c) => (supervising ? c.slaBreached : c.urgent || c.slaBreached)).length
   const highRisk = students.filter((s) => s.riskLevel === 'high' || s.riskLevel === 'critical').length
   const badges: Record<string, { n: number; color: string; soft?: boolean }> = {}
   // เขต: เคสเกิน SLA เป็นข้อมูลที่ต้องรู้ ไม่ใช่งานที่เขตลงมือ — ป้ายอ่อน

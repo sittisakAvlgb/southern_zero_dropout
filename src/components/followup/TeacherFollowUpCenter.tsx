@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { canWorkCases } from '@/auth/roles'
+import { useScopedData } from '@/auth/scope'
+import { DirectOnlyNotice } from '@/components/auth/DirectOnlyNotice'
 import { useI18n } from '@/i18n/LanguageContext'
 import { useSimulatedLoading } from '@/lib/useLoading'
 import { assetUrl } from '@/lib/asset'
@@ -31,12 +33,22 @@ const groupOf = (c: FollowCase): Group => (c.relapse ? 'relapse' : c.attn)
  * ห้าแบบ ปุ่มในเคสคือ "เลื่อนไปขั้นถัดไป" ซึ่งครูไม่รู้ว่าแปลว่าให้ทำอะไร และ
  * ทุกอย่างหายเมื่อรีโหลด ลำดับใหม่ตาม brief: TODAY → PRIORITY → INSIGHT →
  * ACTION → HISTORY ทุกเคสมีเหตุผลที่ต้องดู และปุ่มเดียวที่บอกว่าต้องทำอะไร
+ *
+ * **เขตใช้หน้านี้ด้วย ในโหมดอ่านอย่างเดียว** — `canWorkCases()` คืน false ให้ esa
+ * ทุกปุ่มลงมือจึงปิดเองอยู่แล้ว (`mayAct` ถูกส่งต่อถึงแถวและลิ้นชักครบทุกชั้น)
+ * ที่ต้องเปลี่ยนคือ *ถ้อยคำ* เท่านั้น เพราะคำของครูพูดว่า "เคสของคุณ" และ
+ * "วันนี้ต้องติดตาม" ซึ่งไม่จริงสำหรับคนที่กำกับดูแลแต่ไม่ได้ถือเคส
+ * และแถวต้องบอกโรงเรียน เพราะเขตดูข้ามหลายโรงเรียน
  */
 export function TeacherFollowUpCenter() {
   const { t } = useI18n()
   const nav = useNavigate()
   const { user, log, built } = useFollowCases()
+  const { schools } = useScopedData()
   const mayAct = canWorkCases(user)
+  /** ชื่อโรงเรียนของเด็ก — ใช้เฉพาะที่นั่งกำกับดูแลที่ดูข้ามโรงเรียน */
+  const schoolById = new Map(schools.map((s) => [s.id, s.name]))
+  const schoolOf = (c: FollowCase) => (mayAct ? undefined : c.s.schoolKey ? schoolById.get(c.s.schoolKey) : undefined)
   const loading = useSimulatedLoading(450)
   const [params, setParams] = useSearchParams()
   const [offline, setOffline] = useState(typeof navigator !== 'undefined' && navigator.onLine === false)
@@ -94,10 +106,16 @@ export function TeacherFollowUpCenter() {
         icon={<IconIntervention width={22} height={22} />}
         breadcrumb={<Breadcrumb items={[t('app.areaShort'), t('nav.intervention')]} />}
         title={t('iv.title')}
-        subtitle="ศูนย์ติดตามงานช่วยเหลือนักเรียนของคุณ — เปิดมาแล้วรู้ว่าวันนี้ต้องช่วยใคร ทำไม และต้องทำอะไร"
+        subtitle={
+          mayAct
+            ? 'ศูนย์ติดตามงานช่วยเหลือนักเรียนของคุณ — เปิดมาแล้วรู้ว่าวันนี้ต้องช่วยใคร ทำไม และต้องทำอะไร'
+            : 'ติดตามว่าเคสในพื้นที่ที่คุณกำกับเดินถึงไหน — เคสไหนค้าง ค้างที่ขั้นไหน และอยู่โรงเรียนใด'
+        }
       />
 
-      {offline && (
+      <DirectOnlyNotice />
+
+      {offline && mayAct && (
         <p className="mb-3 rounded-xl bg-amber-50 px-4 py-2.5 text-[14px] text-ink" role="status">
           ⚠ ออฟไลน์อยู่ — ยังบันทึกได้ตามปกติ ข้อมูลเก็บไว้ในเครื่องนี้
         </p>
@@ -116,7 +134,13 @@ export function TeacherFollowUpCenter() {
             ) : 'error' in built ? null : (
               <>
                 <p className="text-[19px] font-bold leading-snug text-ink">
-                  {today.length ? `วันนี้ต้องติดตาม ${today.length} เคส` : 'เยี่ยมมาก วันนี้ไม่มีเคสเร่งด่วน'}
+                  {today.length
+                    ? mayAct
+                      ? `วันนี้ต้องติดตาม ${today.length} เคส`
+                      : `${today.length} เคสที่ถึงกำหนดต้องติดตามวันนี้`
+                    : mayAct
+                      ? 'เยี่ยมมาก วันนี้ไม่มีเคสเร่งด่วน'
+                      : 'วันนี้ไม่มีเคสที่ถึงกำหนดในพื้นที่ที่คุณกำกับ'}
                   {doneToday.length > 0 && <span className="ml-2 text-[14px] font-semibold text-ink-muted">· ทำแล้ว {doneToday.length}</span>}
                 </p>
                 <p className="mt-0.5 text-[14.5px] leading-relaxed text-ink-muted">
@@ -153,7 +177,8 @@ export function TeacherFollowUpCenter() {
                 className="inline-flex shrink-0 items-center gap-1.5 rounded-full border px-3.5 py-2 text-[14px] font-medium"
                 style={{ borderColor: filter === x.k ? '#2f66f6' : '#e2e8f0', background: filter === x.k ? '#eef3ff' : '#fff', color: filter === x.k ? '#1d4ed8' : '#0f172a' }}
               >
-                {x.th} <span className="font-bold">{n}</span>
+                {/* "เคสของฉันทั้งหมด" เป็นคำของครู — ที่นั่งกำกับดูแลไม่ได้ถือเคสเอง */}
+                {x.k === 'all' && !mayAct ? 'เคสทั้งหมดในพื้นที่' : x.th} <span className="font-bold">{n}</span>
               </button>
             )
           })}
@@ -177,14 +202,20 @@ export function TeacherFollowUpCenter() {
       ) : open.length === 0 && !all.some((c) => c.relapse) ? (
         <div className="rounded-2xl border border-dashed border-surface-border bg-white px-6 py-10 text-center">
           <p className="text-[17px] font-semibold text-ink">ยังไม่มีเคสที่ต้องติดตาม</p>
-          <p className="mt-1 text-[14px] text-ink-muted">เมื่อระบบพบเด็กเสี่ยงในความดูแลของคุณ เคสจะขึ้นที่นี่พร้อมบอกว่าต้องทำอะไร</p>
+          <p className="mt-1 text-[14px] text-ink-muted">
+            {mayAct
+              ? 'เมื่อระบบพบเด็กเสี่ยงในความดูแลของคุณ เคสจะขึ้นที่นี่พร้อมบอกว่าต้องทำอะไร'
+              : 'เมื่อโรงเรียนในพื้นที่เปิดเคส จะเห็นที่นี่ว่าเคสเดินถึงขั้นไหนและค้างที่ใด'}
+          </p>
         </div>
       ) : (
         <div className="space-y-5">
           {shown.length === 0 && (
             <div className="rounded-2xl bg-green-50 px-5 py-6 text-center">
               <p className="text-[17px] font-bold text-green-800">{filter === 'today' ? '🎉 เยี่ยมมาก วันนี้ไม่มีเคสเร่งด่วน' : 'ไม่มีเคสในกลุ่มนี้'}</p>
-              {filter === 'today' && <p className="mt-1 text-[14px] text-ink">ดูเคสทั้งหมดได้จากตัวกรอง "เคสของฉันทั้งหมด"</p>}
+              {filter === 'today' && (
+                <p className="mt-1 text-[14px] text-ink">ดูเคสทั้งหมดได้จากตัวกรอง "{mayAct ? 'เคสของฉันทั้งหมด' : 'เคสทั้งหมดในพื้นที่'}"</p>
+              )}
             </div>
           )}
           {groups.map(({ g, items }) => (
@@ -192,19 +223,31 @@ export function TeacherFollowUpCenter() {
               <h2 className={`mb-2 text-[15px] font-bold ${g === 'critical' || g === 'sla' ? 'text-red-700' : 'text-ink'}`}>
                 {GROUP_TH[g]} <span className="font-medium text-ink-faint">· {items.length} เคส</span>
               </h2>
-              <CaseList items={items} mayAct={mayAct} onOpen={(id) => openCase(id)} onCta={cta} />
+              <CaseList items={items} mayAct={mayAct} schoolOf={schoolOf} onOpen={(id) => openCase(id)} onCta={cta} />
             </section>
           ))}
 
           {filter === 'today' && doneToday.length > 0 && (
             <Fold title={`ทำแล้ววันนี้ · ${doneToday.length}`}>
-              <CaseList items={doneToday} mayAct={false} onOpen={(id) => openCase(id)} onCta={cta} />
+              <CaseList items={doneToday} mayAct={false} schoolOf={schoolOf} onOpen={(id) => openCase(id)} onCta={cta} />
             </Fold>
           )}
           {closed.length > 0 && (
             <Fold title={`ปิดเคสแล้ว · ${closed.length}`}>
-              <CaseList items={closed} mayAct={false} onOpen={(id) => openCase(id)} onCta={cta} />
+              <CaseList items={closed} mayAct={false} schoolOf={schoolOf} onOpen={(id) => openCase(id)} onCta={cta} />
             </Fold>
+          )}
+
+          {/* ที่นั่งกำกับดูแลเคยได้ตารางเต็มเป็นหน้าหลัก — ยังต้องมีทางเข้า
+              ไม่งั้นการค้นหา ตัวกรอง และส่งออก CSV หายไปเฉย ๆ */}
+          {!mayAct && (
+            <button
+              type="button"
+              onClick={() => nav('/intervention?view=full')}
+              className="rounded-xl border border-surface-border bg-white px-4 py-2.5 text-[14.5px] font-semibold text-ink hover:border-brand-300"
+            >
+              เปิดตารางแบบเต็ม (ค้นหา · กรอง · ส่งออก CSV)
+            </button>
           )}
         </div>
       )}
@@ -246,7 +289,7 @@ const COLS = 'xl:grid xl:grid-cols-[minmax(170px,0.9fr)_minmax(240px,1.5fr)_minm
 
 /** รายการเคส — จอใหญ่เป็นแถวแบ่งคอลัมน์ (นักเรียน · ทำไมต้องดู · ถัดไป · ปุ่ม) ใช้ความกว้างจอ
  *  มือถือเรียงลงเป็นการ์ด · เดิมการ์ดกว้างเต็มจอแต่เนื้อหาอยู่ซ้ายหนึ่งในสาม */
-function CaseList({ items, mayAct, onOpen, onCta }: { items: FollowCase[]; mayAct: boolean; onOpen: (id: string) => void; onCta: (c: FollowCase) => void }) {
+function CaseList({ items, mayAct, schoolOf, onOpen, onCta }: { items: FollowCase[]; mayAct: boolean; schoolOf: (c: FollowCase) => string | undefined; onOpen: (id: string) => void; onCta: (c: FollowCase) => void }) {
   return (
     <div className="overflow-hidden rounded-2xl border border-surface-border bg-white">
       <div className={`hidden border-b border-surface-border bg-surface-muted/60 px-4 py-2 text-[12.5px] font-semibold text-ink-muted ${COLS}`}>
@@ -257,14 +300,14 @@ function CaseList({ items, mayAct, onOpen, onCta }: { items: FollowCase[]; mayAc
       </div>
       <ul className="divide-y divide-surface-border">
         {items.map((c) => (
-          <CaseRow key={c.s.id} c={c} mayAct={mayAct} onOpen={() => onOpen(c.s.id)} onCta={() => onCta(c)} />
+          <CaseRow key={c.s.id} c={c} mayAct={mayAct} school={schoolOf(c)} onOpen={() => onOpen(c.s.id)} onCta={() => onCta(c)} />
         ))}
       </ul>
     </div>
   )
 }
 
-function CaseRow({ c, mayAct, onOpen, onCta }: { c: FollowCase; mayAct: boolean; onOpen: () => void; onCta: () => void }) {
+function CaseRow({ c, mayAct, school, onOpen, onCta }: { c: FollowCase; mayAct: boolean; school?: string; onOpen: () => void; onCta: () => void }) {
   const why = c.doneToday ? 'บันทึกแล้ววันนี้' : c.reasons[0] ?? c.sla.text
   // เหตุผลแรกพูดเรื่อง SLA อยู่แล้วก็ไม่ต้องบอกซ้ำในบรรทัดเวลา
   const slaInWhy = why.includes('SLA')
@@ -273,6 +316,8 @@ function CaseRow({ c, mayAct, onOpen, onCta }: { c: FollowCase; mayAct: boolean;
     <li className={`px-4 py-3.5 ${COLS}`}>
       <button type="button" onClick={onOpen} className="block min-w-0 text-left">
         <span className="block text-[16px] font-bold leading-snug text-ink">{c.s.name}</span>
+        {/* เขตดูข้ามโรงเรียน ชื่อเด็กอย่างเดียวจึงไม่บอกว่าต้องไปหนุนที่ไหน */}
+        {school && <span className="mt-0.5 block text-[13px] text-ink-muted">{school}</span>}
         <span className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1">
           <RiskBadge c={c} />
           <HealthBadge c={c} />

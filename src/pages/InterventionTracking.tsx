@@ -62,6 +62,16 @@ export default function InterventionTracking() {
         <OversightTracking />
       </>
     )
+  // เขตใช้ศูนย์ติดตามหน้าเดียวกับครู แต่ `canWorkCases()` คืน false ให้ esa
+  // ทุกปุ่มลงมือจึงปิดเอง — ตารางเต็มเดิม (ค้นหา · กรอง · ส่งออก) ยังเปิดได้ด้วย ?view=full
+  if (user?.role === 'esa' && params.get('view') !== 'full') return <TeacherFollowUpCenter />
+  if (user?.role === 'esa')
+    return (
+      <>
+        <BackToDesk label="← กลับไปมุมมองของเขต" onBack={() => nav('/intervention')} />
+        <OversightTracking />
+      </>
+    )
   return <OversightTracking />
 }
 
