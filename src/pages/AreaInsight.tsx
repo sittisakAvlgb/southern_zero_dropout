@@ -28,8 +28,7 @@ import { oosSplit } from '@/lib/oos'
 import { RISK_COLOR } from '@/lib/risk'
 import { IconChevronRight, IconProvince, IconSchool } from '@/components/icons'
 import { EsaAreaDetail } from '@/components/area/EsaAreaDetail'
-import { TIER_META } from '@/lib/areaDeskOps'
-import { esaViews } from '@/lib/obecOps'
+import { EsaPicker, useEsaPick } from '@/components/area/EsaPicker'
 
 /** Shared Apex defaults — app typography and a visible but calm entry animation. */
 const CHART_BASE = {
@@ -65,44 +64,11 @@ export default function AreaInsight() {
  * และเวลาแก้หน้าเขต หน้านี้ได้ตามไปด้วยเสมอ
  */
 function ObecAreaDetail() {
-  const { pick } = useI18n()
-  const { districts, schools, cases, oosc } = useScopedData()
-  const [params, setParams] = useSearchParams()
-
-  // เรียงเขตตามความจำเป็น ไม่ใช่ตามตัวอักษร — เขตที่ต้องดูก่อนอยู่ซ้ายสุด
-  const views = useMemo(() => esaViews(districts, schools, cases, oosc), [districts, schools, cases, oosc])
-  const keys = views.map((v) => v.esa.key)
-  const current = params.get('esa') && keys.includes(params.get('esa')!) ? params.get('esa')! : keys[0]
-
-  const pickEsa = (key: string) => {
-    const next = new URLSearchParams(params)
-    next.set('esa', key)
-    next.delete('d')
-    setParams(next, { replace: true })
-  }
-
+  const { current } = useEsaPick()
   return (
     <div className="animate-page-rise space-y-4">
       <AreaViewTabs />
-      {/* ── เลือกเขต — ชิปแบบเดียวกับชิปเลือกอำเภอด้านใน จึงอ่านเป็นลำดับชั้นเดียวกัน ── */}
-      <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1" role="tablist" aria-label="เลือกเขตพื้นที่การศึกษา">
-        {views.map((v) => {
-          const on = v.esa.key === current
-          return (
-            <button
-              key={v.esa.key}
-              type="button"
-              role="tab"
-              aria-selected={on}
-              onClick={() => pickEsa(v.esa.key)}
-              className={`flex shrink-0 items-center gap-2 rounded-full px-4 py-2.5 text-[14.5px] font-semibold transition-colors ${on ? 'bg-ink text-white' : 'bg-white text-ink ring-1 ring-surface-border hover:ring-brand-300'}`}
-            >
-              <span className={`h-2.5 w-2.5 rounded-full ${TIER_META[v.tier].dot}`} aria-hidden />
-              {pick(v.esa)}
-            </button>
-          )
-        })}
-      </div>
+      <EsaPicker />
       {current && <EsaAreaDetail key={current} esaKey={current} tabs={null} />}
     </div>
   )

@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useScopedData } from '@/auth/scope'
+import { esaOfDistrict } from '@/data/esa'
 import { useI18n } from '@/i18n/LanguageContext'
 import { useToast } from '@/components/ui/Toast'
 import { Drawer } from '@/components/referrals/ui'
@@ -32,11 +33,25 @@ const PAGE = 10
  * เขตไม่ได้ลงพื้นที่เอง สิ่งที่เขตต้องรู้คือ เด็กเดินมาถึงไหนแล้ว · ติดอยู่ขั้นไหน · อำเภอไหนต้องช่วย
  * และเขตทำอะไรได้ (สร้างมาตรการให้ทั้งอำเภอ) — รายชื่อเด็กยังเห็นได้ (เขตเห็นชื่อได้แต่ลงมือไม่ได้)
  */
-export function EsaOoscDesk() {
+export function EsaOoscDesk({ esaKey: esaKeyProp }: { esaKey?: string } = {}) {
   const { t, dn, tn } = useI18n()
   const { push } = useToast()
-  const { user, oosc, districts, schools } = useScopedData()
-  const area = useAreaLog(user?.esaKey)
+  const scoped = useScopedData()
+  const { user } = scoped
+  /** เขตที่หน้านี้กำลังพูดถึง — บัญชีเขตถูกจำกัดขอบเขตมาแล้ว ส่วน สพฐ. ส่งเข้ามา
+   *  (กติกาเดียวกับ EsaAreaDetail) */
+  const esaKey = esaKeyProp ?? user?.esaKey
+  const inEsa = useMemo(() => {
+    if (!esaKeyProp) return () => true
+    return (districtKey?: string) => esaOfDistrict(districtKey) === esaKeyProp
+  }, [esaKeyProp])
+  const oosc = useMemo(() => scoped.oosc.filter((r) => inEsa(r.districtKey)), [scoped.oosc, inEsa])
+  const districts = useMemo(() => scoped.districts.filter((d) => inEsa(d.key)), [scoped.districts, inEsa])
+  const schools = useMemo(() => scoped.schools.filter((x) => inEsa(x.districtKey)), [scoped.schools, inEsa])
+  /** สร้างมาตรการเป็นการกระทำของเขตนั้น เขียนลงสมุดงานของเขตด้วยชื่อผู้สั่ง
+   *  สพฐ. ที่เปิดดูเขตอื่นจึงอ่านได้อย่างเดียว ไม่ลงมือแทนเขต */
+  const mayAct = !esaKeyProp
+  const area = useAreaLog(esaKey)
   const team = useMemo(() => teamRows(area), [area])
   const [stuck, setStuck] = useState<Stuck | null>(null)
   const [district, setDistrict] = useState<string | null>(null)
@@ -195,7 +210,7 @@ export function EsaOoscDesk() {
                   >
                     {on ? 'แสดงทุกอำเภอ' : 'ดูรายชื่อ'}
                   </button>
-                  {!row.made && row.score > 0 && (
+                  {mayAct && !row.made && row.score > 0 && (
                     <button type="button" onClick={() => setMeasure(measureFor(row))} className="rounded-xl bg-brand-500 px-4 py-2.5 text-[14.5px] font-semibold text-white hover:bg-brand-600">
                       สร้างมาตรการ
                     </button>

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { EsaOoscDesk } from '@/components/area/EsaOoscDesk'
+import { EsaPicker, useEsaPick } from '@/components/area/EsaPicker'
 import { motion } from 'framer-motion'
 import Chart from 'react-apexcharts'
 import type { ChildStatus, OoscRecord, OoscSource } from '@/types'
@@ -68,6 +69,8 @@ export default function OoscRegistry() {
   const [params, setParams] = useSearchParams()
   // เขต: เด็กเดินมาถึงไหน · ติดที่ไหน · อำเภอไหนต้องช่วย — ไม่ใช่คิวลงพื้นที่รายคน (งานของโรงเรียน)
   if (user?.role === 'esa') return <EsaOoscDesk />
+  // สพฐ. เลือกเขตก่อน แล้วได้ทะเบียนแบบเดียวกับที่เขตนั้นเห็น (อ่านอย่างเดียว)
+  if (user?.role === 'obec') return <ObecOoscDesk />
   if (user?.role === 'school' && params.get('view') !== 'full')
     return (
       <SchoolOoscDesk
@@ -92,6 +95,22 @@ export default function OoscRegistry() {
       </>
     )
   return <OoscRegistryFull />
+}
+
+/** ทะเบียนเด็กนอกระบบของ สพฐ. — เลือกเขต แล้วใช้หน้าเดียวกับที่เขตนั้นเห็น
+ *
+ *  เหตุผลเดียวกับหน้าเจาะลึกรายพื้นที่: สพฐ. กำกับเขต การเห็นสิ่งเดียวกับที่
+ *  เขตเห็นทำให้คุยกันรู้เรื่อง และเวลาแก้หน้าเขต หน้านี้ได้ตามไปด้วย
+ *  ต่างกันที่ปุ่ม "สร้างมาตรการ" ถูกซ่อน เพราะเป็นการกระทำของเขตนั้น ไม่ใช่ของ สพฐ.
+ */
+function ObecOoscDesk() {
+  const { current } = useEsaPick()
+  return (
+    <div className="animate-page-rise space-y-4">
+      <EsaPicker />
+      {current && <EsaOoscDesk key={current} esaKey={current} />}
+    </div>
+  )
 }
 
 function OoscRegistryFull() {
