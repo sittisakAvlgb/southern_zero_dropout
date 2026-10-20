@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useScopedData } from '@/auth/scope'
 import { canWorkCases } from '@/auth/roles'
+import { esaOfDistrict } from '@/data/esa'
 import { DirectOnlyNotice } from '@/components/auth/DirectOnlyNotice'
 import { useI18n } from '@/i18n/LanguageContext'
 import { useSimulatedLoading } from '@/lib/useLoading'
@@ -45,7 +46,7 @@ const dueText = (n: number) => (n < 0 ? `เลยกำหนด ${-n} วั�
  *
  * เขตเห็นหลายโรงเรียน แถวจึงบอกชื่อโรงเรียนด้วย ส่วน ผอ. เห็นโรงเรียนเดียวจึงไม่ต้องบอกซ้ำ
  */
-export function DirectorPlanDesk({ onFullView }: { onFullView: () => void }) {
+export function DirectorPlanDesk({ onFullView, esaKey }: { onFullView: () => void; esaKey?: string }) {
   const { t } = useI18n()
   const nav = useNavigate()
   const { push } = useToast()
@@ -65,7 +66,20 @@ export function DirectorPlanDesk({ onFullView }: { onFullView: () => void }) {
   const roster = useMemo(() => fc.map((c) => c.s), [fc])
   const byId = useMemo(() => new Map(roster.map((s) => [s.id, s])), [roster])
   const refs = useRefCases(user, roster.length ? roster : students, referrals, log, now)
-  const records = useMemo(() => applyPlans(plans, log), [plans, log])
+  /** สพฐ. ดูทีละเขต — ย่อแผนและรายชื่อให้เหลือเด็กในเขตนั้น (เด็กในทะเบียน
+   *  นอกระบบไม่มีแถวนักเรียน จึงต้องหาอำเภอจากทะเบียนด้วย) */
+  const districtOf = useMemo(() => {
+    const m = new Map<string, string>()
+    for (const s of students) m.set(s.id, s.districtKey)
+    for (const r of oosc) if (!m.has(r.id)) m.set(r.id, r.districtKey)
+    return m
+  }, [students, oosc])
+  const inEsa = useMemo(() => {
+    if (!esaKey) return () => true
+    return (childId: string) => esaOfDistrict(districtOf.get(childId)) === esaKey
+  }, [esaKey, districtOf])
+
+  const records = useMemo(() => applyPlans(plans, log).filter((p) => inEsa(p.childId)), [plans, log, inEsa])
   // เด็กนอกระบบไม่อยู่ในรายชื่อนักเรียน — ผู้รับผิดชอบมาจากที่ ผอ. มอบหมาย หรือจากทะเบียน
   const ooscOwner = useMemo(() => new Map(oosc.map((r) => [r.id, r.ownerName])), [oosc])
   const ownerOf = (childId: string) => byId.get(childId)?.caseOwner || log.owners[childId] || ooscOwner.get(childId) || undefined
@@ -80,9 +94,10 @@ export function DirectorPlanDesk({ onFullView }: { onFullView: () => void }) {
   const noPlan = useMemo(
     () =>
       roster
+        .filter((st) => inEsa(st.id))
         .filter((st) => !records.some((p) => p.childId === st.id) && st.caseStage !== 'resolved' && st.caseStage !== 'returned' && (st.riskLevel === 'high' || st.riskLevel === 'critical'))
         .sort((a, b) => b.riskScore - a.riskScore),
-    [roster, records],
+    [roster, records, inEsa],
   )
 
   const [openChild, setOpenChild] = useState<string | null>(null)

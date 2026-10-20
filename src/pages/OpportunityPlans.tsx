@@ -10,6 +10,7 @@ import { canWorkCases } from '@/auth/roles'
 import { applyPlans, useCaseLog, logKeyOf } from '@/lib/caseLog'
 import { TeacherPlanWorkspace } from '@/components/plans/TeacherPlanWorkspace'
 import { DirectorPlanDesk } from '@/components/director/DirectorPlanDesk'
+import { EsaPicker, useEsaPick } from '@/components/area/EsaPicker'
 import { DirectOnlyNotice } from '@/components/auth/DirectOnlyNotice'
 import { PageHeader, Breadcrumb } from '@/components/ui/PageHeader'
 import { Card, CardHeader } from '@/components/ui/Card'
@@ -69,6 +70,8 @@ export default function OpportunityPlans() {
   const { user } = useScopedData()
   const [params, setParams] = useSearchParams()
   if (user?.role === 'teacher') return <TeacherPlanWorkspace />
+  // สพฐ. เลือกเขตก่อน แล้วได้โต๊ะเดียวกับที่เขตนั้นเห็น (อ่านอย่างเดียวด้วย canWorkCases)
+  if (user?.role === 'obec' && params.get('view') !== 'full') return <ObecPlanDesk />
   const onDesk = DESK_ROLES.includes(user?.role ?? '')
   // เปิดมาเจอแผนทีละเรื่องแบบหน้าครู — รายการแบบเต็มยังเปิดได้ด้วย ?view=full
   if (onDesk && params.get('view') !== 'full')
@@ -96,6 +99,33 @@ export default function OpportunityPlans() {
       </>
     )
   return <OversightPlans />
+}
+
+/** เส้นทางโอกาสของ สพฐ. — เลือกเขต แล้วใช้โต๊ะเดียวกับที่เขตนั้นเห็น
+ *
+ *  หน้าเดิมของ สพฐ. เป็นตารางกรองรวมทุกเขต ซึ่งบอกได้ว่ามีแผนกี่แผน แต่ไม่ได้
+ *  บอกว่าเรื่องไหนค้างและควรเริ่มที่ไหน — เหตุผลเดียวกับหน้าอื่นที่ยกมาใช้ของเขต
+ *  `canWorkCases()` คืน false ให้ obec อยู่แล้ว ปุ่มลงมือกับเคสจึงปิดเองทั้งหมด
+ */
+function ObecPlanDesk() {
+  const { current } = useEsaPick()
+  const [params, setParams] = useSearchParams()
+  return (
+    <div className="animate-page-rise space-y-4">
+      <EsaPicker />
+      {current && (
+        <DirectorPlanDesk
+          key={current}
+          esaKey={current}
+          onFullView={() => {
+            const next = new URLSearchParams(params)
+            next.set('view', 'full')
+            setParams(next)
+          }}
+        />
+      )}
+    </div>
+  )
 }
 
 function OversightPlans() {
