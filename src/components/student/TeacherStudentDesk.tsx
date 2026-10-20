@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { canWorkCases } from '@/auth/roles'
+import { studentSystemic } from '@/lib/obecOps'
 import { useI18n } from '@/i18n/LanguageContext'
 import { SCHOOL_BY_ID } from '@/data/schools'
 import { RISK_BG, RISK_COLOR } from '@/lib/risk'
@@ -71,7 +72,9 @@ export function TeacherStudentDesk() {
   // เขตก็ใช้หน้าเดียวกัน แต่เป็นผู้กำกับ ไม่ใช่เจ้าของเคส: `canWorkCases()` คืน false
   // ให้ esa อยู่แล้ว ปุ่มของครูจึงซ่อนเองโดยไม่ต้องมีเงื่อนไขเพิ่ม ตัวแปรนี้มีไว้
   // แก้ "ถ้อยคำ" เท่านั้น — เด็กกลุ่มนี้คือเด็กของโรงเรียนในเขต ไม่ใช่เคสของเขต
-  const area = user?.role === 'esa'
+  const area = user?.role === 'esa' || user?.role === 'obec'
+  /** สพฐ. ดูข้ามเขต จึงได้กล่องที่เชื่อมเด็กคนนี้กับรูปแบบระดับเขต */
+  const obec = user?.role === 'obec'
   const mayAct = canWorkCases(user) && !director
   const [deciding, setDeciding] = useState(false)
   const by = byOf(user)
@@ -172,8 +175,8 @@ export function TeacherStudentDesk() {
   if (!fc)
     return (
       <div className="rounded-2xl border border-dashed border-surface-border bg-white px-6 py-10 text-center">
-        <p className="text-[17px] font-semibold text-ink">{area ? 'ยังไม่มีนักเรียนที่ต้องติดตามในเขตนี้' : director ? 'ยังไม่มีนักเรียนในโรงเรียนที่ต้องติดตาม' : 'ยังไม่มีนักเรียนในความดูแลของคุณ'}</p>
-        <p className="mt-1 text-[14px] text-ink-muted">{area ? 'เมื่อโรงเรียนในเขตเปิดเคส จะเปิดดูรายคนได้ที่นี่' : 'เมื่อมีนักเรียนในเคสของคุณ จะเปิดดูแลรายคนได้ที่นี่'}</p>
+        <p className="text-[17px] font-semibold text-ink">{obec ? 'ยังไม่มีนักเรียนที่ต้องติดตามในขอบเขตนี้' : area ? 'ยังไม่มีนักเรียนที่ต้องติดตามในเขตนี้' : director ? 'ยังไม่มีนักเรียนในโรงเรียนที่ต้องติดตาม' : 'ยังไม่มีนักเรียนในความดูแลของคุณ'}</p>
+        <p className="mt-1 text-[14px] text-ink-muted">{obec ? 'เมื่อโรงเรียนเปิดเคส จะเปิดดูรายคนได้ที่นี่' : area ? 'เมื่อโรงเรียนในเขตเปิดเคส จะเปิดดูรายคนได้ที่นี่' : 'เมื่อมีนักเรียนในเคสของคุณ จะเปิดดูแลรายคนได้ที่นี่'}</p>
       </div>
     )
 
@@ -258,7 +261,7 @@ export function TeacherStudentDesk() {
         icon={<IconStudent width={22} height={22} />}
         breadcrumb={<Breadcrumb items={[t('app.areaShort'), t('nav.student')]} />}
         title={t('nav.student')}
-        subtitle={area ? 'ดูว่าโรงเรียนกำลังช่วยเด็กคนนี้อย่างไร — เขตกำกับและสนับสนุน ไม่ลงมือแทนครู' : director ? 'ดูว่าครูกำลังช่วยเด็กคนนี้อย่างไร — ผอ. ช่วยเฉพาะเรื่องที่ต้องใช้ ผอ.' : 'โต๊ะทำงานของคุณสำหรับดูแลเด็กหนึ่งคน — ครูรู้ปัญหา AI ช่วยหาวิธี'}
+        subtitle={obec ? 'ดูว่าโรงเรียนกำลังช่วยเด็กคนนี้อย่างไร — สพฐ. ดูภาพรวมและสั่งการผ่านเขต ไม่ลงมือแทนครู' : area ? 'ดูว่าโรงเรียนกำลังช่วยเด็กคนนี้อย่างไร — เขตกำกับและสนับสนุน ไม่ลงมือแทนครู' : director ? 'ดูว่าครูกำลังช่วยเด็กคนนี้อย่างไร — ผอ. ช่วยเฉพาะเรื่องที่ต้องใช้ ผอ.' : 'โต๊ะทำงานของคุณสำหรับดูแลเด็กหนึ่งคน — ครูรู้ปัญหา AI ช่วยหาวิธี'}
       />
 
       <div className="grid gap-5 xl:grid-cols-[280px_minmax(0,1fr)]">
@@ -282,7 +285,9 @@ export function TeacherStudentDesk() {
           {/* หัวการ์ดแบบเดิม: ตัวตน + สถานะ + เกจ แล้วตามด้วยสิ่งที่ต้องทำต่อในการ์ดเดียวกัน */}
           <section className="overflow-hidden rounded-3xl border border-surface-border bg-white">
             <Summary fc={fc} />
-            {director ? (
+            {obec ? (
+              <ObecStudentPanel fc={fc} all={list} onOpenArea={(k) => nav(`/area?esa=${k}`)} />
+            ) : director ? (
               <DirectorStudentPanel
                 fc={fc}
                 by={by}
@@ -393,7 +398,7 @@ export function TeacherStudentDesk() {
       {logMode && <LogForm mode={logMode} student={fc.s} actor={by} onCancel={() => setLogMode(null)} onSave={saveLogForm} th={th} t={t} />}
       {deciding && director && <DirectorDrawer fc={fc} list={list} log={log} by={by} push={push} onClose={() => setDeciding(false)} onOpenFile={() => setDeciding(false)} />}
       {picking && (
-        <Drawer label="เลือกนักเรียน" head={<p className="text-[19px] font-bold text-ink">{area ? 'นักเรียนในเขต' : director ? 'นักเรียนที่ติดตามอยู่' : 'เด็กในความดูแล'}</p>} onClose={() => setPicking(false)}>
+        <Drawer label="เลือกนักเรียน" head={<p className="text-[19px] font-bold text-ink">{obec ? 'นักเรียนในขอบเขต' : area ? 'นักเรียนในเขต' : director ? 'นักเรียนที่ติดตามอยู่' : 'เด็กในความดูแล'}</p>} onClose={() => setPicking(false)}>
           <StudentList list={list} activeId={fc.s.id} onPick={pick} />
         </Drawer>
       )}
@@ -1312,5 +1317,54 @@ function MoreInfo({ fc, t }: { fc: FollowCase; th: boolean; t: (k: string) => st
         ))}
       </ul>
     </details>
+  )
+}
+
+/**
+ * กล่องของ สพฐ. บนแฟ้มเด็กหนึ่งคน
+ *
+ * สพฐ. ไม่ได้ถือเคส ปุ่ม "โทรหาผู้ปกครอง" จึงไม่มีความหมายที่ชั้นนี้ สิ่งที่
+ * ช่วยได้จริงคือบอกว่าเด็กคนนี้ติดด้วยเหตุเดียวกับอีกกี่คนในเขตเดียวกัน —
+ * ติดคนเดียวคือเรื่องของเคส ติดพร้อมกันหลายสิบคนคือเรื่องของระบบ ซึ่งเป็นงาน
+ * ที่ สพฐ. แก้ได้ ตัวเลขทุกตัวคำนวณใน `lib/obecOps.ts` ไม่ได้เรียกโมเดล
+ */
+function ObecStudentPanel({ fc, all, onOpenArea }: { fc: FollowCase; all: FollowCase[]; onOpenArea: (esaKey: string) => void }) {
+  const sig = studentSystemic(fc, all)
+  const systemic = sig.open && sig.sameInEsa >= 5
+  return (
+    <div className="border-t border-surface-border bg-brand-50/40 p-4 sm:p-5">
+      <p className="text-[11.5px] font-semibold uppercase tracking-wide text-brand-600">AI สำหรับ สพฐ.</p>
+      <p className="mt-1 text-[15.5px] font-semibold leading-snug text-ink">
+        {sig.open ? (
+          <>
+            เด็กคนนี้ติดที่ “{sig.blocker}”
+            {sig.esaName
+              ? ` — ใน${sig.esaName} มีเด็กติดด้วยเหตุเดียวกัน ${sig.sameInEsa} คน จาก ${sig.openInEsa} เคสที่เปิดอยู่ (${sig.share}%)`
+              : ''}
+          </>
+        ) : (
+          <>
+            เคสของเด็กคนนี้ปิดแล้ว
+            {sig.esaName ? ` — ${sig.esaName} ยังมี ${sig.openInEsa} เคสที่เปิดอยู่` : ''}
+          </>
+        )}
+      </p>
+      <p className="mt-1 text-[14px] leading-snug text-ink-muted">
+        {!sig.open
+          ? 'ไม่มีสิ่งที่ต้องสั่งการกับเคสนี้ — ดูภาพรวมของเขตได้ว่ายังเหลืองานอะไร'
+          : systemic
+            ? 'กระจุกพอที่จะเป็นปัญหาเชิงระบบของเขต ไม่ใช่เรื่องของเคสเดียว — อาจพิจารณาสั่งการที่ระดับเขตแทนการตามรายคน'
+            : 'ยังเป็นรายกรณี เจ้าของเคสคือโรงเรียนและครูผู้รับผิดชอบ — สพฐ. ติดตามผลผ่านเขตได้'}
+      </p>
+      {sig.esaKey && (
+        <button
+          type="button"
+          onClick={() => onOpenArea(sig.esaKey!)}
+          className="mt-3 w-full rounded-xl bg-brand-500 px-4 py-2.5 text-[14.5px] font-semibold text-white hover:bg-brand-600 sm:w-auto"
+        >
+          เปิด{sig.esaName ?? 'เขตนี้'} →
+        </button>
+      )}
+    </div>
   )
 }

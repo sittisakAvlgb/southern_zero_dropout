@@ -11,6 +11,7 @@
 import type { CaseRecord, District, OoscRecord, School } from '@/types'
 import { ESA_BY_KEY, esaOfDistrict, type EsaArea } from '@/data/esa'
 import { stageOf } from './areaOps'
+import { ATTN_META, type FollowCase } from './followOps'
 import { TIER_META, type Tier } from './areaDeskOps'
 
 const r1 = (n: number) => Math.round(n * 10) / 10
@@ -266,5 +267,43 @@ export function schoolInsight(views: EsaView[]): { headline: string; detail: str
     ]
       .filter(Boolean)
       .join(' · '),
+  }
+}
+
+// ── เด็กรายคนในสายตา สพฐ. ────────────────────────────────────
+
+/** สิ่งที่ สพฐ. ช่วยได้จริงเมื่อเปิดแฟ้มเด็กหนึ่งคน
+ *
+ *  สพฐ. ไม่ได้ถือเคสรายคน การโชว์ปุ่ม "โทรหาผู้ปกครอง" จึงไม่มีความหมาย
+ *  สิ่งที่หน่วยระดับนี้ทำได้คือมองว่า **เด็กคนนี้ติดเพราะเหตุเดียวกับอีกกี่คน
+ *  ในเขตเดียวกัน** ถ้าติดคนเดียวคือเรื่องของเคส ถ้าติดพร้อมกันหลายสิบคนคือ
+ *  เรื่องของระบบ ซึ่งเป็นงานที่ สพฐ. แก้ได้จริง — นี่คือเหตุผลที่กล่องนี้มีอยู่
+ *
+ *  คำนวณล้วน ไม่เรียกโมเดล (กติกาเดียวกับ decision.ts · briefing.ts)
+ */
+export function studentSystemic(
+  child: FollowCase,
+  all: FollowCase[],
+): {
+  esaKey?: string
+  esaName?: string
+  /** เคสของเด็กคนนี้ยังเปิดอยู่ไหม — ถ้าปิดแล้ว การพาดหัวว่า "ติดที่…" ไม่จริง */
+  open: boolean
+  blocker: string
+  sameInEsa: number
+  openInEsa: number
+  share: number
+} {
+  const esaKey = esaOfDistrict(child.s.districtKey)
+  const peers = all.filter((c) => c.open && esaOfDistrict(c.s.districtKey) === esaKey)
+  const same = peers.filter((c) => c.attn === child.attn)
+  return {
+    esaKey,
+    esaName: esaKey ? ESA_BY_KEY[esaKey]?.th : undefined,
+    open: child.open,
+    blocker: ATTN_META[child.attn].th,
+    sameInEsa: same.length,
+    openInEsa: peers.length,
+    share: peers.length ? Math.round((same.length / peers.length) * 1000) / 10 : 0,
   }
 }

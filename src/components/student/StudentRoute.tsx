@@ -2,8 +2,9 @@ import { Suspense, lazy } from 'react'
 import { useScopedData } from '@/auth/scope'
 import { RouteFallback } from '@/components/layout/RouteFallback'
 
-/** ครู · ผอ. · เขต ใช้โต๊ะทำงานรายเด็กหน้าเดียวกัน (ผอ. และเขตดูอย่างเดียว
- *  ผอ. มีกล่องของ ผอ. เพิ่ม) บทบาทอื่นยังเห็นแฟ้มข้อมูลเดิม (Student360)
+/** ครู · ผอ. · เขต · สพฐ. ใช้โต๊ะทำงานรายเด็กหน้าเดียวกัน (ผอ. เขต และ สพฐ.
+ *  ดูอย่างเดียว · ผอ. มีกล่องของ ผอ. และ สพฐ. มีกล่องที่เชื่อมเด็กคนนี้กับ
+ *  รูปแบบระดับเขต) บทบาทอื่นยังเห็นแฟ้มข้อมูลเดิม (Student360)
  *
  *  สองฝั่งนี้ไม่มีใครเห็นทั้งคู่ จึงโหลดแยกกัน — ครูที่เปิดแฟ้มเด็กรายคนจาก
  *  มือถือไม่ต้องดาวน์โหลด `Student360` (สองพันบรรทัด + ApexCharts) ที่ตัวเอง
@@ -19,7 +20,7 @@ const Student360 = lazy(() => import('@/pages/Student360'))
  *  `esa` อยู่แล้ว โต๊ะจึงซ่อนปุ่มของครูให้เอง (`mayAct` ใน TeacherStudentDesk)
  *  การเพิ่มบทบาทตรงนี้จึงเปลี่ยน *หน้าตา* ไม่ใช่ *สิทธิ์* — อย่าแก้ด่านนั้น
  *  เพื่อให้ปุ่มกลับมา เพราะเคยเป็นบั๊กมาแล้ว (ดูคอมเมนต์ใน roles.ts) */
-const DESK_ROLES = ['teacher', 'school', 'esa'] as const
+const DESK_ROLES = ['teacher', 'school', 'esa', 'obec'] as const
 
 export default function StudentRoute() {
   const { user } = useScopedData()
