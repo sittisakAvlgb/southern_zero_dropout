@@ -11,6 +11,7 @@ import { AnimatedCounter } from '@/components/ui/AnimatedCounter'
 import { SouthernMap, type MapMetric } from '@/components/map/SouthernMap'
 import { AGENCY_BY_ID } from '@/data/agencies'
 import { REGION_DELTAS } from '@/data/places'
+import { ObecEsaPanel } from '@/components/area/ObecEsaPanel'
 import { formatNumber, formatPct } from '@/lib/format'
 import { oosSplit } from '@/lib/oos'
 import { RISK_COLOR } from '@/lib/risk'
@@ -753,7 +754,11 @@ export default function AreaOverview() {
           </div>
         </Card>
 
-        {/* Provinces */}
+        {/* สพฐ. กำกับเขต ไม่ได้กำกับจังหวัด — ที่นั่งสายการศึกษาจึงได้แผงรายเขต
+            ส่วน ศอ.บต. เป็นหน่วยประสานระดับพื้นที่ จังหวัดยังเป็นหน่วยของมัน */}
+        {user?.role === 'obec' ? (
+          <ObecEsaPanel />
+        ) : (
         <Card className="xl:col-span-7">
           <CardHeader
             title={th ? 'ภาพรวมรายจังหวัด' : 'By province'}
@@ -853,6 +858,7 @@ export default function AreaOverview() {
             </div>
           </div>
         </Card>
+        )}
 
         {/* Districts needing attention */}
         <Card className="xl:col-span-5">
