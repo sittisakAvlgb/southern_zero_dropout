@@ -247,3 +247,24 @@ export function followInsight(views: EsaView[]): { headline: string; detail: str
       .join(' · '),
   }
 }
+
+/** ข้อสังเกตระดับ สพฐ. สำหรับหน้าผลการดำเนินงานโรงเรียน
+ *
+ *  คำถามของผู้บริหารคือ "โรงเรียนที่ต้องช่วยกระจุกอยู่เขตไหน" ไม่ใช่ "มีกี่โรง"
+ *  เพราะจำนวนรวมบอกขนาด แต่ไม่ได้บอกว่าจะส่งกำลังไปที่ใด */
+export function schoolInsight(views: EsaView[]): { headline: string; detail: string } {
+  if (!views.length) return { headline: 'ยังไม่มีข้อมูลโรงเรียนในขอบเขตนี้', detail: '' }
+  const watch = views.reduce((a, v) => a + v.schoolsToWatch, 0)
+  const all = views.reduce((a, v) => a + v.schools, 0)
+  const leadWatch = [...views].sort((a, b) => b.schoolsToWatch - a.schoolsToWatch)[0]
+  const leadOverdue = [...views].sort((a, b) => b.overdue - a.overdue)[0]
+  return {
+    headline: `โรงเรียนที่สัดส่วนเด็กเสี่ยงเกินเกณฑ์ ${watch} จาก ${all} แห่งทั้ง ${views.length} เขต`,
+    detail: [
+      leadWatch?.schoolsToWatch ? `กระจุกที่${leadWatch.esa.th} ${leadWatch.schoolsToWatch} แห่ง` : '',
+      leadOverdue?.overdue ? `เคสเกิน SLA มากที่สุดที่${leadOverdue.esa.th} ${leadOverdue.overdue} เคส` : '',
+    ]
+      .filter(Boolean)
+      .join(' · '),
+  }
+}

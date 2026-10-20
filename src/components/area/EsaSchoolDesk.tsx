@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useScopedData } from '@/auth/scope'
+import { esaOfDistrict } from '@/data/esa'
 import { useI18n } from '@/i18n/LanguageContext'
 import { useToast } from '@/components/ui/Toast'
 import { fmtDay } from '@/lib/directorOps'
@@ -20,11 +21,24 @@ type Sheet = { kind: 'support'; v: SchoolView } | { kind: 'request'; r: AreaRequ
  * และปุ่มหลักคือ "วางแผนสนับสนุน" — มุมมองตาราง (เรียงได้ทุกคอลัมน์ · ส่งออก CSV) และข้อมูลโรงเรียน
  * อยู่ในหน้านี้ เขตจึงไม่ต้องไปตารางเดิมที่มีแถบเตือนสามแถบและตัวเลขเคสค้างคนละชุด
  */
-export function EsaSchoolDesk() {
+export function EsaSchoolDesk({ esaKey: esaKeyProp }: { esaKey?: string } = {}) {
   const { dn } = useI18n()
   const { push } = useToast()
-  const { user, schools, students, cases, referrals } = useScopedData()
-  const area = useAreaLog(user?.esaKey)
+  const scoped = useScopedData()
+  const { user } = scoped
+  /** สพฐ. ดูทีละเขต — ย่อโรงเรียนและเคสให้เหลือเขตนั้น (กติกาเดียวกับหน้าอื่น) */
+  const inEsa = useMemo(() => {
+    if (!esaKeyProp) return () => true
+    return (districtKey?: string) => esaOfDistrict(districtKey) === esaKeyProp
+  }, [esaKeyProp])
+  const schools = useMemo(() => scoped.schools.filter((x) => inEsa(x.districtKey)), [scoped.schools, inEsa])
+  const students = useMemo(() => scoped.students.filter((x) => inEsa(x.districtKey)), [scoped.students, inEsa])
+  const cases = useMemo(() => scoped.cases.filter((x) => inEsa(x.districtKey)), [scoped.cases, inEsa])
+  const referrals = scoped.referrals
+  /** การสนับสนุนและการตัดสินใจเป็นการกระทำของเขตนั้น เขียนลงสมุดงานของเขตพร้อม
+   *  ชื่อผู้สั่ง สพฐ. ที่เปิดดูเขตอื่นจึงอ่านได้อย่างเดียว */
+  const mayAct = !esaKeyProp
+  const area = useAreaLog(esaKeyProp ?? user?.esaKey)
   const by = user?.name ?? 'ผู้บริหารเขต'
   const views = useMemo(() => schoolViews(schools, cases, students), [schools, cases, students])
   const patterns = useMemo(() => crossSchoolPatterns(schools, students, referrals), [schools, students, referrals])
@@ -129,9 +143,15 @@ export function EsaSchoolDesk() {
                     {reqs.map((r) => {
                       const st = areaRequestStatus(r)
                       return st === 'new' ? (
+                        mayAct ? (
                         <button key={r.id} type="button" onClick={() => setSheet({ kind: 'request', r })} className="rounded-full bg-red-50 px-3 py-1.5 text-[13.5px] font-semibold text-red-800 hover:bg-red-100">
                           คำขอรอเขต: {AREA_NEED_TH[r.need]} · รอ {requestBrief(r, team, patterns).waitedDays} วัน →
                         </button>
+                        ) : (
+                        <span key={r.id} className="rounded-full bg-red-50 px-3 py-1.5 text-[13.5px] font-semibold text-red-800">
+                          คำขอรอเขต: {AREA_NEED_TH[r.need]} · รอ {requestBrief(r, team, patterns).waitedDays} วัน
+                        </span>
+                        )
                       ) : (
                         <span key={r.id} className="rounded-full bg-brand-50 px-3 py-1.5 text-[13.5px] font-semibold text-brand-800">
                           เขต{AREA_VERDICT_TH[r.decision!.verdict]}: {AREA_NEED_TH[r.need]}
@@ -147,7 +167,7 @@ export function EsaSchoolDesk() {
                   </div>
                 )}
               </div>
-              {v.tier !== 'ok' && (
+              {mayAct && v.tier !== 'ok' && (
                 <button
                   type="button"
                   onClick={() => setSheet({ kind: 'support', v })}

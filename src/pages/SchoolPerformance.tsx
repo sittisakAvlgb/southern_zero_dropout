@@ -19,6 +19,9 @@ import { ScopeBanner } from '@/components/auth/ScopeBanner'
 import { DirectorSchoolDesk } from '@/components/director/DirectorSchoolDesk'
 import { BackToDesk } from '@/components/director/DeskParts'
 import { EsaSchoolDesk } from '@/components/area/EsaSchoolDesk'
+import { EsaPicker, useEsaPick } from '@/components/area/EsaPicker'
+import { assetUrl } from '@/lib/asset'
+import { esaViews, schoolInsight } from '@/lib/obecOps'
 import { SCHOOLS } from '@/data/schools'
 import type { School } from '@/types'
 import {
@@ -55,6 +58,8 @@ type RankKey = 'dataQualityScore' | 'interventionSuccessRate' | 'responseHours' 
 type Focus = 'none' | 'needs' | 'lowData' | 'lowSuccess'
 
 /** ผอ. (โรงเรียนเดียว) เปิดมาเจอหน้าที่ AI อ่านผลการดำเนินงานให้ — หน้าเดิม (ส่งออก CSV) เปิดได้ด้วย ?view=full */
+const OBEC_MASCOT = assetUrl('ChatBot.png')
+
 export default function SchoolPerformance() {
   const { schools, user } = useScopedData()
   const [params, setParams] = useSearchParams()
@@ -71,6 +76,8 @@ export default function SchoolPerformance() {
     )
   // เขต: โรงเรียนในเขตเรียงตามความจำเป็น + สถานะกับเขต · ตาราง · ส่งออก · ข้อมูลโรงเรียน อยู่ในหน้าเดียว
   if (user?.role === 'esa') return <EsaSchoolDesk />
+  // สพฐ.: สรุประดับทุกเขตก่อน แล้วเจาะลงทีละเขตด้วยหน้าเดียวกับที่เขตใช้
+  if (user?.role === 'obec') return <ObecSchoolDesk />
   return (
     <>
       {user?.role === 'school' && (
@@ -85,6 +92,37 @@ export default function SchoolPerformance() {
       )}
       <SchoolPerformanceFull />
     </>
+  )
+}
+
+/**
+ * ผลการดำเนินงานโรงเรียน — มุมมอง สพฐ.
+ *
+ * หน้าเดิมเป็นตารางกรองรวม 46 โรงเรียนทุกเขต เรียงตามคุณภาพข้อมูล ซึ่งบอกได้ว่า
+ * โรงเรียนไหนกรอกข้อมูลครบ แต่ไม่ได้บอกว่าโรงเรียนที่ต้องช่วยกระจุกอยู่เขตไหน
+ *
+ * ลำดับใหม่: AI สรุประดับทุกเขต → เลือกเขต → หน้าโรงเรียนในเขตตัวเดียวกับที่เขตใช้
+ * ปุ่มที่เป็นการกระทำของเขต (วางแผนสนับสนุน · ตัดสินใจคำขอ) ถูกซ่อนสำหรับ สพฐ.
+ * เพราะเขียนลงสมุดงานของเขตพร้อมชื่อผู้สั่ง
+ */
+function ObecSchoolDesk() {
+  const { districts, schools, cases, oosc } = useScopedData()
+  const { current } = useEsaPick()
+  const views = useMemo(() => esaViews(districts, schools, cases, oosc), [districts, schools, cases, oosc])
+  const insight = useMemo(() => schoolInsight(views), [views])
+  return (
+    <div className="animate-page-rise space-y-4">
+      <section className="flex items-start gap-3 rounded-2xl bg-white p-4 ring-1 ring-brand-200 sm:p-5">
+        <img src={OBEC_MASCOT} alt="" className="h-9 w-9 shrink-0 rounded-xl bg-brand-50 object-contain p-0.5" draggable={false} />
+        <div className="min-w-0">
+          <p className="text-[11.5px] font-semibold uppercase tracking-wide text-brand-600">AI อ่านให้แล้ว · ทุกเขต</p>
+          <p className="mt-0.5 text-[17px] font-bold leading-snug text-ink">{insight.headline}</p>
+          {insight.detail && <p className="mt-1 text-[14.5px] leading-snug text-ink-muted">{insight.detail}</p>}
+        </div>
+      </section>
+      <EsaPicker />
+      {current && <EsaSchoolDesk key={current} esaKey={current} />}
+    </div>
   )
 }
 
