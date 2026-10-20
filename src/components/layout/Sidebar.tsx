@@ -30,6 +30,18 @@ const DIRECTOR_GROUPS: { key: string; items: string[] }[] = [
 /** เมนูของเขต จัดตามงานของเขต — เขตช่วยโรงเรียน ไม่ได้ลงมือกับเคสเอง
  *  เดิม "การช่วยเหลือ" ป้ายแดง 30 อยู่ใต้ "ลงมือช่วยเหลือ" ทั้งที่เขตลงมือกับเคสไม่ได้ (canWorkCases) และ
  *  "สถานศึกษา" ซึ่งเป็นหน่วยที่เขตดูแลจริงอยู่กลางกลุ่มนั้น ป้ายงานของเขตคือคำขอจากโรงเรียนที่รอเขตตัดสินใจ */
+/** เมนูของ สพฐ. จัดตามงานของ สพฐ. เหมือนที่ ผอ. และเขตมีของตัวเอง
+ *  เดิม สพฐ. ใช้กลุ่มกลาง (มองเห็นทุกคน · ออกแบบโอกาส · ลงมือช่วยเหลือ) ซึ่งเรียง
+ *  ตามขั้นของแพลตฟอร์ม ไม่ใช่ตามงาน — "สถานศึกษา" ซึ่งเป็นหน่วยที่ สพฐ. กำกับจริง
+ *  ไปอยู่กลางกลุ่ม "ลงมือช่วยเหลือ" ทั้งที่ สพฐ. ลงมือกับเคสไม่ได้ (canWorkCases)
+ *  โครงเดียวกับ ESA_GROUPS เพราะ สพฐ. มีชุดหน้าเดียวกับเขต ต่างกันแค่ชั้นของหน่วย */
+const OBEC_GROUPS: { key: string; items: string[] }[] = [
+  { key: 'nav.section.obec.work', items: ['/', '/school'] },
+  { key: 'nav.section.esa.children', items: ['/geo', '/oosc', '/student', '/plan', '/intervention'] },
+  { key: 'nav.section.esa.results', items: ['/cause'] },
+  { key: 'nav.section.system', items: ['/settings'] },
+]
+
 const ESA_GROUPS: { key: string; items: string[] }[] = [
   { key: 'nav.section.esa.work', items: ['/', '/school'] },
   { key: 'nav.section.esa.children', items: ['/geo', '/oosc', '/student', '/plan', '/intervention'] },
@@ -96,7 +108,7 @@ export function Sidebar({
   // เขต: คำขอจากโรงเรียนที่รอเขตตัดสินใจ — ตัวเลขเดียวกับ "รอเขตตัดสินใจ" ในหน้าภาพรวมเขต
   const areaWaiting = area.requests.filter((r) => areaRequestStatus(r) === 'new').length
   if (esa && areaWaiting > 0) badges['/'] = { n: areaWaiting, color: '#dc2626' }
-  const custom = work ? DIRECTOR_GROUPS : esa ? ESA_GROUPS : null
+  const custom = work ? DIRECTOR_GROUPS : esa ? ESA_GROUPS : user?.role === 'obec' ? OBEC_GROUPS : null
   const groups = custom
     ? custom.map((g) => ({ key: g.key, items: g.items.map((to) => visible.find((n) => n.to === to)).filter((n): n is (typeof visible)[number] => Boolean(n)) }))
     : SECTIONS.map((s) => ({ key: `nav.section.${s}`, items: visible.filter((n) => n.section === s) }))

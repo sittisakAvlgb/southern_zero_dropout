@@ -61,6 +61,7 @@ export const thSBP: Dict = {
   'nav.school.esa': 'โรงเรียนในเขต',
   'nav.intervention.esa': 'ติดตามเคส',
   'nav.section.esa.work': 'งานของเขต',
+  'nav.section.obec.work': 'งานของ สพฐ.',
   'nav.section.esa.children': 'พื้นที่และเด็ก',
   'nav.section.esa.results': 'วิเคราะห์',
 
@@ -511,6 +512,7 @@ export const enSBP: Dict = {
   'nav.school.esa': 'Schools in the area',
   'nav.intervention.esa': 'Case tracking',
   'nav.section.esa.work': 'Area office work',
+  'nav.section.obec.work': 'OBEC work',
   'nav.section.esa.children': 'Areas & children',
   'nav.section.esa.results': 'Analysis',
 
@@ -956,6 +958,7 @@ export const ms: Dict = {
   'nav.school.esa': 'Sekolah di kawasan',
   'nav.intervention.esa': 'Jejak kes',
   'nav.section.esa.work': 'Kerja pejabat kawasan',
+  'nav.section.obec.work': 'Kerja OBEC',
   'nav.section.esa.children': 'Kawasan & kanak-kanak',
   'nav.section.esa.results': 'Analisis',
 
