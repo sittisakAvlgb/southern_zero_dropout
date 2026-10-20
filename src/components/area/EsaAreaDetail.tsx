@@ -4,7 +4,7 @@ import { motion } from 'framer-motion'
 import { useScopedData } from '@/auth/scope'
 import { canAccess } from '@/auth/roles'
 import { useI18n } from '@/i18n/LanguageContext'
-import { ESA_BY_KEY } from '@/data/esa'
+import { ESA_BY_KEY, esaOfDistrict } from '@/data/esa'
 import { formatNumber } from '@/lib/format'
 import { oosSplit } from '@/lib/oos'
 import { TIER_META, districtViews, schoolViews, type DistrictView, type Tier } from '@/lib/areaDeskOps'
@@ -55,12 +55,30 @@ function MeterRow({ label, value, avg, max, color, text }: { label: string; valu
  * ที่ต้องอ่านแกนสองแกน ที่นี่เริ่มจากเขต: ชิปเลือกอำเภอ · การ์ดอำเภอเทียบค่าเฉลี่ยเขตทีละด้าน · แผนที่ ·
  * โรงเรียน · สาเหตุเทียบค่าเฉลี่ยเขต · ตำบลที่ต้องเร่ง — เลือกอำเภอแล้วทุกส่วนด้านล่างตามไปด้วย
  */
-export function EsaAreaDetail({ tabs }: { tabs: ReactNode }) {
+export function EsaAreaDetail({ tabs, esaKey: esaKeyProp }: { tabs: ReactNode; esaKey?: string }) {
   const { t, pn, dn, tn, pick } = useI18n()
   const nav = useNavigate()
-  const { user, provinces, districts, tambons, schools, students, cases, oosc } = useScopedData()
+  const scoped = useScopedData()
+  const { user, provinces } = scoped
   const [params, setParams] = useSearchParams()
-  const esa = user?.esaKey ? ESA_BY_KEY[user.esaKey] : undefined
+  /** เขตที่หน้านี้กำลังพูดถึง
+   *
+   *  บัญชีเขตถูกจำกัดขอบเขตมาแล้วจาก `useScopedData()` จึงไม่ต้องกรองซ้ำ
+   *  ส่วน สพฐ. เห็นทั้ง 9 เขต หน้าเดียวกันนี้จึงรับ `esaKey` เข้ามาแล้วย่อ
+   *  ทุกชุดข้อมูลให้เหลือเขตนั้น — สพฐ. จะได้เห็นสิ่งเดียวกับที่เขตนั้นเห็น
+   *  ไม่ใช่หน้าคนละแบบที่ต้องมาเทียบกันเอง */
+  const esaKey = esaKeyProp ?? user?.esaKey
+  const esa = esaKey ? ESA_BY_KEY[esaKey] : undefined
+  const inEsa = useMemo(() => {
+    if (!esaKeyProp) return () => true
+    return (districtKey?: string) => esaOfDistrict(districtKey) === esaKeyProp
+  }, [esaKeyProp])
+  const districts = useMemo(() => scoped.districts.filter((d) => inEsa(d.key)), [scoped.districts, inEsa])
+  const tambons = useMemo(() => scoped.tambons.filter((x) => inEsa(x.districtKey)), [scoped.tambons, inEsa])
+  const schools = useMemo(() => scoped.schools.filter((x) => inEsa(x.districtKey)), [scoped.schools, inEsa])
+  const students = useMemo(() => scoped.students.filter((x) => inEsa(x.districtKey)), [scoped.students, inEsa])
+  const cases = useMemo(() => scoped.cases.filter((x) => inEsa(x.districtKey)), [scoped.cases, inEsa])
+  const oosc = useMemo(() => scoped.oosc.filter((x) => inEsa(x.districtKey)), [scoped.oosc, inEsa])
   const sel = districts.find((d) => d.key === params.get('d')) ?? null
   const pickDistrict = (key: string | null) => {
     const next = new URLSearchParams(params)
