@@ -21,6 +21,7 @@ import { useToast } from '@/components/ui/Toast'
 import { PATHWAY_COLOR, SCHOOL_OWNER_TH, stepDaysLeft, stepDueDate } from '@/data/plans'
 import { AGENCY_BY_ID, AGENCY_KIND_COLOR } from '@/data/agencies'
 import { formatNumber } from '@/lib/format'
+import { useDialogDismiss } from '@/lib/useDialog'
 import {
   IconAlert,
   IconArrowRight,
@@ -955,17 +956,14 @@ function PlanDrawer({
 }) {
   useEffect(() => {
     if (!p) return
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose()
-    }
-    window.addEventListener('keydown', onKey)
     const prev = document.body.style.overflow
     document.body.style.overflow = 'hidden'
     return () => {
-      window.removeEventListener('keydown', onKey)
       document.body.style.overflow = prev
     }
   }, [p, onClose])
+
+  const dialogRef = useDialogDismiss<HTMLElement>(onClose, !!p)
 
   if (!p) return null
 
@@ -981,6 +979,8 @@ function PlanDrawer({
         onClick={onClose}
       />
       <motion.aside
+        ref={dialogRef}
+        tabIndex={-1}
         role="dialog"
         aria-modal="true"
         aria-label={p.childName}

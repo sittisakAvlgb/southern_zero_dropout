@@ -23,6 +23,7 @@ import { ScopeBanner } from '@/components/auth/ScopeBanner'
 import { DirectOnlyNotice } from '@/components/auth/DirectOnlyNotice'
 import type { CaseRecord, CaseStage, RiskLevel } from '@/types'
 import { useFollowCases } from '@/components/followup/useFollowCases'
+import { useDialogDismiss } from '@/lib/useDialog'
 import {
   IconAlert,
   IconArrowRight,
@@ -938,17 +939,14 @@ function CaseDrawer({
 }) {
   useEffect(() => {
     if (!c) return
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose()
-    }
-    window.addEventListener('keydown', onKey)
     const prev = document.body.style.overflow
     document.body.style.overflow = 'hidden'
     return () => {
-      window.removeEventListener('keydown', onKey)
       document.body.style.overflow = prev
     }
   }, [c, onClose])
+
+  const dialogRef = useDialogDismiss<HTMLElement>(onClose, !!c)
 
   if (!c) return null
   const idx = Math.max(0, STAGE_SEQUENCE.indexOf(c.stage))
@@ -964,6 +962,8 @@ function CaseDrawer({
         onClick={onClose}
       />
       <motion.aside
+        ref={dialogRef}
+        tabIndex={-1}
         role="dialog"
         aria-modal="true"
         aria-label={c.studentName}

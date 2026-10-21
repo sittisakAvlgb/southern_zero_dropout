@@ -22,6 +22,7 @@ import { DISTRICT_BY_KEY as DISTRICT_GEO } from '@/data/geo'
 import { logKeyOf, useCaseLog } from '@/lib/caseLog'
 import { viewOosc } from '@/lib/ooscOps'
 import { SchoolOoscDesk } from '@/components/oosc/SchoolOoscDesk'
+import { useDialogDismiss } from '@/lib/useDialog'
 import {
   IconAlert,
   IconCheck,
@@ -1134,17 +1135,14 @@ function ChildDrawer({
 }) {
   useEffect(() => {
     if (!r) return
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose()
-    }
-    window.addEventListener('keydown', onKey)
     const prev = document.body.style.overflow
     document.body.style.overflow = 'hidden'
     return () => {
-      window.removeEventListener('keydown', onKey)
       document.body.style.overflow = prev
     }
   }, [r, onClose])
+
+  const dialogRef = useDialogDismiss<HTMLElement>(onClose, !!r)
 
   if (!r) return null
 
@@ -1158,6 +1156,8 @@ function ChildDrawer({
             onClick={onClose}
           />
           <motion.aside
+            ref={dialogRef}
+            tabIndex={-1}
             role="dialog"
             aria-modal="true"
             aria-label={r.name}

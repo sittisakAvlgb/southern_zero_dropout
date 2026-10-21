@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { useScrollLock } from '@/lib/useScrollLock'
+import { useDialogDismiss } from '@/lib/useDialog'
 import { motion } from 'framer-motion'
 import { IconArrowRight, IconClose } from '@/components/icons'
 import { BUCKET_META, CONSENT_META, type Bucket, type ConsentState, type Sla } from '@/lib/refOps'
@@ -22,11 +23,14 @@ export function Drawer({
   children: ReactNode
 }) {
   useScrollLock()
+  const ref = useDialogDismiss<HTMLElement>(onClose)
   // portal to body: inside the page wrappers the fixed layer opened 32px down and the top bar showed over the overlay
   return createPortal(
     <div className="fixed inset-0 z-[70] flex justify-end">
       <button type="button" aria-label="ปิด" className="absolute inset-0 bg-brand-950/35" onClick={onClose} />
       <motion.aside
+        ref={ref}
+        tabIndex={-1}
         role="dialog"
         aria-modal="true"
         aria-label={label}

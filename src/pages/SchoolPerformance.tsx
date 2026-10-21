@@ -25,6 +25,7 @@ import { esaViews, schoolInsight } from '@/lib/obecOps'
 import { SCHOOLS } from '@/data/schools'
 import type { School } from '@/types'
 import { useFollowCases } from '@/components/followup/useFollowCases'
+import { useDialogDismiss } from '@/lib/useDialog'
 import {
   IconAlert,
   IconArrowRight,
@@ -1428,17 +1429,14 @@ function SchoolDrawer({
 }) {
   useEffect(() => {
     if (!s) return
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose()
-    }
-    window.addEventListener('keydown', onKey)
     const prev = document.body.style.overflow
     document.body.style.overflow = 'hidden'
     return () => {
-      window.removeEventListener('keydown', onKey)
       document.body.style.overflow = prev
     }
   }, [s, onClose])
+
+  const dialogRef = useDialogDismiss<HTMLElement>(onClose, !!s)
 
   if (!s) return null
   const riskShare = Math.round((s.highRiskStudents / Math.max(1, s.totalStudents)) * 1000) / 10
@@ -1453,6 +1451,8 @@ function SchoolDrawer({
         onClick={onClose}
       />
       <motion.aside
+        ref={dialogRef}
+        tabIndex={-1}
         role="dialog"
         aria-modal="true"
         aria-label={s.name}

@@ -26,6 +26,7 @@ import { useToast } from '@/components/ui/Toast'
 import { useScrollLock } from '@/lib/useScrollLock'
 import { IconArrowRight, IconClose } from '@/components/icons'
 import { assetUrl } from '@/lib/asset'
+import { useDialogDismiss } from '@/lib/useDialog'
 
 const MASCOT = assetUrl('ChatBot.png')
 
@@ -101,10 +102,14 @@ export function PlanCaseView({
   const childRefs = useRefCases(user, roster, mineRefs, log, now).filter((r) => r.childId === p.childId && r.bucket !== 'done')
   const nav = useNavigate()
 
+  const dialogRef = useDialogDismiss<HTMLElement>(onClose)
+
   return (
     <div className="fixed inset-0 z-[70] flex justify-end">
       <button type="button" aria-label="ปิด" className="absolute inset-0 bg-brand-950/35" onClick={onClose} />
       <motion.aside
+        ref={dialogRef}
+        tabIndex={-1}
         role="dialog"
         aria-modal="true"
         aria-label={p.childName}

@@ -14,6 +14,7 @@ import { useToast } from '@/components/ui/Toast'
 import { useScrollLock } from '@/lib/useScrollLock'
 import { IconArrowRight, IconClose } from '@/components/icons'
 import { assetUrl } from '@/lib/asset'
+import { useDialogDismiss } from '@/lib/useDialog'
 
 const MASCOT = assetUrl('ChatBot.png')
 const PATHWAYS: Pathway[] = ['formalReturn', 'nfe', 'vocational', 'islamicSchool', 'apprentice', 'employment', 'specialNeeds', 'undecided']
@@ -126,10 +127,14 @@ export function CreatePlanView({
     onCreated(s.id)
   }
 
+  const dialogRef = useDialogDismiss<HTMLElement>(onClose)
+
   return (
     <div className="fixed inset-0 z-[70] flex justify-end">
       <button type="button" aria-label="ปิด" className="absolute inset-0 bg-brand-950/35" onClick={onClose} />
       <motion.aside
+        ref={dialogRef}
+        tabIndex={-1}
         role="dialog"
         aria-modal="true"
         aria-label={`สร้างแผนของ ${s.name}`}
