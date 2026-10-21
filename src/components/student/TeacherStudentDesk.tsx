@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { Suspense, lazy, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { canWorkCases } from '@/auth/roles'
 import { studentSystemic } from '@/lib/obecOps'
@@ -40,6 +40,10 @@ import { DirectorStudentPanel } from '@/components/support/DirectorStudentPanel'
 import { directorInbox, teamLoad } from '@/lib/directorOps'
 import { Attendance, CaseSummary, FamilyFromVisit, Grades, MicButton } from './DeskExtras'
 
+/** กล่องของเขตลากทั้ง `areaLog` และการนับปัญหาระดับเขตตามมา ซึ่งครูไม่เคยเปิด —
+ *  แยกก้อนตามบทบาทเหมือนที่ `/` แยกแผงของแต่ละที่นั่ง (ดู skill.md "Code-splitting") */
+const EsaStudentPanel = lazy(() => import('@/components/area/EsaStudentPanel').then((m) => ({ default: m.EsaStudentPanel })))
+
 const MASCOT = assetUrl('ChatBot.png')
 
 type Tab = 'care' | 'timeline' | 'school' | 'family'
@@ -75,6 +79,8 @@ export function TeacherStudentDesk() {
   const area = user?.role === 'esa' || user?.role === 'obec'
   /** สพฐ. ดูข้ามเขต จึงได้กล่องที่เชื่อมเด็กคนนี้กับรูปแบบระดับเขต */
   const obec = user?.role === 'obec'
+  /** เขตกำกับอำเภอและโรงเรียน จึงได้กล่องที่บอกว่าเคสนี้เป็นเรื่องเฉพาะรายหรือรูปแบบของพื้นที่ */
+  const esa = user?.role === 'esa'
   const mayAct = canWorkCases(user) && !director
   const [deciding, setDeciding] = useState(false)
   const by = byOf(user)
@@ -287,6 +293,10 @@ export function TeacherStudentDesk() {
             <Summary fc={fc} />
             {obec ? (
               <ObecStudentPanel fc={fc} all={list} onOpenArea={(k) => nav(`/area?esa=${k}`)} />
+            ) : esa ? (
+              <Suspense fallback={<div className="border-t border-surface-border bg-brand-50/40 p-4 sm:p-5"><Skeleton className="h-32 w-full rounded-2xl" /></div>}>
+                <EsaStudentPanel fc={fc} all={list} />
+              </Suspense>
             ) : director ? (
               <DirectorStudentPanel
                 fc={fc}
@@ -992,7 +1002,9 @@ function Appointments({ fc, entries, mayAct, onAdd, onLog }: { fc: FollowCase; e
           ))}
         </ul>
       ) : (
-        <p className="text-[14px] text-ink-muted">ยังไม่มีนัด — ทุกครั้งที่บันทึกผล ระบบจะถามว่าจะติดตามครั้งถัดไปเมื่อไร</p>
+        // ประโยคหลังขีดเป็นคำบอกวิธีใช้ของครู — ที่นั่งที่อ่านอย่างเดียว (ผอ. · เขต · สพฐ.)
+        // อ่านแล้วเหมือนระบบสั่งงานคนที่กดอะไรไม่ได้ จึงบอกแค่สถานะของเคส
+        <p className="text-[14px] text-ink-muted">{mayAct ? 'ยังไม่มีนัด — ทุกครั้งที่บันทึกผล ระบบจะถามว่าจะติดตามครั้งถัดไปเมื่อไร' : 'ยังไม่มีนัดติดตามที่ครูค้างไว้'}</p>
       )}
     </section>
   )

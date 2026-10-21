@@ -393,3 +393,96 @@ export function areaBrief(input: { districts: DistrictView[]; schools: SchoolVie
   if (over) out.push({ key: 'team', tone: 'yellow', text: `${over.role}ของเขตรับงานเกินกำลัง (${over.pct}%)`, go: { kind: 'team' } })
   return out.slice(0, 5)
 }
+
+// ── เด็กรายคนในสายตาของเขต ──────────────────────────────────
+
+/** ชั้นที่เหตุของเด็กคนนี้กระจุกอยู่ — บอกว่าเขตควรช่วยที่ชั้นไหน */
+export type AreaScale = 'esa' | 'district' | 'school' | 'single'
+
+export interface AreaStudentRead {
+  scale: AreaScale
+  /** พาดหัว — ตอบว่า "เฉพาะราย หรือรูปแบบของโรงเรียน / อำเภอ / เขต" */
+  headline: string
+  /** "เขตช่วยอะไรได้" */
+  rec: string
+  /** ปัญหาที่เกิดซ้ำหลายโรงเรียนที่ตรงกับเด็กคนนี้ — ประตูไปหน้ามาตรการของเขต */
+  pattern?: Pattern
+}
+
+/** ปัญหาหลักของเด็กคนนี้ ในคำชุดเดียวกับที่ `bottleneckOf()` เรียกปัญหาหลักของโรงเรียน
+ *
+ *  **ต้องเป็นสาเหตุหลัก (`causeKeys[0]`) ไม่ใช่ "มีสาเหตุนี้อยู่ในลิสต์"** เด็กหนึ่งคน
+ *  ถือ 3–5 สาเหตุ ถ้าเทียบแบบ `includes()` เด็กเกือบทุกคนจะเข้าเงื่อนไขของปัญหาที่
+ *  เกิดซ้ำทั้งเขต กล่องนี้ก็จะตอบว่า "เป็นรูปแบบของเขต" กับทุกคน ซึ่งแปลว่าไม่ได้
+ *  ตอบอะไรเลย — และคำเดียวกันนี้ยังใช้เทียบกับ `mainProblem` ของอำเภอและ
+ *  `bottleneck` ของโรงเรียน สองฝั่งจึงต้องนับจากสาเหตุหลักเหมือนกัน */
+const mainCauseOf = (c: FollowCase): string | undefined =>
+  c.s.parentContact === 'unreachable' ? 'ติดต่อผู้ปกครองไม่ได้' : CAUSE_TH[c.s.causeKeys[0] ?? '']
+
+/**
+ * เด็กหนึ่งคนในสายตาของเขต — "เคสนี้เป็นปัญหาเฉพาะราย หรือเป็นรูปแบบของพื้นที่"
+ *
+ * เขตไม่ได้ถือเคส ปุ่ม "โทรหาผู้ปกครอง" จึงไม่มีความหมายที่ชั้นนี้ (เหตุผลเดียวกับ
+ * `studentSystemic()` ของ สพฐ. ใน `obecOps.ts`) แต่หน่วยของเขตไม่ใช่เขตทั้งเขต
+ * เขตกำกับ **อำเภอและโรงเรียน** คำถามจึงลึกลงมาอีกชั้น: ติดคนเดียว = เรื่องของเคส ·
+ * ติดทั้งโรงเรียน = ส่งทีมลงโรงเรียนนั้น · ติดทั้งอำเภอ = จัดชุดสนับสนุนลงอำเภอ ·
+ * ติดซ้ำหลายโรงเรียน = ทำมาตรการระดับเขตครั้งเดียวแทนการตามรายคน
+ *
+ * **ไม่มีการนับเลขใหม่ที่นี่** ทุกตัวเลขมาจาก `schoolViews()` · `districtViews()` ·
+ * `crossSchoolPatterns()` ชุดเดียวกับที่หน้า `/school` · `/area` · หน้าแรกของเขตใช้
+ * (และส่ง `FollowCase[]` เข้าไปด้วยเหมือนกัน — ดูคอมเมนต์ของ `tally()` ข้างบน) เขต
+ * จึงอ่านตัวเลขเดียวกันไม่ว่าจะเปิดจากแฟ้มเด็กหรือจากหน้าของเขตเอง
+ */
+export function studentInArea(
+  child: FollowCase,
+  school: SchoolView | undefined,
+  district: DistrictView | undefined,
+  patterns: Pattern[],
+  dn: (key: string) => string,
+): AreaStudentRead {
+  const dName = `อำเภอ${dn(child.s.districtKey)}`
+  const sName = school ? `โรงเรียน${school.s.name}` : 'โรงเรียนของเด็กคนนี้'
+  const load = school ? `เกิน SLA ${school.overdue} จาก ${school.open} เคสที่เปิดอยู่` : ''
+
+  if (!child.open)
+    return {
+      scale: 'single',
+      headline: `เคสของเด็กคนนี้ปิดแล้ว${school ? ` — ${sName}ยังมี${load}` : ''}`,
+      rec: 'ไม่มีสิ่งที่เขตต้องสั่งการกับเคสนี้ — งานที่เหลือของโรงเรียนและอำเภออยู่ที่แถวด้านล่าง',
+    }
+
+  const mine = mainCauseOf(child)
+  /** การส่งต่อที่เกินกำหนดเป็นตัวขวางที่ชัดกว่าสาเหตุตั้งต้น และเป็นงานที่เขตประสานได้เอง */
+  const stuckWithAgency = child.refs.some((r) => r.bucket === 'breach')
+  const pattern = (stuckWithAgency ? patterns.find((p) => p.key === 'agency') : undefined) ?? patterns.find((p) => p.th === mine)
+  if (pattern)
+    return {
+      scale: 'esa',
+      headline: `เด็กคนนี้ติดที่ "${pattern.th}" ซึ่งเกิดซ้ำทั้งเขต — พบใน ${pattern.schools.length} โรงเรียน · ${pattern.n} ${pattern.key === 'agency' ? 'การส่งต่อ' : 'คน'}`,
+      rec: pattern.rec,
+      pattern,
+    }
+
+  if (mine && district && district.mainProblem === mine && district.schools.length >= 2)
+    return {
+      scale: 'district',
+      headline: `เด็กคนนี้ติดที่${mine} ซึ่งเป็นปัญหาหลักของ${dName}ด้วย — ${district.schools.length} โรงเรียนนำร่อง · เกิน SLA ${district.overdue} เคส`,
+      rec: district.rec,
+    }
+
+  if (mine && school && school.bottleneck === mine)
+    return {
+      scale: 'school',
+      headline: `เด็กคนนี้ติดที่${mine} ซึ่งเป็นปัญหาหลักของ${sName}ด้วย — ${load}`,
+      rec: school.ai,
+    }
+
+  return {
+    scale: 'single',
+    headline: `เคสนี้ยังเป็นรายกรณี — ${mine ? `เด็กคนนี้ติดที่${mine} ซึ่ง` : ''}ไม่ใช่ปัญหาหลักของ${sName}หรือของ${dName}`,
+    rec:
+      school && school.tier !== 'ok'
+        ? `ยังไม่ต้องให้เขตลงมาที่เคสนี้ แต่${sName}เองต้องการการสนับสนุน — ${school.ai}`
+        : `เจ้าของเคสคือ${child.s.caseOwner || 'ครูที่ยังไม่ได้มอบหมาย'} ที่${sName} — เขตติดตามผลผ่าน ผอ. ได้ ยังไม่ต้องลงมาที่เคสนี้`,
+  }
+}
