@@ -348,7 +348,8 @@ populations, and each seat's pages have already settled on one:
 | Seat | Source | Why |
 |---|---|---|
 | teacher · `school` · `esa` | `FILTERS` over `useFollowCases()` | their pages are the follow-up centre |
-| `obec` · `exec` | `cases.slaBreached` | their pages read all nine area offices at once |
+| `obec` | `FILTERS` over `useFollowCases()`, passed into `esaViews()` | its pages are the same follow-up centre, read across all nine |
+| `exec` | `cases.slaBreached` | no follow-up centre of its own |
 
 The menu badge, the opening numbers and the answers all have to pick the same
 one, per seat. This has broken three times (30 vs 32, 7 vs 8, 71 vs 81). A menu
@@ -358,10 +359,23 @@ badge should equal the number its page opens with — `today` for the teacher,
 The detail layer has to move with the headline. `schoolViews()` and
 `districtViews()` take an optional `follow?: FollowCase[]`; pass it and **both**
 `overdue` and `open` switch to that set, because they are read as one sentence
-("เกิน SLA x จาก y เคสที่เปิดอยู่"). The area office passes it (its own seat:
-`mayAct` / no `esaKeyProp`); `obec` does not, since every `obec` surface counts
-from `cases`. Leaving the rows on `cases` is how the home page ended up with a
+("เกิน SLA x จาก y เคสที่เปิดอยู่"). Both the area office and `obec` pass it, and
+`esaViews()` takes the same optional argument for the nine-area roll-up. Leaving the rows on `cases` is how the home page ended up with a
 KPI of 81 above four district cards that added to 71.
+
+### Scope and permission are different questions
+
+`mayAct = !esaKeyProp` used to stand for both: no area key meant "my own area
+office, so I may act". Once `obec` gained an **all areas** state its `esaKey` is
+undefined too, and that reading would have handed it the area office's buttons.
+Seat permission now arrives as an explicit `readOnly` prop on the borrowed desks
+(`EsaSchoolDesk`, `EsaOoscDesk`, `EsaAreaDetail`); `esaKey` only ever means
+"filter to this area office", and undefined only ever means "do not filter".
+
+`useEsaPick()` returns `current: string | null`, where `null` is **all areas**
+and the default. Do not make it default to a single area again: the AI strip
+above those pages reads all nine, so a page that silently opens on one area
+tells the executive that one area's numbers are the national picture.
 
 ## Code-splitting (who downloads what)
 
