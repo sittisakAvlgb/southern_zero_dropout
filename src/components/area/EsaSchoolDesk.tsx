@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { useScopedData } from '@/auth/scope'
 import { esaOfDistrict } from '@/data/esa'
 import { useI18n } from '@/i18n/LanguageContext'
@@ -58,7 +59,13 @@ export function EsaSchoolDesk({ esaKey: esaKeyProp, readOnly }: { esaKey?: strin
   const patterns = useMemo(() => crossSchoolPatterns(schools, students, referrals), [schools, students, referrals])
   const team = useMemo(() => teamRows(area), [area])
   const [tier, setTier] = useState<Tier | 'all'>('all')
-  const [sheet, setSheet] = useState<Sheet | null>(null)
+  /** `/school?s=TOR-005` เปิดลิ้นชักของโรงเรียนนั้นทันที — ชื่อพารามิเตอร์เดียวกับ
+   *  หน้าผลการดำเนินงานโรงเรียน (`SchoolPerformance.tsx`) ลิงก์จากที่อื่นจึงใช้ได้ทั้งสองหน้า */
+  const [params] = useSearchParams()
+  const [sheet, setSheet] = useState<Sheet | null>(() => {
+    const v = views.find((x) => x.s.id === params.get('s'))
+    return v ? { kind: 'school', v } : null
+  })
   const [mode, setMode] = useState<'list' | 'table'>('list')
   const [q, setQ] = useState('')
 

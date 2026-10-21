@@ -1,6 +1,6 @@
-import { useMemo, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { Select } from '@/components/ui/Select'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useScopedData } from '@/auth/scope'
 import { canAccess } from '@/auth/roles'
 import { useI18n } from '@/i18n/LanguageContext'
@@ -137,8 +137,17 @@ export function AreaOpsCenter() {
   const compare = useMemo(() => compareSchools(views), [views])
 
   const [sheet, setSheet] = useState<Sheet | null>(null)
-  const [folds, setFolds] = useState<Record<string, boolean>>({})
+  /** `/?fold=pattern` เปิดชั้น "ข้อมูลประกอบ" ที่หัวข้อนั้นไว้ให้แล้ว แล้วเลื่อนไปที่ชั้นนั้น
+   *  — กล่องของเขตบนแฟ้มเด็กเสนอ "สร้างมาตรการระดับเขต" ซึ่งอยู่ในชั้นนี้ ถ้าลิงก์พามา
+   *  ลงหน้าแรกแล้วชั้นยังพับอยู่ ปุ่มนั้นก็พาไปไหนไม่ได้จริง */
+  const [params] = useSearchParams()
+  const asked = params.get('fold')
+  const [folds, setFolds] = useState<Record<string, boolean>>(() => (asked ? { [asked]: true } : {}))
   const toggle = (k: string) => setFolds((f) => ({ ...f, [k]: !f[k] }))
+  useEffect(() => {
+    if (!asked || loading) return
+    document.getElementById('more')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }, [asked, loading])
   const [ask, setAsk] = useState<string | null>(null)
   const [allBrief, setAllBrief] = useState(false)
   const [allSchools, setAllSchools] = useState(false)
