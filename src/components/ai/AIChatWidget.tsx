@@ -435,24 +435,21 @@ export function AIChatWidget() {
     setOpen(false)
   }
 
-  /** คำตอบหนึ่งเดียว ใช้ทั้งตอนออกปกติและตอนหลังจากโมเดลล้ม
-   *
-   *  คนที่ทำงานกับเด็กรายคน (ครู · ผอ.) ถามจากเคสของตัวเอง คำตอบจึงต้อง
-   *  มาจาก `FollowCase` ชุดเดียวกับหน้าติดตามการช่วยเหลือ ไม่ใช่ข้อมูลดิบ
-   *  (ดูเหตุเต็มใน `caseAnswer`) ไม่เข้าสาขาไหนค่อยส่งต่อให้ `localAnswer` */
-  const answer = (q: string) => {
-    if (caseworker && 'list' in followBuilt) {
-      const hit = caseAnswer(q, followBuilt.list, th, work)
-      if (hit) return hit
-    }
-    return localAnswer(q, user, lang)
-  }
-
   const send = async (text: string) => {
     const q = text.trim()
     if (!q || streaming) return
     setInput('')
     const userMsg: ChatMsg = { role: 'user', text: q }
+
+    // เคสรายคนตอบในเครื่องเสมอ แม้ตอนที่โมเดลพร้อมใช้ — คำตอบตรงกับหน้าจอ
+    // โดยโครงสร้าง มาทันที และข้อมูลเด็กไม่ต้องออกจากเบราว์เซอร์ (ชุดข้อมูลที่
+    // ส่งให้โมเดลจงใจไม่มีชื่อเด็กอยู่แล้ว ดูกฎ PDPA ใน `buildSystemPrompt`)
+    // คำถามพิมพ์เองที่ไม่เข้าสาขาไหนยังส่งให้โมเดลตามเดิม
+    const direct = caseworker && 'list' in followBuilt ? caseAnswer(q, followBuilt.list, th, work) : null
+    if (direct) {
+      setMessages((m) => [...m, userMsg, { role: 'assistant', text: direct.text, action: direct.action }])
+      return
+    }
 
     if (realAI) {
       setMessages((m) => [...m, userMsg, { role: 'assistant', text: '' }])
@@ -479,7 +476,7 @@ export function AIChatWidget() {
         if (!acc.trim()) throw { status: 0, message: 'empty' }
       } catch (err) {
         if ((err as { status?: number })?.status === 503) setRealAI(false)
-        const local = answer(q)
+        const local = localAnswer(q, user, lang)
         setMessages((m) => {
           const next = [...m]
           next[next.length - 1] = { role: 'assistant', text: local.text, action: local.action }
@@ -494,7 +491,7 @@ export function AIChatWidget() {
 
     // Built-in engine: a lookup over data already in memory, so it lands
     // immediately. Faking a thinking pause only made it feel slower.
-    const local = answer(q)
+    const local = localAnswer(q, user, lang)
     setMessages((m) => [
       ...m,
       userMsg,

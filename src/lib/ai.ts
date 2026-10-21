@@ -100,9 +100,28 @@ export function buildDataContext(user: User | null, lang: Lang): string {
   lines.push(`- normal: ${fmt(stats.normal)} | watchlist: ${fmt(stats.watchlist)} | high-risk: ${fmt(stats.highRisk)} | dropped out: ${fmt(stats.dropout)} | returned: ${fmt(stats.returned)}`)
   lines.push(`- provinces in scope: ${stats.provincesCount} | schools in scope: ${schools.length}`)
   lines.push('')
-  lines.push(`TOP ${topRisk.length} HIGHEST-RISK PROVINCES (name · risk-rate% · high-risk students · top cause):`)
-  for (const p of topRisk)
-    lines.push(`- ${nm(p.key)} · ${p.riskRate.toFixed(1)}% · ${fmt(p.highRiskStudents)} · ${th ? CAUSE_LABEL[p.topCauses[0].key].th : CAUSE_LABEL[p.topCauses[0].key].en}`)
+  // หน่วยที่แต่ละที่นั่งสั่งการไม่เหมือนกัน — สพฐ. กำกับเขต เขตกำกับอำเภอ ถ้าส่ง
+  // ตารางจังหวัดให้ทุกคนเหมือนกัน โมเดลก็ตอบเป็นจังหวัดให้ทุกคน ซึ่งเป็นคำตอบ
+  // ที่ สพฐ. เอาไปสั่งการต่อไม่ได้ (และ "ทั้ง 3 จังหวัด" ก็คือทั้งขอบเขตอยู่แล้ว)
+  if (role === 'obec') {
+    const views = esaViews(scopedDistricts(user), schools, cases, scopedOosc(user))
+    lines.push('AREA OFFICES / เขตพื้นที่การศึกษา (name · risk-rate% · high-risk · overdue(SLA) · unassigned · out-of-school with no plan · tier):')
+    for (const v of views)
+      lines.push(`- ${v.esa.th} · ${v.riskRate.toFixed(1)}% · ${fmt(v.highRisk)} · ${fmt(v.overdue)} · ${fmt(v.unassigned)} · ${fmt(v.oosNoPlan)} · ${v.tier}`)
+    lines.push('')
+    lines.push('When asked where to act, answer by AREA OFFICE (เขต), not by province.')
+  } else if (role === 'esa') {
+    const dv = districtViews(scopedDistricts(user), schoolViews(schools, cases, scopedStudents(user)), cases, scopedOosc(user))
+    lines.push('DISTRICTS / อำเภอ (name · risk-rate% · overdue(SLA) · unassigned · out-of-school with no plan · tier):')
+    for (const v of dv)
+      lines.push(`- ${DISTRICT_NAME[v.d.key]?.[lang] ?? v.d.key} · ${v.d.riskRate.toFixed(1)}% · ${fmt(v.overdue)} · ${fmt(v.unassigned)} · ${fmt(v.oosNoPlan)} · ${v.tier}`)
+    lines.push('')
+    lines.push('When asked where to act, answer by DISTRICT (อำเภอ) or by school — this account covers one area office, so "which area office" is not a useful answer.')
+  } else {
+    lines.push(`TOP ${topRisk.length} HIGHEST-RISK PROVINCES (name · risk-rate% · high-risk students · top cause):`)
+    for (const p of topRisk)
+      lines.push(`- ${nm(p.key)} · ${p.riskRate.toFixed(1)}% · ${fmt(p.highRiskStudents)} · ${th ? CAUSE_LABEL[p.topCauses[0].key].th : CAUSE_LABEL[p.topCauses[0].key].en}`)
+  }
   lines.push('')
   lines.push('LEADING RISK CAUSES (share of high-risk):')
   for (const c of topCauses)
