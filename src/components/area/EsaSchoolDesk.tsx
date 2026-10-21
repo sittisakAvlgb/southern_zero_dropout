@@ -22,7 +22,7 @@ type Sheet = { kind: 'support'; v: SchoolView } | { kind: 'request'; r: AreaRequ
  * และปุ่มหลักคือ "วางแผนสนับสนุน" — มุมมองตาราง (เรียงได้ทุกคอลัมน์ · ส่งออก CSV) และข้อมูลโรงเรียน
  * อยู่ในหน้านี้ เขตจึงไม่ต้องไปตารางเดิมที่มีแถบเตือนสามแถบและตัวเลขเคสค้างคนละชุด
  */
-export function EsaSchoolDesk({ esaKey: esaKeyProp }: { esaKey?: string } = {}) {
+export function EsaSchoolDesk({ esaKey: esaKeyProp, readOnly }: { esaKey?: string; readOnly?: boolean } = {}) {
   const { dn } = useI18n()
   const { push } = useToast()
   const scoped = useScopedData()
@@ -38,7 +38,10 @@ export function EsaSchoolDesk({ esaKey: esaKeyProp }: { esaKey?: string } = {}) 
   const referrals = scoped.referrals
   /** การสนับสนุนและการตัดสินใจเป็นการกระทำของเขตนั้น เขียนลงสมุดงานของเขตพร้อม
    *  ชื่อผู้สั่ง สพฐ. ที่เปิดดูเขตอื่นจึงอ่านได้อย่างเดียว */
-  const mayAct = !esaKeyProp
+  /** `readOnly` มาจากที่นั่งผู้ใช้ ไม่ใช่จากขอบเขตที่เลือก — สพฐ. เลือก "ทุกเขต"
+   *  ได้แล้ว `esaKeyProp` จึงเป็น undefined ได้ทั้งที่ยังเป็น สพฐ. อยู่ ถ้ายังผูก
+   *  สิทธิ์ไว้กับ `!esaKeyProp` เหมือนเดิม ปุ่มของเขตจะโผล่ให้ สพฐ. ทันทีที่กดทุกเขต */
+  const mayAct = !readOnly
   const area = useAreaLog(esaKeyProp ?? user?.esaKey)
   const by = user?.name ?? 'ผู้บริหารเขต'
   /** `mayAct` คือ "นี่คือเขตของบัญชีนี้เอง" — เขตนับเกิน SLA จาก `FollowCase`
@@ -49,6 +52,8 @@ export function EsaSchoolDesk({ esaKey: esaKeyProp }: { esaKey?: string } = {}) 
     () => (mayAct && 'list' in followBuilt ? followBuilt.list : undefined),
     [mayAct, followBuilt],
   )
+  /** สพฐ. ที่ยังไม่เจาะลงเขตไหน — สมุดงานของเขตเป็นของรายเขต ไม่มีเล่มรวม */
+  const allEsa = readOnly && !esaKeyProp
   const views = useMemo(() => schoolViews(schools, cases, students, follow), [schools, cases, students, follow])
   const patterns = useMemo(() => crossSchoolPatterns(schools, students, referrals), [schools, students, referrals])
   const team = useMemo(() => teamRows(area), [area])
@@ -67,7 +72,7 @@ export function EsaSchoolDesk({ esaKey: esaKeyProp }: { esaKey?: string } = {}) 
     <div className="animate-page-rise space-y-5 pb-8">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div className="min-w-0">
-          <h1 className="text-[24px] font-bold leading-tight text-ink">โรงเรียนในเขต</h1>
+          <h1 className="text-[24px] font-bold leading-tight text-ink">{allEsa ? 'โรงเรียนทุกเขต' : 'โรงเรียนในเขต'}</h1>
           <p className="mt-1 text-[14.5px] text-ink-muted">เรียงจากโรงเรียนที่ต้องช่วยก่อน — เขตเข้ามาช่วยเมื่อโรงเรียนแก้ต่อเองไม่ไหว</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -114,9 +119,11 @@ export function EsaSchoolDesk({ esaKey: esaKeyProp }: { esaKey?: string } = {}) 
           aria-label="ค้นหาชื่อโรงเรียนหรืออำเภอ"
           className="mt-3 w-full rounded-xl border border-surface-border bg-white px-4 py-2.5 text-[15px] text-ink outline-none focus:border-brand-400 focus:ring-2 focus:ring-brand-100"
         />
+        {!allEsa && (
         <p className="mt-3 border-t border-surface-border pt-3 text-[14px] text-ink-muted">
           คำขอรอเขตตัดสินใจ <b className={waiting ? 'text-red-700' : 'text-ink'}>{waiting}</b> · เขตกำลังสนับสนุน <b className="text-ink">{active}</b> · โรงเรียนรายงานผลแล้ว <b className="text-ink">{reported}</b>
         </p>
+      )}
       </div>
 
       {/* ── โรงเรียน: แถวเดียวต่อโรงเรียนในการ์ดเดียว — ชื่อ · ตัวเลขสามตัวในบรรทัดเดียว · AI · สถานะกับเขต · ปุ่มหลักด้านขวา ── */}

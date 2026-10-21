@@ -113,10 +113,10 @@ function ObecPlanDesk() {
   return (
     <div className="animate-page-rise space-y-4">
       <EsaPicker />
-      {current && (
+      {(
         <DirectorPlanDesk
-          key={current}
-          esaKey={current}
+          key={current ?? 'all'}
+          esaKey={current ?? undefined}
           onFullView={() => {
             const next = new URLSearchParams(params)
             next.set('view', 'full')

@@ -11,10 +11,11 @@
 import type { CaseRecord, District, OoscRecord, School } from '@/types'
 import { ESA_BY_KEY, esaOfDistrict, type EsaArea } from '@/data/esa'
 import { stageOf } from './areaOps'
-import { ATTN_META, type FollowCase } from './followOps'
+import { ATTN_META, FILTERS, type FollowCase } from './followOps'
 import { TIER_META, type Tier } from './areaDeskOps'
 
 const r1 = (n: number) => Math.round(n * 10) / 10
+const slaTest = FILTERS.find((f) => f.k === 'sla')!.test
 const tierOf = (pts: number): Tier => (pts >= 4 ? 'urgent' : pts >= 3 ? 'follow' : pts >= 2 ? 'watch' : 'ok')
 
 export interface EsaView {
@@ -45,6 +46,9 @@ export function esaViews(
   schools: School[],
   cases: CaseRecord[],
   oosc: OoscRecord[],
+  /** ชุดเคสของหน้าติดตามการช่วยเหลือ — ส่งมาเมื่อไร "เกิน SLA" กับ "เปิดอยู่"
+   *  ย้ายไปใช้ชุดนั้นพร้อมกัน ไม่ส่งมา = นับจาก `cases` (ดู `tally` ใน areaDeskOps) */
+  follow?: FollowCase[],
 ): EsaView[] {
   // รวมอำเภอเป็นเขต — อำเภอคือแถวข้อมูลจริง เขตเป็นการจัดกลุ่ม (ดู data/esa.ts)
   const groups = new Map<string, District[]>()
@@ -72,8 +76,10 @@ export function esaViews(
         districts: ds.length,
         schools: sv.length,
         schoolsToWatch: sv.filter((s) => s.highRiskStudents / Math.max(1, s.totalStudents) >= 0.13).length,
-        openCases: inEsa.filter((c) => stageOf(c) !== 'done').length,
-        overdue: inEsa.filter((c) => c.slaBreached).length,
+        // คู่ "เกิน SLA x จาก y เคสที่เปิดอยู่" ต้องมาจากชุดเดียวกันเสมอ — ดู
+        // คอมเมนต์ของ `tally` ใน areaDeskOps.ts
+        openCases: follow ? follow.filter((c) => c.open && dk.has(c.s.districtKey)).length : inEsa.filter((c) => stageOf(c) !== 'done').length,
+        overdue: follow ? follow.filter((c) => slaTest(c) && dk.has(c.s.districtKey)).length : inEsa.filter((c) => c.slaBreached).length,
         unassigned: inEsa.filter((c) => stageOf(c) === 'unassigned').length,
         oosNoPlan: oosc.filter(
           (r) => dk.has(r.districtKey) && !r.planId && r.status !== 'returned' && r.status !== 'working',

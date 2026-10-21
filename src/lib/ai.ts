@@ -105,7 +105,7 @@ export function buildDataContext(user: User | null, lang: Lang, follow?: FollowC
   // ตารางจังหวัดให้ทุกคนเหมือนกัน โมเดลก็ตอบเป็นจังหวัดให้ทุกคน ซึ่งเป็นคำตอบ
   // ที่ สพฐ. เอาไปสั่งการต่อไม่ได้ (และ "ทั้ง 3 จังหวัด" ก็คือทั้งขอบเขตอยู่แล้ว)
   if (role === 'obec') {
-    const views = esaViews(scopedDistricts(user), schools, cases, scopedOosc(user))
+    const views = esaViews(scopedDistricts(user), schools, cases, scopedOosc(user), follow)
     lines.push('AREA OFFICES / เขตพื้นที่การศึกษา (name · risk-rate% · high-risk · overdue(SLA) · unassigned · out-of-school with no plan · tier):')
     for (const v of views)
       lines.push(`- ${v.esa.th} · ${v.riskRate.toFixed(1)}% · ${fmt(v.highRisk)} · ${fmt(v.overdue)} · ${fmt(v.unassigned)} · ${fmt(v.oosNoPlan)} · ${v.tier}`)
@@ -238,7 +238,7 @@ export function localAnswer(
         action: act(th ? 'เปิดเจาะลึกรายพื้นที่' : 'Open the area detail', `/area?d=${dv[0].d.key}`),
       }
     }
-    const views = esaViews(scopedDistricts(user), schools, cases, scopedOosc(user))
+    const views = esaViews(scopedDistricts(user), schools, cases, scopedOosc(user), follow)
     const top = views.slice(0, 3)
     if (!top.length)
       return { text: th ? 'ยังไม่มีข้อมูลพื้นที่ในขอบเขตของคุณ' : 'No area data in your scope yet.' }
@@ -275,7 +275,7 @@ ${list}`,
         action: act(th ? 'เปิดทะเบียนเด็กนอกระบบ' : 'Open the registry', '/oosc'),
       }
     }
-    const views = esaViews(scopedDistricts(user), schools, cases, rows)
+    const views = esaViews(scopedDistricts(user), schools, cases, rows, follow)
     const worst = [...views].sort((a, b) => b.oosNoPlan - a.oosNoPlan)[0]
     return {
       text: th

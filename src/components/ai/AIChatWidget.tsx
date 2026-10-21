@@ -204,7 +204,7 @@ export function AIChatWidget() {
     followList.filter(FILTERS.find((f) => f.k === k)!.test).length
   /** คำตอบรายอำเภอของเขตต้องนับเกิน SLA จากชุดเดียวกับหน้าแรกและป้ายเมนู
    *  บทบาทอื่นส่ง undefined ไป localAnswer จะนับจาก cases ตามเดิม */
-  const esaFollow = user?.role === 'esa' ? followList : undefined
+  const esaFollow = user?.role === 'esa' || user?.role === 'obec' ? followList : undefined
 
   /** The opening message carries real numbers, so saying hello is also useful.
    *  Only built while the panel is open — it walks the scoped datasets. */
@@ -365,7 +365,7 @@ export function AIChatWidget() {
     // สพฐ. กำกับเขต บรรทัดแรกจึงต้องเป็น "เขตไหนต้องช่วยก่อน" ไม่ใช่ยอดทะเบียน
     // รวม ซึ่งบอกขนาดแต่ไม่บอกว่าจะสั่งการที่ไหน — ตัวเลขชุดเดียวกับหน้าแรก
     if (user?.role === 'obec') {
-      const views = esaViews(scopedDistricts(user), scopedSchools(user), cases, scopedOosc(user))
+      const views = esaViews(scopedDistricts(user), scopedSchools(user), cases, scopedOosc(user), followList)
       const urgent = views.filter((v) => v.tier === 'urgent').length
       const noOwner = views.reduce((a, v) => a + v.unassigned, 0)
       const watch = views.reduce((a, v) => a + v.schoolsToWatch, 0)

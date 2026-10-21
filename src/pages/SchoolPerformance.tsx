@@ -24,6 +24,7 @@ import { assetUrl } from '@/lib/asset'
 import { esaViews, schoolInsight } from '@/lib/obecOps'
 import { SCHOOLS } from '@/data/schools'
 import type { School } from '@/types'
+import { useFollowCases } from '@/components/followup/useFollowCases'
 import {
   IconAlert,
   IconArrowRight,
@@ -108,7 +109,11 @@ export default function SchoolPerformance() {
 function ObecSchoolDesk() {
   const { districts, schools, cases, oosc } = useScopedData()
   const { current } = useEsaPick()
-  const views = useMemo(() => esaViews(districts, schools, cases, oosc), [districts, schools, cases, oosc])
+  /** สพฐ. นับ "เกิน SLA" จากชุดเดียวกับหน้าติดตามการช่วยเหลือที่อยู่ใต้แถบนี้
+   *  ไม่งั้นแถบ AI บอก 339 ขณะที่ตัวหน้าใต้มันบอก 355 บนจอเดียวกัน */
+  const { built: followBuilt } = useFollowCases()
+  const follow = useMemo(() => ('list' in followBuilt ? followBuilt.list : undefined), [followBuilt])
+  const views = useMemo(() => esaViews(districts, schools, cases, oosc, follow), [districts, schools, cases, oosc, follow])
   const insight = useMemo(() => schoolInsight(views), [views])
   return (
     <div className="animate-page-rise space-y-4">
@@ -121,7 +126,7 @@ function ObecSchoolDesk() {
         </div>
       </section>
       <EsaPicker />
-      {current && <EsaSchoolDesk key={current} esaKey={current} />}
+      <EsaSchoolDesk key={current ?? 'all'} esaKey={current ?? undefined} readOnly />
     </div>
   )
 }

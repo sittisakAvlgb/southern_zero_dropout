@@ -69,7 +69,7 @@ function ObecAreaDetail() {
     <div className="animate-page-rise space-y-4">
       <AreaViewTabs />
       <EsaPicker />
-      {current && <EsaAreaDetail key={current} esaKey={current} tabs={null} />}
+      <EsaAreaDetail key={current ?? 'all'} esaKey={current ?? undefined} readOnly tabs={null} />
     </div>
   )
 }

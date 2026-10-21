@@ -56,7 +56,7 @@ function MeterRow({ label, value, avg, max, color, text }: { label: string; valu
  * ที่ต้องอ่านแกนสองแกน ที่นี่เริ่มจากเขต: ชิปเลือกอำเภอ · การ์ดอำเภอเทียบค่าเฉลี่ยเขตทีละด้าน · แผนที่ ·
  * โรงเรียน · สาเหตุเทียบค่าเฉลี่ยเขต · ตำบลที่ต้องเร่ง — เลือกอำเภอแล้วทุกส่วนด้านล่างตามไปด้วย
  */
-export function EsaAreaDetail({ tabs, esaKey: esaKeyProp }: { tabs: ReactNode; esaKey?: string }) {
+export function EsaAreaDetail({ tabs, esaKey: esaKeyProp, readOnly }: { tabs: ReactNode; esaKey?: string; readOnly?: boolean }) {
   const { t, pn, dn, tn, pick } = useI18n()
   const nav = useNavigate()
   const scoped = useScopedData()
@@ -88,12 +88,13 @@ export function EsaAreaDetail({ tabs, esaKey: esaKeyProp }: { tabs: ReactNode; e
     setParams(next, { replace: true })
   }
 
-  /** เขตของตัวเอง (ไม่มี `esaKeyProp`) นับเกิน SLA จาก `FollowCase` เหมือนหน้าแรก
-   *  และป้ายเมนู · สพฐ. ที่ส่องเขตอื่นยังนับจาก `cases` ตามหน้าของ สพฐ. */
+  /** เขตของตัวเองนับเกิน SLA จาก `FollowCase` เหมือนหน้าแรกและป้ายเมนู · สพฐ.
+   *  ยังนับจาก `cases` ตามหน้าของ สพฐ. เงื่อนไขคือ *ที่นั่ง* (`readOnly`) ไม่ใช่
+   *  ขอบเขตที่เลือก เพราะ สพฐ. เลือก "ทุกเขต" แล้ว `esaKeyProp` ก็เป็น undefined */
   const { built: followBuilt } = useFollowCases()
   const follow = useMemo(
-    () => (!esaKeyProp && 'list' in followBuilt ? followBuilt.list : undefined),
-    [esaKeyProp, followBuilt],
+    () => (!readOnly && 'list' in followBuilt ? followBuilt.list : undefined),
+    [readOnly, followBuilt],
   )
   const views = useMemo(() => schoolViews(schools, cases, students, follow), [schools, cases, students, follow])
   const dviews = useMemo(() => districtViews(districts, views, cases, oosc, follow), [districts, views, cases, oosc, follow])
@@ -160,7 +161,7 @@ export function EsaAreaDetail({ tabs, esaKey: esaKeyProp }: { tabs: ReactNode; e
             {province ? ` · ${pn(province.key)}` : ''}
             {sel && esa ? ` · ${pick(esa)}` : ''}
           </p>
-          <h1 className="mt-1 text-[24px] font-bold leading-tight sm:text-[28px]">{sel ? `อำเภอ${dn(sel.key)}` : esa ? pick(esa) : 'เขตพื้นที่'}</h1>
+          <h1 className="mt-1 text-[24px] font-bold leading-tight sm:text-[28px]">{sel ? `อำเภอ${dn(sel.key)}` : esa ? pick(esa) : readOnly ? 'ทุกเขต' : 'เขตพื้นที่'}</h1>
           <p className="mt-1 text-[14.5px] text-white/85">
             {sel
               ? `${sel.tambons} ตำบล · ${formatNumber(sel.schools)} สถานศึกษา · ${sel.hasDistrictTeam ? 'มีทีมสหวิชาชีพอำเภอ' : 'ยังไม่มีทีมสหวิชาชีพอำเภอ'}`

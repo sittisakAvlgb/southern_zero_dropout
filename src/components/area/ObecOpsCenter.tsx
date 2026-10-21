@@ -9,6 +9,7 @@ import { useSimulatedLoading } from '@/lib/useLoading'
 import { TIER_META, type Tier } from '@/lib/areaDeskOps'
 import { esaBrief, esaViews, type EsaView } from '@/lib/obecOps'
 import { Skeleton } from '@/components/ui/Skeleton'
+import { useFollowCases } from '@/components/followup/useFollowCases'
 
 const MASCOT = assetUrl('ChatBot.png')
 const TONE_DOT: Record<'red' | 'amber' | 'blue', string> = {
@@ -35,7 +36,11 @@ export function ObecOpsCenter() {
   const nav = useNavigate()
   const { user, districts, schools, cases, oosc } = useScopedData()
   const loading = useSimulatedLoading(450)
-  const views = useMemo(() => esaViews(districts, schools, cases, oosc), [districts, schools, cases, oosc])
+  /** สพฐ. นับ "เกิน SLA" จากชุดเดียวกับหน้าติดตามการช่วยเหลือที่อยู่ใต้แถบนี้
+   *  ไม่งั้นแถบ AI บอก 339 ขณะที่ตัวหน้าใต้มันบอก 355 บนจอเดียวกัน */
+  const { built: followBuilt } = useFollowCases()
+  const follow = useMemo(() => ('list' in followBuilt ? followBuilt.list : undefined), [followBuilt])
+  const views = useMemo(() => esaViews(districts, schools, cases, oosc, follow), [districts, schools, cases, oosc, follow])
   const brief = useMemo(() => esaBrief(views), [views])
   const [allBrief, setAllBrief] = useState(false)
   const [tier, setTier] = useState<Tier | 'all'>('all')
@@ -105,7 +110,11 @@ export function ObecOpsCenter() {
       <div className="grid grid-cols-2 overflow-hidden rounded-2xl bg-white ring-1 ring-surface-border lg:grid-cols-4">
         {[
           { th: 'เขตที่ต้องช่วยเร่งด่วน', n: urgent.length, red: urgent.length > 0, to: '' },
-          { th: 'โรงเรียนที่ต้องช่วย', n: schoolsToWatch, red: false, to: '/school' },
+          // ตัวนี้นับ "สัดส่วนเด็กเสี่ยงสูง ≥ 13%" ไม่ใช่ระดับความเร่งด่วนแบบที่ /school ใช้
+          // เดิมเขียนว่า "โรงเรียนที่ต้องช่วย" แล้วลิงก์ไป /school ซึ่งตอนนี้แสดงทุกเขตแล้ว
+          // และบอก "ต้องช่วยเร่งด่วน 25 · ต้องติดตาม 10" — คนละนิยาม ชื่อเดียวกัน
+          // ใช้ถ้อยคำเดียวกับแถบ AI บน /school ที่บอก "สัดส่วนเด็กเสี่ยงเกินเกณฑ์ 20 จาก 46 แห่ง"
+          { th: 'โรงเรียนที่สัดส่วนเด็กเสี่ยงเกินเกณฑ์', n: schoolsToWatch, red: false, to: '/school' },
           { th: 'เคสเกิน SLA', n: overdue, red: false, to: '/intervention' },
           { th: 'เด็กนอกระบบยังไม่มีแผน', n: oosNoPlan, red: false, to: '/oosc' },
         ].map((x, i) => (

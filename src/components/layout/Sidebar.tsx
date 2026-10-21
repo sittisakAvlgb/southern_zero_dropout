@@ -91,7 +91,9 @@ export function Sidebar({
   const { built: followBuilt } = useFollowCases()
   const followList = 'list' in followBuilt ? followBuilt.list : []
   const testOf = (k: 'sla' | 'today') => FILTERS.find((f) => f.k === k)!.test
-  const urgent = esa
+  // สพฐ. ก็นับจาก FollowCase แล้ว (หน้าแรกและแถบ AI ย้ายมาชุดเดียวกัน) เหลือ
+  // ศอ.บต. กับหน่วยงานที่ยังนับจาก cases
+  const urgent = esa || user?.role === 'obec'
     ? followList.filter(testOf('sla')).length
     : user?.role === 'teacher'
       ? followList.filter(testOf('today')).length

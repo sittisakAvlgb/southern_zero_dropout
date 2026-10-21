@@ -33,7 +33,7 @@ const PAGE = 10
  * เขตไม่ได้ลงพื้นที่เอง สิ่งที่เขตต้องรู้คือ เด็กเดินมาถึงไหนแล้ว · ติดอยู่ขั้นไหน · อำเภอไหนต้องช่วย
  * และเขตทำอะไรได้ (สร้างมาตรการให้ทั้งอำเภอ) — รายชื่อเด็กยังเห็นได้ (เขตเห็นชื่อได้แต่ลงมือไม่ได้)
  */
-export function EsaOoscDesk({ esaKey: esaKeyProp }: { esaKey?: string } = {}) {
+export function EsaOoscDesk({ esaKey: esaKeyProp, readOnly }: { esaKey?: string; readOnly?: boolean } = {}) {
   const { t, dn, tn } = useI18n()
   const { push } = useToast()
   const scoped = useScopedData()
@@ -50,7 +50,8 @@ export function EsaOoscDesk({ esaKey: esaKeyProp }: { esaKey?: string } = {}) {
   const schools = useMemo(() => scoped.schools.filter((x) => inEsa(x.districtKey)), [scoped.schools, inEsa])
   /** สร้างมาตรการเป็นการกระทำของเขตนั้น เขียนลงสมุดงานของเขตด้วยชื่อผู้สั่ง
    *  สพฐ. ที่เปิดดูเขตอื่นจึงอ่านได้อย่างเดียว ไม่ลงมือแทนเขต */
-  const mayAct = !esaKeyProp
+  /** สิทธิ์มาจากที่นั่ง ไม่ใช่จากขอบเขตที่เลือก — ดูคอมเมนต์ใน EsaSchoolDesk */
+  const mayAct = !readOnly
   const area = useAreaLog(esaKey)
   const team = useMemo(() => teamRows(area), [area])
   const [stuck, setStuck] = useState<Stuck | null>(null)
@@ -113,8 +114,12 @@ export function EsaOoscDesk({ esaKey: esaKeyProp }: { esaKey?: string } = {}) {
   return (
     <div className="animate-page-rise space-y-5 pb-8">
       <div>
-        <h1 className="text-[24px] font-bold leading-tight text-ink">ทะเบียนเด็กนอกระบบ</h1>
-        <p className="mt-1 text-[14.5px] text-ink-muted">เขตดูว่าเด็กติดอยู่ขั้นไหนและอำเภอไหนต้องช่วย — การลงพื้นที่และดูแลเด็กรายคนเป็นงานของโรงเรียนและทีมอำเภอ</p>
+        <h1 className="text-[24px] font-bold leading-tight text-ink">ทะเบียนเด็กนอกระบบ{readOnly && !esaKeyProp ? ' · ทุกเขต' : ''}</h1>
+        <p className="mt-1 text-[14.5px] text-ink-muted">
+          {readOnly
+            ? 'ดูว่าเด็กติดอยู่ขั้นไหนและเขต/อำเภอไหนต้องช่วย — การลงพื้นที่และดูแลเด็กรายคนเป็นงานของโรงเรียนและทีมอำเภอ'
+            : 'เขตดูว่าเด็กติดอยู่ขั้นไหนและอำเภอไหนต้องช่วย — การลงพื้นที่และดูแลเด็กรายคนเป็นงานของโรงเรียนและทีมอำเภอ'}
+        </p>
       </div>
 
       {/* ── 1 · เด็กเดินมาถึงไหนแล้ว ── */}

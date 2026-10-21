@@ -22,6 +22,7 @@ import { assetUrl } from '@/lib/asset'
 import { ScopeBanner } from '@/components/auth/ScopeBanner'
 import { DirectOnlyNotice } from '@/components/auth/DirectOnlyNotice'
 import type { CaseRecord, CaseStage, RiskLevel } from '@/types'
+import { useFollowCases } from '@/components/followup/useFollowCases'
 import {
   IconAlert,
   IconArrowRight,
@@ -101,7 +102,11 @@ export default function InterventionTracking() {
 function ObecFollowDesk() {
   const { districts, schools, cases, oosc } = useScopedData()
   const { current } = useEsaPick()
-  const views = useMemo(() => esaViews(districts, schools, cases, oosc), [districts, schools, cases, oosc])
+  /** สพฐ. นับ "เกิน SLA" จากชุดเดียวกับหน้าติดตามการช่วยเหลือที่อยู่ใต้แถบนี้
+   *  ไม่งั้นแถบ AI บอก 339 ขณะที่ตัวหน้าใต้มันบอก 355 บนจอเดียวกัน */
+  const { built: followBuilt } = useFollowCases()
+  const follow = useMemo(() => ('list' in followBuilt ? followBuilt.list : undefined), [followBuilt])
+  const views = useMemo(() => esaViews(districts, schools, cases, oosc, follow), [districts, schools, cases, oosc, follow])
   const insight = useMemo(() => followInsight(views), [views])
   return (
     <div className="animate-page-rise space-y-4">
@@ -114,7 +119,7 @@ function ObecFollowDesk() {
         </div>
       </section>
       <EsaPicker />
-      {current && <TeacherFollowUpCenter key={current} esaKey={current} />}
+      <TeacherFollowUpCenter key={current ?? 'all'} esaKey={current ?? undefined} />
     </div>
   )
 }

@@ -108,7 +108,7 @@ function ObecOoscDesk() {
   return (
     <div className="animate-page-rise space-y-4">
       <EsaPicker />
-      {current && <EsaOoscDesk key={current} esaKey={current} />}
+      <EsaOoscDesk key={current ?? 'all'} esaKey={current ?? undefined} readOnly />
     </div>
   )
 }
