@@ -355,6 +355,14 @@ one, per seat. This has broken three times (30 vs 32, 7 vs 8, 71 vs 81). A menu
 badge should equal the number its page opens with — `today` for the teacher,
 `sla` for the area office, the queue total for the director.
 
+The detail layer has to move with the headline. `schoolViews()` and
+`districtViews()` take an optional `follow?: FollowCase[]`; pass it and **both**
+`overdue` and `open` switch to that set, because they are read as one sentence
+("เกิน SLA x จาก y เคสที่เปิดอยู่"). The area office passes it (its own seat:
+`mayAct` / no `esaKeyProp`); `obec` does not, since every `obec` surface counts
+from `cases`. Leaving the rows on `cases` is how the home page ended up with a
+KPI of 81 above four district cards that added to 71.
+
 ## Code-splitting (who downloads what)
 
 Pages load through `React.lazy` in `App.tsx`, with the `Suspense` boundary in
