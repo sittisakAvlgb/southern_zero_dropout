@@ -377,6 +377,22 @@ and the default. Do not make it default to a single area again: the AI strip
 above those pages reads all nine, so a page that silently opens on one area
 tells the executive that one area's numbers are the national picture.
 
+## Dialogs and drawers
+
+Every drawer goes through `useDialogDismiss()` in `src/lib/useDialog.ts`, which
+owns Escape, the focus move in, the focus trap and the focus restore on close.
+Give the dialog element `ref={dialogRef}` and `tabIndex={-1}`; mark a dialog
+that stays mounted and returns null when closed with the second argument
+(`useDialogDismiss(onClose, !!row)`), or it steals focus while invisible.
+
+Do not hand-roll `keydown` Escape on a new drawer. Seven pages used to, and
+none of them moved focus, so Tab walked straight out of the open drawer into
+the menu behind it. Nested drawers also need the hook's stack: only the
+top-most one may answer Escape.
+
+`components/referrals/ui.tsx` exports the shared `Drawer` that nine screens
+borrow — a new drawer belongs there rather than in the page.
+
 ## Code-splitting (who downloads what)
 
 Pages load through `React.lazy` in `App.tsx`, with the `Suspense` boundary in
