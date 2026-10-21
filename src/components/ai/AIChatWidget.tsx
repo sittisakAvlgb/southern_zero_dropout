@@ -4,9 +4,14 @@ import { motion } from 'framer-motion'
 import { useI18n } from '@/i18n/LanguageContext'
 import { useAuth } from '@/auth/AuthContext'
 import { ROLE_META, canAccess, canWorkCases } from '@/auth/roles'
-import { overviewStats, scopedCases, scopedStudents } from '@/auth/scope'
+import { overviewStats, scopedCases, scopedDistricts, scopedOosc, scopedSchools, scopedStudents } from '@/auth/scope'
+import { esaViews } from '@/lib/obecOps'
+import { districtViews, schoolViews } from '@/lib/areaDeskOps'
+import { FILTERS } from '@/lib/followOps'
+import { useFollowCases } from '@/components/followup/useFollowCases'
+import { caseAnswer } from './caseAnswer'
+import { useDirectorWork } from '@/components/director/useDirectorWork'
 import { oosSplit } from '@/lib/oos'
-import { applyLog, useCaseLog, logKeyOf } from '@/lib/caseLog'
 import { formatNumber } from '@/lib/format'
 import { RISK_COLOR } from '@/lib/risk'
 import {
@@ -44,6 +49,40 @@ const OVERSIGHT_CHIPS = [
   { th: 'เคสเกิน SLA มีกี่เคส', en: 'How many cases are overdue' },
   { th: 'สัปดาห์นี้ควรลงพื้นที่ที่ไหน', en: 'Where to visit this week' },
   { th: 'โรงเรียนไหนต้องตามด่วน', en: 'Which school needs chasing' },
+  { th: 'สรุปตัวเลขสำหรับรายงาน', en: 'Numbers for a report' },
+]
+
+/** ผอ. ทำงานกับเคสเหมือนครู แต่งานหลักคือการปลดอุปสรรคที่ครูทำเองไม่ได้
+ *  — อนุมัติแผน ส่งต่อหน่วยงาน หาคนช่วย ชุดนี้จึงเปิดด้วย "อะไรรอ ผอ. อยู่"
+ *  แล้วค่อยเห็นเคสรายคน เดิม ผอ. ได้ชุดของครูมาทั้งชุด รวม "ทำไมเด็กคนนี้..."
+ *  ที่ ผอ. ไม่ได้เปิดเด็กคนไหนอยู่ */
+const DIRECTOR_CHIPS = [
+  { th: 'อะไรรอ ผอ. อยู่บ้าง', en: 'What is waiting on me' },
+  { th: 'ครูขอให้ช่วยอะไร', en: 'What are teachers asking for' },
+  { th: 'เคสไหนเกิน SLA', en: 'Which cases are past SLA' },
+  { th: 'เคสไหนยังไม่ได้ลงมือ', en: 'Which cases have had no action' },
+  { th: 'ใครขาดเรียนต่อเนื่องบ้าง', en: 'Who has been absent repeatedly' },
+  { th: 'เคสไหนปิดได้แล้ว', en: 'Which cases can be closed' },
+]
+
+/** สพฐ. และเขตกำกับดูแล ไม่ได้ลงพื้นที่เอง (`canWorkCases()` คืน false ให้ทั้งคู่)
+ *  คำถาม "สัปดาห์นี้ควรลงพื้นที่ที่ไหน" จึงเป็นคำถามของคนอื่น และ "พื้นที่"
+ *  ลอย ๆ ก็ไม่ใช่หน่วยที่ทั้งสองสั่งการ — สพฐ. คิดเป็นเขต เขตคิดเป็นอำเภอ */
+const OBEC_CHIPS = [
+  { th: 'เขตไหนต้องหนุนก่อน', en: 'Which area office needs support first' },
+  { th: 'สาเหตุหลักคืออะไร', en: 'What is driving it' },
+  { th: 'เคสเกิน SLA มีกี่เคส', en: 'How many cases are overdue' },
+  { th: 'โรงเรียนไหนต้องตามด่วน', en: 'Which school needs chasing' },
+  { th: 'เด็กนอกระบบยังไม่มีแผนกี่คน', en: 'How many out-of-school children have no plan' },
+  { th: 'สรุปตัวเลขสำหรับรายงาน', en: 'Numbers for a report' },
+]
+
+const ESA_CHIPS = [
+  { th: 'อำเภอไหนต้องดูก่อน', en: 'Which district needs attention first' },
+  { th: 'สาเหตุหลักคืออะไร', en: 'What is driving it' },
+  { th: 'เคสเกิน SLA มีกี่เคส', en: 'How many cases are overdue' },
+  { th: 'โรงเรียนไหนต้องตามด่วน', en: 'Which school needs chasing' },
+  { th: 'เด็กนอกระบบยังไม่มีแผนกี่คน', en: 'How many out-of-school children have no plan' },
   { th: 'สรุปตัวเลขสำหรับรายงาน', en: 'Numbers for a report' },
 ]
 
@@ -138,8 +177,31 @@ export function AIChatWidget() {
    *  คนละตัวเลข ใช้ `canWorkCases` ที่มีอยู่แล้วแทนการไล่เช็กชื่อ role
    *  จะได้ไม่ต้องตามแก้ทุกครั้งที่เพิ่มบทบาทใหม่ */
   const caseworker = canWorkCases(user) && user?.role !== 'exec'
-  const chips = caseworker ? CASEWORK_CHIPS : OVERSIGHT_CHIPS
-  const caseLog = useCaseLog(logKeyOf(user), user?.id)
+  const chips = caseworker
+    ? user?.role === 'school'
+      ? DIRECTOR_CHIPS
+      : CASEWORK_CHIPS
+    : user?.role === 'obec'
+      ? OBEC_CHIPS
+      : user?.role === 'esa'
+        ? ESA_CHIPS
+        : OVERSIGHT_CHIPS
+  const work = useDirectorWork()
+
+  /** "เคสเกิน SLA" ของเขตนับจาก `FollowCase` (รวมการส่งต่อที่เกิน
+   *  กำหนดด้วย) ไม่ใช่ `cases.slaBreached` — หน้าแรกของเขต ป้ายบนเมนู
+   *  และหน้าติดตามการช่วยเหลือนับแบบนั้นหมด (81) ขะที่กล่องนี้บอก 71
+   *  การคุยกันเรื่องเดียวหน้าเดียว สองตัวเลข คือสิ่งที่ทำให้คนหยุดเชื่อระบบ
+   *
+   *  สพฐ. ไม่เข้าเกดนี้ เพราะหน้าแรกของ สพฐ. กับแถบ AI บน /intervention นับ
+   *  จาก `cases` ทั้งเก้าเขต (339) — คนละหน่วย คนละชุดข้อมูล เหมือนที่ Sidebar ทำ */
+  const { built: followBuilt } = useFollowCases()
+  const followList = 'list' in followBuilt ? followBuilt.list : []
+  const slaTest = FILTERS.find((f) => f.k === 'sla')!.test
+  const followOverdue = followList.filter(slaTest).length
+  /** นับด้วยตัวกรองด่วนชุดเดียวกับที่หน้าติดตามการช่วยเหลือโชว์เป็นชิป */
+  const followCount = (k: 'today' | 'sla' | 'high' | 'parent' | 'all') =>
+    followList.filter(FILTERS.find((f) => f.k === k)!.test).length
 
   /** The opening message carries real numbers, so saying hello is also useful.
    *  Only built while the panel is open — it walks the scoped datasets. */
@@ -158,29 +220,81 @@ export function AIChatWidget() {
     // ของเขา ไม่ใช่ทะเบียนเด็กนอกระบบทั้งอำเภอ — นอกจากไม่ใช่งานของเขาแล้ว
     // ครูยังไม่มี /oosc ในเมนูด้วย การสรุปตัวเลขนั้นให้ดูจึงเป็นการคืนสิ่งที่
     // เมนูตั้งใจปิดไว้
+    // ผอ. — เมนูของ ผอ. ไม่มีหน้าติดตามการช่วยเหลือ (ถูกซ่อนไว้) งานของ ผอ.
+    // คือคิวที่รอการอนุมัติ ตัวเลขเปิดห้องจึงเป็นชุดเดียวกับป้ายบนเมนูของเขา
+    // (`useDirectorWork`) ไม่ใช่เคสดิบ — เดิมบอก "เคสเลยกำหนด 13" ขณะที่
+    // คำตอบในห้องเดียวกันบอก 14 จาก 18 เคส
+    if (user?.role === 'school' && work) {
+      const sla = followCount('sla')
+      return [
+        {
+          key: 'decisions',
+          label: th ? 'เรื่องที่รอการตัดสินใจ' : 'Waiting on your decision',
+          value: work.decisions,
+          tone: (work.decisions > 0 ? RISK_COLOR.critical : RISK_COLOR.normal) as string | undefined,
+          to: firstAllowed('/decisions', '/'),
+        },
+        {
+          key: 'plans',
+          label: th ? 'เส้นทางโอกาสที่รออนุมัติ' : 'Plans to approve',
+          value: work.plans,
+          tone: undefined as string | undefined,
+          to: firstAllowed('/plan', '/'),
+        },
+        {
+          key: 'refs',
+          label: th ? 'การส่งต่อที่รอ ผอ.' : 'Referrals waiting',
+          value: work.referrals,
+          tone: undefined as string | undefined,
+          to: firstAllowed('/referral', '/'),
+        },
+        {
+          key: 'oosc',
+          label: th ? 'เด็กนอกระบบที่รอ ผอ.' : 'Out-of-school children waiting',
+          value: work.oosc,
+          tone: undefined as string | undefined,
+          to: firstAllowed('/oosc', '/student', '/'),
+        },
+        {
+          key: 'sla',
+          label: th ? 'เคสเกิน SLA ในโรงเรียน' : 'Cases past SLA at your school',
+          value: sla,
+          tone: sla > 0 ? RISK_COLOR.critical : RISK_COLOR.normal,
+          to: firstAllowed('/student', '/'),
+        },
+      ]
+    }
+
+    // ครู — ห้าสิ่งนี้คือชิปตัวกรองด่วนของหน้าติดตามการช่วยเหลือเป๊ะ ตรงตัว
+    // ต่อตัว ครูเปิดช่องถามจากหน้าไหนก็ไม่เจอเลขที่เถียงกัน
+    //
+    // เดิมนับจากทะเบียนนักเรียนดิบ ได้ "เคสเลยกำหนด 7 · รอผู้ปกครอง 8"
+    // ขณะที่หน้าเดียวกันบอก เกิน SLA 8 · รอผู้ปกครอง 6
     if (caseworker) {
-      // ผ่าน applyLog เหมือนหน้าครู — อ่านข้อมูลดิบแล้วการติดต่อที่ครูเพิ่ง
-      // บันทึกจะไม่ถูกนับ ตัวลอยเคยบอก "ติดต่อผู้ปกครองไม่ได้ 8" ขณะที่หน้า
-      // เดียวกันบอก 7 — ข้อเท็จจริงเดียว สองคำตอบ บนจอเดียวกัน
-      const mine = scopedStudents(user).map((st) => applyLog(st, caseLog))
-      const high = mine.filter((s) => s.riskLevel === 'high' || s.riskLevel === 'critical').length
-      const noContact = mine.filter((s) => s.parentContact !== 'ok').length
-      const notVisited = mine.filter(
-        (s) => (s.riskLevel === 'high' || s.riskLevel === 'critical') && !s.homeVisited,
-      ).length
+      const today = followCount('today')
+      const sla = followCount('sla')
+      const high = followCount('high')
+      const parent = followCount('parent')
       return [
         {
           key: 'mine',
-          label: th ? 'เด็กที่คุณรับผิดชอบ' : 'Children in your care',
-          value: mine.length,
+          label: th ? 'เคสที่เปิดอยู่' : 'Open cases',
+          value: followCount('all'),
           tone: undefined as string | undefined,
-          to: firstAllowed('/student', '/'),
+          to: firstAllowed('/intervention', '/student', '/'),
         },
         {
-          key: 'overdue',
-          label: th ? 'เคสเลยกำหนดติดตาม' : 'Past their follow-up date',
-          value: overdue,
-          tone: overdue > 0 ? RISK_COLOR.critical : RISK_COLOR.normal,
+          key: 'today',
+          label: th ? 'วันนี้ต้องติดตาม' : 'Due today',
+          value: today,
+          tone: today > 0 ? RISK_COLOR.critical : RISK_COLOR.normal,
+          to: firstAllowed('/intervention', '/student', '/'),
+        },
+        {
+          key: 'sla',
+          label: th ? 'เกิน SLA' : 'Past SLA',
+          value: sla,
+          tone: sla > 0 ? RISK_COLOR.critical : RISK_COLOR.normal,
           to: firstAllowed('/intervention', '/student', '/'),
         },
         {
@@ -191,18 +305,95 @@ export function AIChatWidget() {
           to: firstAllowed('/student', '/'),
         },
         {
-          key: 'contact',
-          label: th ? 'ยังติดต่อผู้ปกครองไม่ได้' : 'Guardians not yet reached',
-          value: noContact,
-          tone: noContact > 0 ? RISK_COLOR.high : RISK_COLOR.normal,
+          key: 'parent',
+          label: th ? 'รอผู้ปกครอง' : 'Waiting on a guardian',
+          value: parent,
+          tone: parent > 0 ? RISK_COLOR.watch : RISK_COLOR.normal,
           to: firstAllowed('/student', '/'),
         },
+      ]
+    }
+
+    // เขตกำกับอำเภอและโรงเรียน ตัวเลขเปิดห้องจึงเป็นสี่ตัวเดียวกับหน้าแรก
+    // ของเขต (AreaOpsCenter) — คนที่เปิดช่องถามคือคนที่เพิ่งอ่านหน้านั้นอยู่
+    // เลขคนละหน่วยแปลว่า "ตอบจากข้อมูลในระบบ" เชื่อไม่ได้ ไม่ใช่แค่อ่านยาก
+    if (user?.role === 'esa') {
+      const sv = schoolViews(scopedSchools(user), cases, scopedStudents(user))
+      const dv = districtViews(scopedDistricts(user), sv, cases, scopedOosc(user))
+      const urgentAreas = dv.filter((v) => v.tier === 'urgent').length
+      const supportSchools = sv.filter((v) => v.tier === 'urgent' || v.tier === 'follow').length
+      const oosNoPlan = scopedOosc(user).filter(
+        (r) => !r.planId && r.status !== 'returned' && r.status !== 'working',
+      ).length
+      return [
         {
-          key: 'visit',
-          label: th ? 'เสี่ยงสูงแต่ยังไม่ได้เยี่ยมบ้าน' : 'At risk, not yet visited',
-          value: notVisited,
-          tone: notVisited > 0 ? RISK_COLOR.watch : RISK_COLOR.normal,
-          to: firstAllowed('/student', '/'),
+          key: 'areas',
+          label: th ? 'อำเภอที่ต้องช่วยเร่งด่วน' : 'Districts needing urgent help',
+          value: urgentAreas,
+          tone: urgentAreas > 0 ? RISK_COLOR.critical : RISK_COLOR.normal,
+          to: firstAllowed('/area', '/'),
+        },
+        {
+          key: 'overdue',
+          label: th ? 'เคสเกิน SLA ในเขต' : 'Cases past SLA in your area',
+          value: followOverdue,
+          tone: followOverdue > 0 ? RISK_COLOR.critical : RISK_COLOR.normal,
+          to: firstAllowed('/intervention', '/'),
+        },
+        {
+          key: 'schools',
+          label: th ? 'โรงเรียนที่ต้องช่วย' : 'Schools needing support',
+          value: supportSchools,
+          tone: undefined as string | undefined,
+          to: firstAllowed('/school', '/'),
+        },
+        {
+          key: 'noplan',
+          // นับด้วยนิยามเดียวกับกล่อง "ยังไม่มีแผนโอกาส" ในหน้าทะเบียนเด็กนอกระบบ
+          // และกับคำตอบของชิป "เด็กนอกระบบยังไม่มีแผนกี่คน" — สามที่ เลขเดียว
+          label: th ? 'เด็กนอกระบบที่ยังไม่มีแผนโอกาส' : 'Out of school, still no plan',
+          value: oosNoPlan,
+          tone: oosNoPlan > 0 ? RISK_COLOR.high : RISK_COLOR.normal,
+          to: firstAllowed('/oosc', '/student', '/'),
+        },
+      ]
+    }
+
+    // สพฐ. กำกับเขต บรรทัดแรกจึงต้องเป็น "เขตไหนต้องช่วยก่อน" ไม่ใช่ยอดทะเบียน
+    // รวม ซึ่งบอกขนาดแต่ไม่บอกว่าจะสั่งการที่ไหน — ตัวเลขชุดเดียวกับหน้าแรก
+    if (user?.role === 'obec') {
+      const views = esaViews(scopedDistricts(user), scopedSchools(user), cases, scopedOosc(user))
+      const urgent = views.filter((v) => v.tier === 'urgent').length
+      const noOwner = views.reduce((a, v) => a + v.unassigned, 0)
+      const watch = views.reduce((a, v) => a + v.schoolsToWatch, 0)
+      return [
+        {
+          key: 'esa',
+          label: th ? 'เขตที่ต้องช่วยเร่งด่วน' : 'Area offices needing urgent help',
+          value: urgent,
+          tone: urgent > 0 ? RISK_COLOR.critical : RISK_COLOR.normal,
+          to: firstAllowed('/', '/school'),
+        },
+        {
+          key: 'overdue',
+          label: th ? 'เคสเกิน SLA ทุกเขต' : 'Cases past SLA, all areas',
+          value: overdue,
+          tone: overdue > 0 ? RISK_COLOR.critical : RISK_COLOR.normal,
+          to: firstAllowed('/intervention', '/'),
+        },
+        {
+          key: 'owner',
+          label: th ? 'เคสยังไม่มีผู้รับผิดชอบ' : 'Cases with no owner',
+          value: noOwner,
+          tone: noOwner > 0 ? RISK_COLOR.high : RISK_COLOR.normal,
+          to: firstAllowed('/intervention', '/'),
+        },
+        {
+          key: 'schools',
+          label: th ? 'โรงเรียนที่ต้องช่วย' : 'Schools needing support',
+          value: watch,
+          tone: undefined as string | undefined,
+          to: firstAllowed('/school', '/'),
         },
       ]
     }
@@ -237,11 +428,24 @@ export function AIChatWidget() {
         to: firstAllowed('/intervention', '/referral', '/'),
       },
     ]
-  }, [open, user, th, caseworker, caseLog])
+  }, [open, user, th, caseworker, followOverdue, followList, work])
 
   const goTo = (to: string) => {
     nav(user && !canAccess(user, to) ? '/' : to)
     setOpen(false)
+  }
+
+  /** คำตอบหนึ่งเดียว ใช้ทั้งตอนออกปกติและตอนหลังจากโมเดลล้ม
+   *
+   *  คนที่ทำงานกับเด็กรายคน (ครู · ผอ.) ถามจากเคสของตัวเอง คำตอบจึงต้อง
+   *  มาจาก `FollowCase` ชุดเดียวกับหน้าติดตามการช่วยเหลือ ไม่ใช่ข้อมูลดิบ
+   *  (ดูเหตุเต็มใน `caseAnswer`) ไม่เข้าสาขาไหนค่อยส่งต่อให้ `localAnswer` */
+  const answer = (q: string) => {
+    if (caseworker && 'list' in followBuilt) {
+      const hit = caseAnswer(q, followBuilt.list, th, work)
+      if (hit) return hit
+    }
+    return localAnswer(q, user, lang)
   }
 
   const send = async (text: string) => {
@@ -275,7 +479,7 @@ export function AIChatWidget() {
         if (!acc.trim()) throw { status: 0, message: 'empty' }
       } catch (err) {
         if ((err as { status?: number })?.status === 503) setRealAI(false)
-        const local = localAnswer(q, user, lang)
+        const local = answer(q)
         setMessages((m) => {
           const next = [...m]
           next[next.length - 1] = { role: 'assistant', text: local.text, action: local.action }
@@ -290,7 +494,7 @@ export function AIChatWidget() {
 
     // Built-in engine: a lookup over data already in memory, so it lands
     // immediately. Faking a thinking pause only made it feel slower.
-    const local = localAnswer(q, user, lang)
+    const local = answer(q)
     setMessages((m) => [
       ...m,
       userMsg,

@@ -82,14 +82,20 @@ export function Sidebar({
   // (รวมการส่งต่อที่เกินกำหนดด้วย) ไม่ใช่จาก `cases.slaBreached` — ป้ายจึงต้องนับ
   // จากชุดเดียวกัน ไม่งั้นเมนูบอก 30 ขณะที่หน้าบอก 32 ซึ่งเป็นอาการเดียวกับที่
   // คอมเมนต์ด้านบนเคยแก้ไว้ ใช้ `FILTERS` ตัวเดียวกับที่หน้าใช้ จะได้ไม่หลุดอีก
+  //
+  // **ครูก็อยู่ในกลุ่มนี้แล้ว** หน้าของครูเปิดด้วย "วันนี้ต้องติดตาม N เคส" ป้ายจึง
+  // นับตัวกรอง `today` ชุดเดียวกัน เดิมนับ `urgent || slaBreached` จาก `cases` ดิบ
+  // ได้ 7 ขณะที่หน้าเดียวกันไม่มีเลข 7 อยู่ที่ไหนเลย (วันนี้ 9 · เกิน SLA 8 ·
+  // ทั้งหมด 11) ครูจึงเห็นป้ายที่กดเข้าไปแล้วหาไม่เจอว่าอีกสองเคสหายไปไหน
   const supervising = user?.role === 'esa' || user?.role === 'obec' || user?.role === 'exec'
   const { built: followBuilt } = useFollowCases()
-  const slaTest = FILTERS.find((f) => f.k === 'sla')!.test
+  const followList = 'list' in followBuilt ? followBuilt.list : []
+  const testOf = (k: 'sla' | 'today') => FILTERS.find((f) => f.k === k)!.test
   const urgent = esa
-    ? 'list' in followBuilt
-      ? followBuilt.list.filter(slaTest).length
-      : 0
-    : cases.filter((c) => (supervising ? c.slaBreached : c.urgent || c.slaBreached)).length
+    ? followList.filter(testOf('sla')).length
+    : user?.role === 'teacher'
+      ? followList.filter(testOf('today')).length
+      : cases.filter((c) => (supervising ? c.slaBreached : c.urgent || c.slaBreached)).length
   const highRisk = students.filter((s) => s.riskLevel === 'high' || s.riskLevel === 'critical').length
   const badges: Record<string, { n: number; color: string; soft?: boolean }> = {}
   // เขต: เคสเกิน SLA เป็นข้อมูลที่ต้องรู้ ไม่ใช่งานที่เขตลงมือ — ป้ายอ่อน

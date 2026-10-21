@@ -3,10 +3,15 @@ import { ROLE_META, canAccess } from '@/auth/roles'
 import {
   scopedProvinces,
   scopedCases,
+  scopedDistricts,
+  scopedOosc,
   scopedSchools,
+  scopedStudents,
   overviewStats,
 } from '@/auth/scope'
-import { PROVINCE_NAME } from '@/data/geo'
+import { esaViews } from './obecOps'
+import { districtViews, schoolViews } from './areaDeskOps'
+import { DISTRICT_NAME, PROVINCE_NAME } from '@/data/geo'
 import type { CauseKey } from '@/types'
 import type { Lang } from '@/i18n/translations'
 
@@ -180,6 +185,78 @@ export function localAnswer(q: string, user: User | null, lang: Lang): {
   const overdue = cases.filter((c) => c.slaBreached).length
   const urgent = cases.filter((c) => c.urgent).length
   const unassigned = cases.filter((c) => !c.owner).length
+
+  // ── เขตพื้นที่การศึกษา / อำเภอ ที่ต้องหนุนก่อน ─────────
+  // คำถามนี้มาจากชิปของ สพฐ. และเขตโดยตรง ถ้าไม่มีสาขานี้ ชิปจะกดแล้วได้คำตอบ
+  // กลาง ๆ ซึ่งแย่กว่าไม่เสนอคำถามนั้นตั้งแต่แรก — ต้องอยู่ก่อนสาขา "เสี่ยง"
+  // เพราะข้อความมีคำว่า "เขต/อำเภอ" ปนกับคำที่สาขานั้นจับ
+  if (has('เขตไหน', 'อำเภอไหน', 'เขตพื้นที่', 'area office', 'which district')) {
+    // ตอบตามหน่วยของผู้ถาม: สพฐ. กำกับเขต · เขตกำกับอำเภอ
+    // บัญชีเขตมีเขตเดียว ถ้าตอบเป็นเขตจะได้รายการที่มีบรรทัดเดียวและไม่ตอบคำถาม
+    if (user?.role === 'esa') {
+      const dv = districtViews(
+        scopedDistricts(user),
+        schoolViews(schools, cases, scopedStudents(user)),
+        cases,
+        scopedOosc(user),
+      ).slice(0, 3)
+      if (!dv.length)
+        return { text: th ? 'ยังไม่มีข้อมูลอำเภอในเขตของคุณ' : 'No district data in your area yet.' }
+      const dlist = dv
+        .map((v, i) => `${i + 1}. ${th ? 'อำเภอ' : ''}${DISTRICT_NAME[v.d.key]?.[lang] ?? v.d.key} — ${th ? 'เด็กเสี่ยงสูง' : 'at risk'} ${v.d.riskRate.toFixed(1)}% · ${th ? 'เกิน SLA' : 'overdue'} ${v.overdue}`)
+        .join('\n')
+      return {
+        text: th ? `อำเภอที่ควรดูก่อน:\n${dlist}\n\n${dv[0].rec}` : `Districts to look at first:\n${dlist}`,
+        action: act(th ? 'เปิดเจาะลึกรายพื้นที่' : 'Open the area detail', `/area?d=${dv[0].d.key}`),
+      }
+    }
+    const views = esaViews(scopedDistricts(user), schools, cases, scopedOosc(user))
+    const top = views.slice(0, 3)
+    if (!top.length)
+      return { text: th ? 'ยังไม่มีข้อมูลพื้นที่ในขอบเขตของคุณ' : 'No area data in your scope yet.' }
+    const list = top
+      .map((v, i) => `${i + 1}. ${v.esa.th} — ${th ? 'เด็กเสี่ยงสูง' : 'at risk'} ${v.riskRate.toFixed(1)}% · ${th ? 'เกิน SLA' : 'overdue'} ${v.overdue}`)
+      .join('\n')
+    return {
+      text: th
+        ? `เขตที่ควรหนุนก่อน:\n${list}\n\n${top[0].rec}`
+        : `Area offices to support first:
+${list}`,
+      action: act(th ? `เปิด${top[0].esa.th}` : 'Open that area office', `/area?esa=${top[0].esa.key}`),
+    }
+  }
+
+  // ── เด็กนอกระบบที่ยังไม่มีแผน ──────────────────────────
+  if (has('ยังไม่มีแผน', 'ไม่มีแผน', 'no plan', 'นอกระบบ')) {
+    const rows = scopedOosc(user)
+    const noPlan = rows.filter((r) => !r.planId && r.status !== 'returned' && r.status !== 'working').length
+    // บัญชีเขตมีเขตเดียว "มากที่สุดที่เขตของตัวเอง" จึงไม่บอกอะไร — แยกเป็นอำเภอ
+    // เหมือนที่หน้าทะเบียนเด็กนอกระบบของเขตแบ่ง ("อำเภอที่ต้องช่วย") ตัวเลขจึงเทียบกันได้
+    if (user?.role === 'esa') {
+      const per = scopedDistricts(user)
+        .map((d) => ({
+          d,
+          n: rows.filter((r) => r.districtKey === d.key && !r.planId && r.status !== 'returned' && r.status !== 'working').length,
+        }))
+        .sort((a, b) => b.n - a.n)[0]
+      return {
+        text: th
+          ? `เด็กนอกระบบที่ยังไม่มีแผนโอกาส ${fmt(noPlan)} คน จากทะเบียน ${fmt(rows.length)} คน${per?.n ? `
+มากที่สุดที่อำเภอ${DISTRICT_NAME[per.d.key]?.[lang] ?? per.d.key} ${fmt(per.n)} คน` : ''}`
+          : `${fmt(noPlan)} out-of-school children have no plan, out of ${fmt(rows.length)} on the registry.`,
+        action: act(th ? 'เปิดทะเบียนเด็กนอกระบบ' : 'Open the registry', '/oosc'),
+      }
+    }
+    const views = esaViews(scopedDistricts(user), schools, cases, rows)
+    const worst = [...views].sort((a, b) => b.oosNoPlan - a.oosNoPlan)[0]
+    return {
+      text: th
+        ? `เด็กนอกระบบที่ยังไม่มีแผน ${fmt(noPlan)} คน จากทะเบียน ${fmt(rows.length)} คน${worst?.oosNoPlan ? `
+มากที่สุดที่${worst.esa.th} ${fmt(worst.oosNoPlan)} คน` : ''}`
+        : `${fmt(noPlan)} out-of-school children have no plan, out of ${fmt(rows.length)} on the registry.`,
+      action: act(th ? 'เปิดทะเบียนเด็กนอกระบบ' : 'Open the registry', '/oosc'),
+    }
+  }
 
   // ── highest-risk province ─────────────────────────────
   if (has('เสี่ยงสูงสุด', 'เสี่ยงสูง', 'จังหวัดไหน', 'highest', 'risk', 'เสี่ยง')) {

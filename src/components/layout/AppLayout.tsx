@@ -1,11 +1,17 @@
-import { Suspense, useEffect, useState } from 'react'
+import { Suspense, lazy, useEffect, useState } from 'react'
 import { Outlet, useLocation } from 'react-router-dom'
 import { Sidebar } from './Sidebar'
 import { TopBar } from './TopBar'
 import { BottomNav } from './BottomNav'
 import { RouteFallback } from './RouteFallback'
 import { ErrorBoundary } from '../ErrorBoundary'
-import { AIChatWidget } from '../ai/AIChatWidget'
+/** ผู้ช่วย AI ตัวลอยไม่ใช่สิ่งที่ต้องมาพร้อมเฟรมแรก และตัวมันลาก `lib/ai.ts`
+ *  (ชุดคำตอบในเครื่องของทุกบทบาท) กับชั้นคำนวณระดับเขต/อำเภอ มาด้วย ถ้าโหลด
+ *  พร้อม layout ครูที่เปิดจากมือถือต้องดาวน์โหลดคำตอบของผู้บริหารทั้งชุดก่อน
+ *  เห็นหน้าแรก — โหลดแยกและปล่อยให้ปุ่มมาทีหลังเสี้ยววินาทีคุ้มกว่า */
+const AIChatWidget = lazy(() =>
+  import('../ai/AIChatWidget').then((m) => ({ default: m.AIChatWidget })),
+)
 import { useAuth } from '@/auth/AuthContext'
 import { DirectorWorkProvider } from '../director/useDirectorWork'
 
@@ -53,7 +59,11 @@ export function AppLayout() {
         </main>
       </div>
       <BottomNav />
-      {!assistantOnPage && <AIChatWidget />}
+      {!assistantOnPage && (
+        <Suspense fallback={null}>
+          <AIChatWidget />
+        </Suspense>
+      )}
     </div>
     </DirectorWorkProvider>
   )
