@@ -9,6 +9,7 @@ import { formatNumber } from '@/lib/format'
 import { oosSplit } from '@/lib/oos'
 import { TIER_META, districtViews, schoolViews, type DistrictView, type Tier } from '@/lib/areaDeskOps'
 import { SouthernMap } from '@/components/map/SouthernMap'
+import { useFollowCases } from '@/components/followup/useFollowCases'
 import { AnimatedCounter } from '@/components/ui/AnimatedCounter'
 import { IconProvince } from '@/components/icons'
 
@@ -87,8 +88,15 @@ export function EsaAreaDetail({ tabs, esaKey: esaKeyProp }: { tabs: ReactNode; e
     setParams(next, { replace: true })
   }
 
-  const views = useMemo(() => schoolViews(schools, cases, students), [schools, cases, students])
-  const dviews = useMemo(() => districtViews(districts, views, cases, oosc), [districts, views, cases, oosc])
+  /** เขตของตัวเอง (ไม่มี `esaKeyProp`) นับเกิน SLA จาก `FollowCase` เหมือนหน้าแรก
+   *  และป้ายเมนู · สพฐ. ที่ส่องเขตอื่นยังนับจาก `cases` ตามหน้าของ สพฐ. */
+  const { built: followBuilt } = useFollowCases()
+  const follow = useMemo(
+    () => (!esaKeyProp && 'list' in followBuilt ? followBuilt.list : undefined),
+    [esaKeyProp, followBuilt],
+  )
+  const views = useMemo(() => schoolViews(schools, cases, students, follow), [schools, cases, students, follow])
+  const dviews = useMemo(() => districtViews(districts, views, cases, oosc, follow), [districts, views, cases, oosc, follow])
   const byKey = useMemo(() => new Map(dviews.map((v) => [v.d.key, v])), [dviews])
   const scope = sel ? [sel] : districts
 

@@ -202,6 +202,9 @@ export function AIChatWidget() {
   /** นับด้วยตัวกรองด่วนชุดเดียวกับที่หน้าติดตามการช่วยเหลือโชว์เป็นชิป */
   const followCount = (k: 'today' | 'sla' | 'high' | 'parent' | 'all') =>
     followList.filter(FILTERS.find((f) => f.k === k)!.test).length
+  /** คำตอบรายอำเภอของเขตต้องนับเกิน SLA จากชุดเดียวกับหน้าแรกและป้ายเมนู
+   *  บทบาทอื่นส่ง undefined ไป localAnswer จะนับจาก cases ตามเดิม */
+  const esaFollow = user?.role === 'esa' ? followList : undefined
 
   /** The opening message carries real numbers, so saying hello is also useful.
    *  Only built while the panel is open — it walks the scoped datasets. */
@@ -318,8 +321,8 @@ export function AIChatWidget() {
     // ของเขต (AreaOpsCenter) — คนที่เปิดช่องถามคือคนที่เพิ่งอ่านหน้านั้นอยู่
     // เลขคนละหน่วยแปลว่า "ตอบจากข้อมูลในระบบ" เชื่อไม่ได้ ไม่ใช่แค่อ่านยาก
     if (user?.role === 'esa') {
-      const sv = schoolViews(scopedSchools(user), cases, scopedStudents(user))
-      const dv = districtViews(scopedDistricts(user), sv, cases, scopedOosc(user))
+      const sv = schoolViews(scopedSchools(user), cases, scopedStudents(user), followList)
+      const dv = districtViews(scopedDistricts(user), sv, cases, scopedOosc(user), followList)
       const urgentAreas = dv.filter((v) => v.tier === 'urgent').length
       const supportSchools = sv.filter((v) => v.tier === 'urgent' || v.tier === 'follow').length
       const oosNoPlan = scopedOosc(user).filter(
@@ -458,7 +461,7 @@ export function AIChatWidget() {
       const controller = new AbortController()
       abortRef.current = controller
       try {
-        const system = buildSystemPrompt(user, lang)
+        const system = buildSystemPrompt(user, lang, esaFollow)
         let acc = ''
         for await (const delta of streamAnswer({
           system,
@@ -476,7 +479,7 @@ export function AIChatWidget() {
         if (!acc.trim()) throw { status: 0, message: 'empty' }
       } catch (err) {
         if ((err as { status?: number })?.status === 503) setRealAI(false)
-        const local = localAnswer(q, user, lang)
+        const local = localAnswer(q, user, lang, esaFollow)
         setMessages((m) => {
           const next = [...m]
           next[next.length - 1] = { role: 'assistant', text: local.text, action: local.action }
@@ -491,7 +494,7 @@ export function AIChatWidget() {
 
     // Built-in engine: a lookup over data already in memory, so it lands
     // immediately. Faking a thinking pause only made it feel slower.
-    const local = localAnswer(q, user, lang)
+    const local = localAnswer(q, user, lang, esaFollow)
     setMessages((m) => [
       ...m,
       userMsg,

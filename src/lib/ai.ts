@@ -11,6 +11,7 @@ import {
 } from '@/auth/scope'
 import { esaViews } from './obecOps'
 import { districtViews, schoolViews } from './areaDeskOps'
+import type { FollowCase } from './followOps'
 import { DISTRICT_NAME, PROVINCE_NAME } from '@/data/geo'
 import type { CauseKey } from '@/types'
 import type { Lang } from '@/i18n/translations'
@@ -70,7 +71,7 @@ const CAUSE_LABEL: Record<CauseKey, { th: string; en: string }> = {
 const fmt = (n: number) => n.toLocaleString('en-US')
 
 /** Build a compact, role-scoped data snapshot for the model to reason over. */
-export function buildDataContext(user: User | null, lang: Lang): string {
+export function buildDataContext(user: User | null, lang: Lang, follow?: FollowCase[]): string {
   const th = lang === 'th'
   const provinces = scopedProvinces(user)
   const cases = scopedCases(user)
@@ -111,7 +112,7 @@ export function buildDataContext(user: User | null, lang: Lang): string {
     lines.push('')
     lines.push('When asked where to act, answer by AREA OFFICE (เขต), not by province.')
   } else if (role === 'esa') {
-    const dv = districtViews(scopedDistricts(user), schoolViews(schools, cases, scopedStudents(user)), cases, scopedOosc(user))
+    const dv = districtViews(scopedDistricts(user), schoolViews(schools, cases, scopedStudents(user), follow), cases, scopedOosc(user), follow)
     lines.push('DISTRICTS / อำเภอ (name · risk-rate% · overdue(SLA) · unassigned · out-of-school with no plan · tier):')
     for (const v of dv)
       lines.push(`- ${DISTRICT_NAME[v.d.key]?.[lang] ?? v.d.key} · ${v.d.riskRate.toFixed(1)}% · ${fmt(v.overdue)} · ${fmt(v.unassigned)} · ${fmt(v.oosNoPlan)} · ${v.tier}`)
@@ -137,9 +138,9 @@ export function buildDataContext(user: User | null, lang: Lang): string {
   return lines.join('\n')
 }
 
-export function buildSystemPrompt(user: User | null, lang: Lang): string {
+export function buildSystemPrompt(user: User | null, lang: Lang, follow?: FollowCase[]): string {
   const th = lang === 'th'
-  const ctx = buildDataContext(user, lang)
+  const ctx = buildDataContext(user, lang, follow)
   return [
     `You are the AI assistant for the "Southern Zero Dropout Platform" — the shared case-management system for the Thai southern border provinces (Pattani, Yala, Narathiwat), covering the 46 pilot secondary schools named in TOR Appendix C.`,
     `It follows a child from the first sign of risk until a durable outcome: back in learning (formal school, NFE/สกร., vocational, Islamic private dual-track) OR in decent work. Its users span province, district (อำเภอ), tambon (ตำบล), schools, social/health/labour agencies and civil society — so recommendations should name WHICH actor should do WHAT.`,
@@ -171,7 +172,14 @@ export interface ChatMsg {
 
 /** Built-in, key-free answer engine grounded in the user's role-scoped data.
  *  Returns a data-backed reply plus an optional action button (navigation). */
-export function localAnswer(q: string, user: User | null, lang: Lang): {
+export function localAnswer(
+  q: string,
+  user: User | null,
+  lang: Lang,
+  /** ชุด FollowCase ของบัญชีเขต — ส่งมาเพื่อให้ "เกิน SLA" รายอำเภอตรงกับ
+   *  หน้าแรก ป้ายเมนู และหน้าติดตามการช่วยเหลือ ไม่ส่งมา = นับจาก cases */
+  follow?: FollowCase[],
+): {
   text: string
   action?: ChatAction
 } {
@@ -215,9 +223,10 @@ export function localAnswer(q: string, user: User | null, lang: Lang): {
     if (user?.role === 'esa') {
       const dv = districtViews(
         scopedDistricts(user),
-        schoolViews(schools, cases, scopedStudents(user)),
+        schoolViews(schools, cases, scopedStudents(user), follow),
         cases,
         scopedOosc(user),
+        follow,
       ).slice(0, 3)
       if (!dv.length)
         return { text: th ? 'ยังไม่มีข้อมูลอำเภอในเขตของคุณ' : 'No district data in your area yet.' }

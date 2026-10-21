@@ -7,7 +7,40 @@
 // ─────────────────────────────────────────────────────────────
 import type { CaseRecord, District, OoscRecord, Referral, School, Student } from '@/types'
 import { stageOf } from './areaOps'
+import { FILTERS, type FollowCase } from './followOps'
 import { AREA_NEED_TH, areaRequestStatus, type AreaAct, type AreaRequest, type AreaState } from './areaLog'
+
+/** "เกิน SLA" มีสองนิยามในระบบนี้ และแต่ละที่นั่งเลือกไว้แล้วว่าใช้ตัวไหน
+ *  (ดูตารางใน skill.md) — `cases.slaBreached` นับจากระเบียนเคส ส่วน `FILTERS.sla`
+ *  นับจาก `FollowCase` ซึ่งรวมการส่งต่อที่เกินกำหนด และเริ่มนับใหม่เมื่อครูบันทึก
+ *
+ *  เขตใช้ตัวหลังทั้งหน้าแรก ป้ายเมนู และหน้าติดตามการช่วยเหลือ ถ้าการ์ดรายอำเภอ
+ *  กับแถวรายโรงเรียนยังนับจาก `cases` หน้าเดียวกันจะมี KPI 81 อยู่บน แล้วการ์ด
+ *  สี่ใบใต้มันรวมกันได้ 71 — ผู้ใช้บวกเลขบนจอตัวเองไม่ได้ ส่งชุด `FollowCase`
+ *  เข้ามาเมื่อไร ทั้ง `overdue` และ `open` จะย้ายไปใช้ชุดนั้นพร้อมกัน (สองตัวนี้
+ *  อยู่ในประโยคเดียวกันว่า "เกิน SLA x จาก y เคสที่เปิดอยู่" จึงต้องมาจากที่เดียวกัน)
+ *  ไม่ส่งมา = นับแบบเดิมจาก `cases` ซึ่งเป็นชุดที่หน้าของ สพฐ. ใช้ */
+const slaTest = FILTERS.find((f) => f.k === 'sla')!.test
+
+export interface CaseTally {
+  open: number
+  overdue: number
+}
+
+/** นับ "เปิดอยู่ / เกิน SLA" จากชุดที่ที่นั่งนั้นใช้ — `pick` คือตัวกรองขอบเขต */
+function tally(
+  cases: CaseRecord[],
+  follow: FollowCase[] | undefined,
+  inScope: (c: CaseRecord) => boolean,
+  inScopeFollow: (c: FollowCase) => boolean,
+): CaseTally {
+  if (follow) {
+    const mine = follow.filter(inScopeFollow)
+    return { open: mine.filter((c) => c.open).length, overdue: mine.filter(slaTest).length }
+  }
+  const mine = cases.filter(inScope)
+  return { open: mine.filter((c) => stageOf(c) !== 'done').length, overdue: mine.filter((c) => c.slaBreached).length }
+}
 
 export type Tier = 'urgent' | 'follow' | 'watch' | 'ok'
 export const TIER_META: Record<Tier, { th: string; dot: string; pill: string; rank: number }> = {
@@ -72,14 +105,13 @@ function bottleneckOf(students: Student[]): { label: string; n: number; of: numb
   return label ? { label, n: top[1], of } : undefined
 }
 
-export function schoolViews(schools: School[], cases: CaseRecord[], students: Student[]): SchoolView[] {
+export function schoolViews(schools: School[], cases: CaseRecord[], students: Student[], follow?: FollowCase[]): SchoolView[] {
   const avgRate = schools.reduce((a, s) => a + (s.highRiskStudents / Math.max(1, s.totalStudents)) * 100, 0) / Math.max(1, schools.length)
   const avgSuccess = schools.reduce((a, s) => a + s.interventionSuccessRate, 0) / Math.max(1, schools.length)
   return schools
     .map((s) => {
       const mine = cases.filter((c) => c.schoolKey === s.id)
-      const open = mine.filter((c) => stageOf(c) !== 'done').length
-      const overdue = mine.filter((c) => c.slaBreached).length
+      const { open, overdue } = tally(cases, follow, (c) => c.schoolKey === s.id, (c) => c.s.schoolKey === s.id)
       const unassigned = mine.filter((c) => stageOf(c) === 'unassigned').length
       const rate = (s.highRiskStudents / Math.max(1, s.totalStudents)) * 100
       const overdueShare = open ? overdue / open : 0
@@ -165,14 +197,14 @@ export interface DistrictView {
   mainProblem?: string
 }
 
-export function districtViews(districts: District[], views: SchoolView[], cases: CaseRecord[], oosc: OoscRecord[]): DistrictView[] {
+export function districtViews(districts: District[], views: SchoolView[], cases: CaseRecord[], oosc: OoscRecord[], follow?: FollowCase[]): DistrictView[] {
   const avgRisk = districts.reduce((a, d) => a + d.riskRate, 0) / Math.max(1, districts.length)
-  const totalOverdue = cases.filter((c) => c.slaBreached).length
+  const totalOverdue = follow ? follow.filter(slaTest).length : cases.filter((c) => c.slaBreached).length
   return districts
     .map((d) => {
       const sv = views.filter((v) => v.s.districtKey === d.key)
       const inD = cases.filter((c) => c.districtKey === d.key)
-      const overdue = inD.filter((c) => c.slaBreached).length
+      const { overdue } = tally(cases, follow, (c) => c.districtKey === d.key, (c) => c.s.districtKey === d.key)
       const unassigned = inD.filter((c) => stageOf(c) === 'unassigned').length
       const oosNoPlan = oosc.filter((r) => r.districtKey === d.key && !r.planId && r.status !== 'returned' && r.status !== 'working').length
       const riskX = avgRisk ? d.riskRate / avgRisk : 1

@@ -8,6 +8,7 @@ import { AREA_ACT_TH, AREA_NEED_TH, AREA_VERDICT_TH, areaRequestStatus, useAreaL
 import { TIER_META, crossSchoolPatterns, requestBrief, schoolViews, teamRows, type Pattern, type SchoolView, type Tier } from '@/lib/areaDeskOps'
 import { MeasureSheet, RequestDrawer, SupportSheet } from './AreaOpsCenter'
 import { EsaSchoolDrawer, SchoolTable, TIER_BAR, exportSchoolsCsv } from './EsaSchoolParts'
+import { useFollowCases } from '@/components/followup/useFollowCases'
 const TIERS: Tier[] = ['urgent', 'follow', 'watch', 'ok']
 
 type Sheet = { kind: 'support'; v: SchoolView } | { kind: 'request'; r: AreaRequest } | { kind: 'decide'; r: AreaRequest; acts: AreaAct[] } | { kind: 'school'; v: SchoolView } | { kind: 'measure'; p: Pattern }
@@ -40,7 +41,15 @@ export function EsaSchoolDesk({ esaKey: esaKeyProp }: { esaKey?: string } = {}) 
   const mayAct = !esaKeyProp
   const area = useAreaLog(esaKeyProp ?? user?.esaKey)
   const by = user?.name ?? 'ผู้บริหารเขต'
-  const views = useMemo(() => schoolViews(schools, cases, students), [schools, cases, students])
+  /** `mayAct` คือ "นี่คือเขตของบัญชีนี้เอง" — เขตนับเกิน SLA จาก `FollowCase`
+   *  เหมือนหน้าแรกและป้ายเมนูของตัวเอง ส่วน สพฐ. ที่ส่อง `esaKey` ของคนอื่นเข้ามา
+   *  ยังนับจาก `cases` ชุดเดียวกับแถบ AI และหน้าแรกของ สพฐ. */
+  const { built: followBuilt } = useFollowCases()
+  const follow = useMemo(
+    () => (mayAct && 'list' in followBuilt ? followBuilt.list : undefined),
+    [mayAct, followBuilt],
+  )
+  const views = useMemo(() => schoolViews(schools, cases, students, follow), [schools, cases, students, follow])
   const patterns = useMemo(() => crossSchoolPatterns(schools, students, referrals), [schools, students, referrals])
   const team = useMemo(() => teamRows(area), [area])
   const [tier, setTier] = useState<Tier | 'all'>('all')

@@ -129,8 +129,8 @@ export function AreaOpsCenter() {
   const slaTest = FILTERS.find((f) => f.k === 'sla')!.test
   const overdueNow = follow.filter(slaTest).length
   const openNow = follow.filter((c) => c.open).length
-  const views = useMemo(() => schoolViews(schools, cases, students), [schools, cases, students])
-  const dviews = useMemo(() => districtViews(districts, views, cases, oosc), [districts, views, cases, oosc])
+  const views = useMemo(() => schoolViews(schools, cases, students, follow), [schools, cases, students, follow])
+  const dviews = useMemo(() => districtViews(districts, views, cases, oosc, follow), [districts, views, cases, oosc, follow])
   const patterns = useMemo(() => crossSchoolPatterns(schools, students, referrals), [schools, students, referrals])
   const team = useMemo(() => teamRows(area), [area])
   const brief = useMemo(() => areaBrief({ districts: dviews, schools: views, state: area, patterns, team, dn }), [dviews, views, area, patterns, team, dn])
