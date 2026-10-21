@@ -27,6 +27,8 @@ import {
 import type { ChildStatus, District, GradeLevel, School } from '@/types'
 
 type Level = 'area' | 'province' | 'esa' | 'district' | 'school'
+/** ระดับที่แถบ "พื้นที่ที่ต้องเฝ้าระวังสูงสุด" จัดอันดับได้ */
+type RankTab = 'province' | 'esa' | 'district' | 'tambon' | 'school'
 
 interface Crumb {
   level: Level
@@ -61,11 +63,11 @@ const gradeLabel = (g: GradeLevel, th: boolean) =>
   th ? `${g[0] === 'p' ? 'ป.' : 'ม.'}${g.slice(1)}` : `${g[0].toUpperCase()}${g.slice(1)}`
 
 export default function GeoIntelligence() {
-  const { lang, t, pn, dn, pick } = useI18n()
+  const { lang, t, pn, dn, tn, pick } = useI18n()
   const th = lang === 'th'
   const nav = useNavigate()
   const loading = useSimulatedLoading()
-  const { user, provinces, esas, districts, schools, students } = useScopedData()
+  const { user, provinces, esas, districts, tambons, schools, students } = useScopedData()
 
   // ── drill path ────────────────────────────────────────────
   const [provinceKey, setProvinceKey] = useState<string | null>(null)
@@ -82,7 +84,35 @@ export default function GeoIntelligence() {
   const [year, setYear] = useState('2568')
   const [grade, setGrade] = useState('all')
   const [status, setStatus] = useState('all')
-  const [rankTab, setRankTab] = useState<'province' | 'esa' | 'school'>('province')
+  /** ระดับที่เอามาจัดอันดับ ต้องเป็นระดับที่ที่นั่งนั้นมีของให้เทียบกันจริง
+   *
+   *  บัญชีเขตเห็นจังหวัดเดียวและเขตเดียวเสมอ แท็บ "จังหวัด" กับ "เขตพื้นที่" จึง
+   *  ขึ้นรายการที่มีแถวเดียวให้ทุกครั้ง — อันดับที่ 1 จากทั้งหมด 1 ไม่ใช่การจัด
+   *  อันดับ และยังกินที่สองในสามของแถบไปเปล่า ๆ เขตสั่งการที่ *อำเภอ* และลงถึง
+   *  *ตำบล* ซึ่งเป็นหน่วยที่ทีมสหวิชาชีพกับ อสม. ทำงานอยู่ จึงสลับสองแท็บแรก
+   *  ให้เป็นสองระดับนั้น ที่นั่งอื่น (สพฐ. · ศอ.บต.) กำกับหลายจังหวัดหลายเขต
+   *  จึงคงเดิม */
+  const esaSeat = !!user?.esaKey
+  const rankTabs = useMemo(
+    () =>
+      (esaSeat
+        ? [
+            ['district', th ? 'อำเภอ' : 'Districts'],
+            ['tambon', th ? 'ตำบล' : 'Subdistricts'],
+            ['school', th ? 'สถานศึกษา' : 'Schools'],
+          ]
+        : [
+            ['province', th ? 'จังหวัด' : 'Provinces'],
+            ['esa', th ? 'เขตพื้นที่' : 'Service areas'],
+            ['school', th ? 'สถานศึกษา' : 'Schools'],
+          ]) as [RankTab, string][],
+    [esaSeat, th],
+  )
+  const [rankTab, setRankTab] = useState<RankTab>(esaSeat ? 'district' : 'province')
+  /** เขตหนึ่งมีห้าสิบกว่าตำบล การ์ดนี้ชื่อ "พื้นที่ที่ต้องเฝ้าระวังสูงสุด" ไม่ใช่
+   *  ตารางตำบล จึงแสดงสิบสองแถวแรกก่อน แล้วเปิดครบได้ด้วยปุ่ม — ไม่ใช่ซ่อนไว้
+   *  เฉย ๆ เพราะเขตต้องหาตำบลของตัวเองเจอ (ตารางเต็มอยู่ที่เจาะลึกรายพื้นที่) */
+  const [showAllRanks, setShowAllRanks] = useState(false)
 
   const go = (to: string) => {
     if (!user || canAccess(user, to)) nav(to)
@@ -348,11 +378,36 @@ export default function GeoIntelligence() {
           return { key: e.key, label: pick(e), value: total ? (high / total) * 100 : 0, sub: `${rows.length} ${th ? 'อำเภอ' : 'districts'}`, open: () => { resetTo('area'); setProvinceKey(e.provinceKey); setEsaKey(e.key) } }
         })
         .sort((a, b) => b.value - a.value)
+    // อำเภอและตำบลใช้ตัวเลขชุดเดียวกับแผนที่และการ์ด KPI ด้านบน (`District.oosCount`
+    // ที่จังหวัดเอาไปบวกกัน) แถวจึงรวมกันได้เท่าบรรทัดจังหวัดเสมอ ไม่ได้เปิดแหล่ง
+    // ที่มาใหม่ — "เกิน SLA" เป็นตัวเลขของงานเคส อยู่ที่หน้าแรกของเขตกับ /school
+    if (rankTab === 'district')
+      return [...districts]
+        .sort((a, b) => b.riskRate - a.riskRate)
+        .map((d) => ({
+          key: d.key,
+          label: dn(d.key),
+          value: d.riskRate,
+          sub: `${formatNumber(d.oosCount, lang)} ${th ? 'คนนอกระบบ' : 'out of school'}`,
+          open: () => { resetTo('area'); setProvinceKey(d.provinceKey); setDistrictKey(d.key) },
+        }))
+    if (rankTab === 'tambon')
+      return [...tambons]
+        .map((tb) => ({
+          key: tb.key,
+          label: tn(tb.key),
+          value: tb.totalStudents ? (tb.highRiskStudents / tb.totalStudents) * 100 : 0,
+          // ตำบลซ้ำชื่อกันข้ามอำเภอได้ และเขตหนึ่งมีห้าสิบกว่าตำบล ชื่ออำเภอจึง
+          // ต้องอยู่ในแถว ไม่งั้นอ่านแล้วไม่รู้ว่าตำบลไหน
+          sub: `${dn(tb.districtKey)} · ${formatNumber(tb.oosCount, lang)} ${th ? 'คนนอกระบบ' : 'out of school'}`,
+          open: () => { resetTo('area'); setProvinceKey(tb.provinceKey); setDistrictKey(tb.districtKey) },
+        }))
+        .sort((a, b) => b.value - a.value)
     return [...schools]
       .map((s) => ({ key: s.id, label: s.name, value: (s.highRiskStudents / Math.max(1, s.totalStudents)) * 100, sub: `${dn(s.districtKey)} · ${formatNumber(s.totalStudents, lang)} ${th ? 'คน' : ''}`, open: () => go(`/school?s=${s.id}`) }))
       .sort((a, b) => b.value - a.value)
       .slice(0, 10)
-  }, [rankTab, provinces, esas, districts, schools, pn, dn, pick, lang, th])
+  }, [rankTab, provinces, esas, districts, tambons, schools, pn, dn, tn, pick, lang, th])
 
   if (loading) {
     return (
@@ -365,6 +420,10 @@ export default function GeoIntelligence() {
       </div>
     )
   }
+
+  /** สิบสองแถวแรกพอดีสี่แถวของกริดสามคอลัมน์ */
+  const RANK_CAP = 12
+  const shownRanks = showAllRanks ? ranking : ranking.slice(0, RANK_CAP)
 
   const kpis = [
     { label: th ? 'นักเรียนทั้งหมด' : 'Students', value: focus.total, tone: '#0f2a6b' },
@@ -499,7 +558,16 @@ export default function GeoIntelligence() {
               height={470}
               // the page owns the drill path, so the map follows it: picking a
               // province or a เขต from the ranking zooms the map to match
-              initialFocus={provinceKey}
+              //
+              // บัญชีเขตเปิดหน้ามาเจอแผนที่ประเทศไทยทั้งประเทศ กับกรอบประจุด ๆ
+              // เล็ก ๆ เขียนว่า "พื้นที่ จชต. — คลิกเพื่อเข้าดู" ต้องคลิกสองครั้ง
+              // กว่าจะเห็นอำเภอของตัวเอง ทั้งที่ข้อมูลทั้งหน้าเป็นของเขตอยู่แล้ว
+              // จึงให้ช็อตเปิดของแผนที่ไหลไปหยุดที่จังหวัดของเขตเอง (เอฟเฟกต์นี้
+              // ยิงครั้งเดียวตอนเปิด ไม่ไปขัดการซูมที่ผู้ใช้ทำเองทีหลัง)
+              initialFocus={provinceKey ?? (esaSeat ? user?.provinceKey ?? null : null)}
+              // การ์ดจังหวัดบนแผนที่โชว์ยอดที่ส่งเข้าไป ซึ่งของบัญชีเขตคือยอดของเขต
+              // ไม่ใช่ของทั้งจังหวัด ชื่อบนการ์ดจึงต้องเป็นชื่อเขต
+              provinceCardLabel={esaSeat ? rootLabel : undefined}
               selectedKey={districtKey ?? provinceKey}
               onSelectProvince={(p) => { resetTo('area'); setProvinceKey(p.key) }}
               onOpenProvince={(p) => { resetTo('area'); setProvinceKey(p.key) }}
@@ -798,15 +866,11 @@ export default function GeoIntelligence() {
             {th ? 'พื้นที่ที่ต้องเฝ้าระวังสูงสุด' : 'Highest-risk areas'}
           </h2>
           <div className="flex gap-1">
-            {([
-              ['province', th ? 'จังหวัด' : 'Provinces'],
-              ['esa', th ? 'เขตพื้นที่' : 'Service areas'],
-              ['school', th ? 'สถานศึกษา' : 'Schools'],
-            ] as const).map(([k, label]) => (
+            {rankTabs.map(([k, label]) => (
               <button
                 key={k}
                 type="button"
-                onClick={() => setRankTab(k)}
+                onClick={() => { setRankTab(k); setShowAllRanks(false) }}
                 className={`rounded-lg px-2.5 py-1 text-[12px] font-medium transition-colors ${
                   rankTab === k ? 'bg-brand-500 text-white' : 'bg-surface-muted text-ink-muted hover:bg-brand-50'
                 }`}
@@ -817,7 +881,7 @@ export default function GeoIntelligence() {
           </div>
         </div>
         <div className="grid grid-cols-1 gap-1.5 p-4 sm:grid-cols-2 lg:grid-cols-3">
-          {ranking.map((r, i) => {
+          {shownRanks.map((r, i) => {
             const tone = RISK_COLOR[rateToLevel(r.value)]
             return (
               <button
@@ -843,6 +907,23 @@ export default function GeoIntelligence() {
             )
           })}
         </div>
+        {ranking.length > RANK_CAP && (
+          <div className="px-4 pb-4">
+            <button
+              type="button"
+              onClick={() => setShowAllRanks((v) => !v)}
+              className="w-full rounded-xl border border-surface-border px-3 py-2 text-[13px] font-semibold text-brand-700 transition-colors hover:bg-brand-50"
+            >
+              {showAllRanks
+                ? th
+                  ? 'ย่อรายการ'
+                  : 'Show fewer'
+                : th
+                  ? `ดูทั้งหมด ${formatNumber(ranking.length, lang)} แห่ง`
+                  : `Show all ${ranking.length}`}
+            </button>
+          </div>
+        )}
       </Card>
 
       <p className="mt-4 flex items-start gap-2 rounded-xl bg-surface-muted px-4 py-3 text-xs text-ink-muted">

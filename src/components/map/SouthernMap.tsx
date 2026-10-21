@@ -43,6 +43,13 @@ interface Props {
   showCard?: boolean
   /** province key the map settles on after the opening country-wide shot */
   initialFocus?: string | null
+  /** ชื่อที่จะใช้บนการ์ดจังหวัดแทนชื่อจังหวัด
+   *
+   *  บัญชีที่กำกับแค่บางส่วนของจังหวัด (เขตพื้นที่) ส่ง `provinces` ที่ยอดรวม
+   *  เป็นของเขตเข้ามา การ์ดจึงขึ้น "ปัตตานี 16,509 คน" ทั้งที่ปัตตานีทั้งจังหวัด
+   *  ไม่ใช่เลขนั้น — ชื่อกับตัวเลขต้องเป็นหน่วยเดียวกัน ส่วนชื่อบนรูปแผนที่และ
+   *  บนเส้นทางนำทางยังเป็นชื่อจังหวัดตามภูมิศาสตร์จริง */
+  provinceCardLabel?: string
 }
 
 const METRICS: { key: MapMetric; th: string; en: string }[] = [
@@ -162,6 +169,7 @@ export function SouthernMap({
   showFilters = true,
   showCard = true,
   initialFocus = null,
+  provinceCardLabel,
 }: Props) {
   const { t, lang, pn, dn } = useI18n()
   const th = lang === 'th'
@@ -970,7 +978,7 @@ export function SouthernMap({
             >
               <div className="flex items-start justify-between gap-2">
                 <div>
-                  <p className="text-sm font-bold text-ink">{pn(focusedProvince.key)}</p>
+                  <p className="text-sm font-bold text-ink">{provinceCardLabel ?? pn(focusedProvince.key)}</p>
                   <p className="text-[11px] text-slate-500">
                     {formatNumber(schools.filter((s) => s.provinceKey === focusedProvince.key).length)}{' '}
                     {th ? 'โรงเรียนนำร่อง' : 'pilot schools'}
