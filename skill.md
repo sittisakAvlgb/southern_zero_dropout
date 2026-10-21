@@ -314,6 +314,47 @@ Icons are inline SVG in `components/icons.tsx`.
   `manualChunks`, always `npm run build` and open the preview — a passing dev
   server proves nothing here.**
 
+## The assistant (`src/components/ai/`)
+
+The floating assistant is one component with **four** opening question sets and
+two answer engines. Which set a seat gets follows the job, not the title:
+`canWorkCases()` first (teacher vs `school`, which gets the director's queue
+questions), then `obec`, then `esa`, then everyone else. A seat that supervises
+never gets "where should I visit this week" — that is someone else's job.
+
+**Every chip must have a matching branch.** A chip whose question falls through
+to a generic branch is worse than not offering it: teachers used to press "why
+is this child at risk" and get "Pattani 9.2% (865 children)". When you add a
+chip, add its branch in the same change, and check the branch order — the risk
+branch matches the bare word `เสี่ยง`, so anything more specific goes above it.
+
+Two engines, and the split matters:
+
+- `lib/ai.ts` `localAnswer()` is pure and only knows `user`, so it reads raw
+  datasets. Area-level answers live here.
+- `components/ai/caseAnswer.ts` takes the `FollowCase[]` from `useFollowCases()`
+  (plus `useDirectorWork()` for the director's queue) and owns every answer for
+  a seat that works cases. **Casework answers must not go in `localAnswer`** —
+  raw data misses the contact a teacher logged a minute ago, and the panel ends
+  up arguing with the page behind it.
+
+### "Past SLA" has two meanings — pick the one the seat's page uses
+
+`cases.slaBreached` counts case records. The `FILTERS` `sla` predicate in
+`followOps.ts` counts `FollowCase`s, which also catches an overdue referral and
+re-starts the clock when a teacher logs something. They are different
+populations, and each seat's pages have already settled on one:
+
+| Seat | Source | Why |
+|---|---|---|
+| teacher · `school` · `esa` | `FILTERS` over `useFollowCases()` | their pages are the follow-up centre |
+| `obec` · `exec` | `cases.slaBreached` | their pages read all nine area offices at once |
+
+The menu badge, the opening numbers and the answers all have to pick the same
+one, per seat. This has broken three times (30 vs 32, 7 vs 8, 71 vs 81). A menu
+badge should equal the number its page opens with — `today` for the teacher,
+`sla` for the area office, the queue total for the director.
+
 ## Code-splitting (who downloads what)
 
 Pages load through `React.lazy` in `App.tsx`, with the `Suspense` boundary in
@@ -328,6 +369,10 @@ what it was:
   back into `SouthernOverview.tsx` and every role pays for it again.
 - `StudentRoute` splits the teacher's desk from `Student360`; no account sees
   both.
+- `AIChatWidget` is lazy inside `AppLayout` (fallback `null`, so the launcher
+  arrives a beat after the page). It drags in `lib/ai.ts` plus the area and
+  district maths, which a teacher on a phone never opens — importing any of
+  that eagerly puts ~8 kB gzip back on everyone's first load.
 
 Fallbacks reuse `Skeleton` and carry **no text**, so they need no translation.
 
