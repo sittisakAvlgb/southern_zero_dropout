@@ -23,8 +23,8 @@ export function caseStatus(fc: FollowCase): { th: string; color: string } {
   if (fc.closable && !fc.refs.some((r) => r.bucket !== 'done')) return { th: 'พร้อมประเมินเพื่อปิดเคส', color: '#16a34a' }
   if (fc.refs.some((r) => r.bucket === 'review')) return { th: 'กำลังประเมินผล', color: '#0d9488' }
   if (fc.s.parentContact !== 'ok') return { th: 'รอผู้ปกครอง', color: '#ea580c' }
-  if (fc.refs.some((r) => ['breach', 'near', 'awaiting', 'inProgress', 'needInfo'].includes(r.bucket))) return { th: 'รอหน่วยงาน', color: '#2f66f6' }
-  if (fc.hasPlan || fc.s.homeVisited) return { th: 'กำลังช่วยเหลือ', color: '#2f66f6' }
+  if (fc.refs.some((r) => ['breach', 'near', 'awaiting', 'inProgress', 'needInfo'].includes(r.bucket))) return { th: 'รอหน่วยงาน', color: '#305a8a' }
+  if (fc.hasPlan || fc.s.homeVisited) return { th: 'กำลังช่วยเหลือ', color: '#305a8a' }
   return { th: 'กำลังติดตาม', color: '#475569' }
 }
 

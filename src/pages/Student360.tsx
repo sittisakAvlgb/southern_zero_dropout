@@ -797,7 +797,7 @@ export default function Student360() {
                             toolbar: { show: false },
                             animations: { enabled: true, easing: 'easeinout', speed: 800 },
                           },
-                          colors: ['#2f66f6'],
+                          colors: ['#305a8a'],
                           dataLabels: { enabled: false },
                           stroke: { width: 2.5, curve: 'smooth' },
                           fill: {
@@ -843,7 +843,7 @@ export default function Student360() {
                             toolbar: { show: false },
                             animations: { enabled: true, easing: 'easeinout', speed: 800 },
                           },
-                          colors: ['#0f2a6b'],
+                          colors: ['#0e1f35'],
                           dataLabels: { enabled: false },
                           stroke: { width: 2.5, curve: 'smooth' },
                           markers: { size: 4, strokeWidth: 2, strokeColors: '#ffffff' },
@@ -1933,7 +1933,7 @@ function ScoreBuildBar({
 
 /** one hue per factor, ordered by contribution — never risk colours, so a
  *  factor's slice is not confused with a risk level */
-const FACTOR_COLOR = ['#0f2a6b', '#2f66f6', '#7c3aed', '#0ea5e9', '#14b8a6', '#94a3b8']
+const FACTOR_COLOR = ['#0e1f35', '#305a8a', '#7c3aed', '#0ea5e9', '#14b8a6', '#94a3b8']
 
 /* ─────────────── small pieces ─────────────── */
 

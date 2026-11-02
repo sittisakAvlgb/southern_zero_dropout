@@ -65,7 +65,7 @@ export function RequestSupportSheet({ c, entries, by, log, push, done }: { c: Fo
               onClick={() => toggle(k)}
               aria-pressed={on}
               className="rounded-full border px-4 py-2.5 text-[14px] font-medium"
-              style={{ borderColor: on ? '#2f66f6' : '#e2e8f0', background: on ? '#eef3ff' : '#fff', color: on ? '#1d4ed8' : '#0f172a' }}
+              style={{ borderColor: on ? '#305a8a' : '#e2e8f0', background: on ? '#eef2f8' : '#fff', color: on ? '#22456f' : '#0f172a' }}
             >
               {on ? '✓ ' : ''}
               {SUPPORT_REASON_TH[k]}

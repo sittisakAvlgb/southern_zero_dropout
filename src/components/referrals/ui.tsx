@@ -144,7 +144,7 @@ export function Chips<T extends string>({ items, value, onPick }: { items: { key
           onClick={() => onPick(it.key)}
           aria-pressed={value === it.key}
           className="rounded-full border px-4 py-2.5 text-[14px] font-medium"
-          style={{ borderColor: value === it.key ? '#2f66f6' : '#e2e8f0', background: value === it.key ? '#eef3ff' : '#fff', color: value === it.key ? '#1d4ed8' : '#0f172a' }}
+          style={{ borderColor: value === it.key ? '#305a8a' : '#e2e8f0', background: value === it.key ? '#eef2f8' : '#fff', color: value === it.key ? '#22456f' : '#0f172a' }}
         >
           {it.th}
         </button>

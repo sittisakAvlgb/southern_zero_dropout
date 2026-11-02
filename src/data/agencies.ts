@@ -219,7 +219,7 @@ export function routeAgency(provinceKey: string, need: string, seed = ''): Agenc
 }
 
 export const AGENCY_KIND_COLOR: Record<AgencyKind, string> = {
-  education: '#2f66f6',
+  education: '#305a8a',
   social: '#a855f7',
   health: '#0ea5e9',
   localGov: '#14b8a6',

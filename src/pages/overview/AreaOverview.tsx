@@ -537,7 +537,7 @@ export default function AreaOverview() {
                   series={[Math.round(planCoverage * 10) / 10]}
                   options={{
                     chart: CHART_BASE,
-                    colors: ['#2f66f6'],
+                    colors: ['#305a8a'],
                     plotOptions: {
                       radialBar: {
                         hollow: { size: '64%' },
@@ -1099,7 +1099,7 @@ export default function AreaOverview() {
                   stackType: '100%',
                   events: { dataPointSelection: () => go('/referral') },
                 },
-                colors: ['#2f66f6', RISK_COLOR.critical, RISK_COLOR.normal],
+                colors: ['#305a8a', RISK_COLOR.critical, RISK_COLOR.normal],
                 plotOptions: { bar: { horizontal: true, barHeight: '64%', borderRadius: 3 } },
                 dataLabels: {
                   enabled: true,

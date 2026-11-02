@@ -42,8 +42,8 @@ import {
 
 // Brand-forward palette for categorical slices/series
 const PALETTE = [
-  '#2f66f6',
-  '#0f2a6b',
+  '#305a8a',
+  '#0e1f35',
   '#f97316',
   '#16a34a',
   '#eab308',

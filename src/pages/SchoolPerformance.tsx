@@ -716,7 +716,7 @@ function SchoolPerformanceFull() {
                         },
                       },
                     },
-                    colors: ['#2f66f6', '#f97316'],
+                    colors: ['#305a8a', '#f97316'],
                     markers: { size: 8, strokeWidth: 2, strokeColors: '#ffffff', hover: { size: 12 } },
                     dataLabels: { enabled: false },
                     legend: {

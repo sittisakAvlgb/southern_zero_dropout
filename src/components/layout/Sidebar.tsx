@@ -139,12 +139,12 @@ export function Sidebar({
       </button>
 
       {/* Brand — sober navy masthead */}
-      <div className="flex h-16 items-center gap-2.5 overflow-hidden bg-brand-950 px-4 text-white">
+      <div className="flex h-16 items-center gap-2.5 overflow-hidden bg-white px-4">
         <Logo size={44} />
         {!collapsed && (
           <div className="min-w-0">
-            <p className="truncate text-[13px] font-bold leading-tight">{t('app.title')}</p>
-            <p className="truncate text-[10px] text-white/55">{t('app.titleTh')}</p>
+            <p className="truncate text-[13px] font-bold leading-tight text-brand-800">{t('app.title')}</p>
+            <p className="truncate text-[10px] text-ink-faint">{t('app.titleTh')}</p>
           </div>
         )}
       </div>
@@ -188,7 +188,7 @@ export function Sidebar({
                             {isActive && (
                               <>
                                 <span className="absolute inset-0 rounded-lg bg-brand-50" />
-                                <span className="absolute left-0 top-1/2 h-5 w-[3px] -translate-y-1/2 rounded-r-full bg-brand-700" />
+                                <span className="absolute left-0 top-1/2 h-5 w-[3px] -translate-y-1/2 rounded-r-full bg-gold-500" />
                               </>
                             )}
                             <span className={`relative z-10 ${isActive ? 'text-brand-700' : ''}`}>

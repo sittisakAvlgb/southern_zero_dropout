@@ -300,7 +300,7 @@ function Dot({ n, active, done, label }: { n: number; active: boolean; done: boo
     <div className="flex items-center gap-2">
       <motion.span
         animate={{
-          backgroundColor: active ? '#2f66f6' : '#eef2f8',
+          backgroundColor: active ? '#305a8a' : '#eef2f8',
           color: active ? '#ffffff' : '#94a3b8',
         }}
         className="grid h-7 w-7 place-items-center rounded-full text-xs font-bold"

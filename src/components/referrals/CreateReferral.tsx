@@ -216,7 +216,7 @@ export function CreateReferral({
       <ol className="mb-4 grid grid-cols-6 gap-1" aria-label="ขั้นตอน">
         {STEPS.map((x, i) => (
           <li key={x.k} className="min-w-0">
-            <span className="block h-1.5 rounded-full" style={{ background: i <= idx ? '#2f66f6' : '#e2e8f0' }} />
+            <span className="block h-1.5 rounded-full" style={{ background: i <= idx ? '#305a8a' : '#e2e8f0' }} />
             <span className={`mt-1 block truncate text-[12px] ${i === idx ? 'font-bold text-brand-700' : 'text-ink-faint'}`}>{x.th}</span>
           </li>
         ))}
@@ -278,7 +278,7 @@ export function CreateReferral({
                     onClick={() => setAgency(a)}
                     aria-pressed={agency?.id === a.id}
                     className="w-full rounded-xl border px-3.5 py-3 text-left"
-                    style={{ borderColor: agency?.id === a.id ? '#2f66f6' : '#e2e8f0', background: agency?.id === a.id ? '#eef3ff' : '#fff' }}
+                    style={{ borderColor: agency?.id === a.id ? '#305a8a' : '#e2e8f0', background: agency?.id === a.id ? '#eef2f8' : '#fff' }}
                   >
                     <p className="text-[14.5px] font-semibold text-ink">
                       {a.th} {i === 0 && <span className="text-[12px] font-bold text-brand-600">· AI แนะนำ</span>}
@@ -410,7 +410,7 @@ export function CreateReferral({
                 onClick={() => setHandoff(o.k)}
                 aria-pressed={handoff === o.k}
                 className="rounded-xl border px-3.5 py-3 text-left"
-                style={{ borderColor: handoff === o.k ? '#2f66f6' : '#e2e8f0', background: handoff === o.k ? '#eef3ff' : '#fff' }}
+                style={{ borderColor: handoff === o.k ? '#305a8a' : '#e2e8f0', background: handoff === o.k ? '#eef2f8' : '#fff' }}
               >
                 <p className="text-[14.5px] font-bold text-ink">{o.th}</p>
                 <p className="mt-0.5 text-[13px] text-ink-muted">{o.d}</p>

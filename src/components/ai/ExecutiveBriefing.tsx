@@ -343,7 +343,7 @@ export function ExecutiveBriefing() {
               bottom-aligning pushed their labels out of the shared row */}
           <div className="mt-4 flex flex-wrap items-start gap-x-10 gap-y-3 border-y border-surface-border py-3">
             {[
-              { label: th ? 'นักเรียนทั้งหมด' : 'Students', value: brief.total, tone: '#0f2a6b' },
+              { label: th ? 'นักเรียนทั้งหมด' : 'Students', value: brief.total, tone: '#0e1f35' },
               {
                 label: th ? 'เด็กกลุ่มเสี่ยง' : 'At risk',
                 value: brief.highRisk,
@@ -479,7 +479,7 @@ export function ExecutiveBriefing() {
                     animations: { easing: 'easeinout', speed: 800 },
                   },
                   stroke: { curve: 'smooth', width: [2.5, 2.5], dashArray: [0, 5] },
-                  colors: ['#0f2a6b', fc.changePct >= 0 ? RISK_COLOR.critical : RISK_COLOR.normal],
+                  colors: ['#0e1f35', fc.changePct >= 0 ? RISK_COLOR.critical : RISK_COLOR.normal],
                   legend: { show: false },
                   dataLabels: { enabled: false },
                   xaxis: {

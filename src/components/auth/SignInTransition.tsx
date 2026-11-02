@@ -54,11 +54,11 @@ export function SignInTransition({ user, onDone }: { user: User; onDone: () => v
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       transition={{ duration: 0.18 }}
-      className="fixed inset-0 z-[110] overflow-hidden bg-[#050d24]"
+      className="fixed inset-0 z-[110] overflow-hidden bg-[#091422]"
     >
       {/* ground: one slow drifting glow, nothing that reads as a spinner */}
       <motion.div
-        className="pointer-events-none absolute inset-0 bg-[radial-gradient(50%_45%_at_50%_45%,rgba(47,102,246,0.42),transparent_70%)]"
+        className="pointer-events-none absolute inset-0 bg-[radial-gradient(50%_45%_at_50%_45%,rgba(48,90,138,0.42),transparent_70%)]"
         animate={{ opacity: [0.5, 1, 0.5], scale: [1, 1.12, 1] }}
         transition={{ duration: 5, repeat: Infinity, ease: 'easeInOut' }}
       />
@@ -69,7 +69,7 @@ export function SignInTransition({ user, onDone }: { user: User; onDone: () => v
             <defs>
               <linearGradient id="sit-fill" x1="0" y1="0" x2="0" y2="1">
                 <stop offset="0%" stopColor="#38bdf8" stopOpacity="0.30" />
-                <stop offset="100%" stopColor="#2f66f6" stopOpacity="0.10" />
+                <stop offset="100%" stopColor="#305a8a" stopOpacity="0.10" />
               </linearGradient>
               <filter id="sit-glow" x="-60%" y="-60%" width="220%" height="220%">
                 <feGaussianBlur stdDeviation="1.6" result="b" />

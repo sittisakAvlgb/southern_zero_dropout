@@ -92,9 +92,9 @@ const ACTS = Object.keys(DIRECTOR_ACT_TH) as DirectorAct[]
 const VERDICTS: DirectorVerdict[] = ['approve', 'needInfo', 'sendBack', 'reject']
 
 const pill = (on: boolean) => ({
-  borderColor: on ? '#2f66f6' : '#e2e8f0',
-  background: on ? '#eef3ff' : '#fff',
-  color: on ? '#1d4ed8' : '#0f172a',
+  borderColor: on ? '#305a8a' : '#e2e8f0',
+  background: on ? '#eef2f8' : '#fff',
+  color: on ? '#22456f' : '#0f172a',
 })
 
 /**

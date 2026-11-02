@@ -217,7 +217,7 @@ export function EsaAreaDetail({ tabs, esaKey: esaKeyProp, readOnly }: { tabs: Re
               </ul>
               <div className="mt-4 space-y-3.5">
                 <MeterRow label="สัดส่วนเด็กเสี่ยงสูง (เส้นตั้ง = ค่าเฉลี่ยเขต)" value={selView.d.riskRate} avg={avg.risk} max={avg.maxRisk} color={TIER_BAR[selView.tier]} text={pct(selView.d.riskRate)} />
-                <MeterRow label="เด็กนอกระบบที่มีแผนแล้ว" value={selView.d.planCoverage} avg={avg.cover} max={100} color="#2f66f6" text={pct(selView.d.planCoverage)} />
+                <MeterRow label="เด็กนอกระบบที่มีแผนแล้ว" value={selView.d.planCoverage} avg={avg.cover} max={100} color="#305a8a" text={pct(selView.d.planCoverage)} />
                 <MeterRow label="เคสเกิน SLA" value={selView.overdue} max={avg.maxOverdue} color="#f97316" text={`${selView.overdue} เคส`} />
               </div>
               <p className="mt-4 rounded-xl bg-brand-50/70 px-4 py-3 text-[14.5px] leading-snug text-ink">
@@ -244,7 +244,7 @@ export function EsaAreaDetail({ tabs, esaKey: esaKeyProp, readOnly }: { tabs: Re
                     </div>
                     <div className="mt-3 space-y-2.5">
                       <MeterRow label="เด็กเสี่ยงสูง" value={v.d.riskRate} avg={avg.risk} max={avg.maxRisk} color={TIER_BAR[v.tier]} text={pct(v.d.riskRate)} />
-                      <MeterRow label="แผนครอบคลุม" value={v.d.planCoverage} avg={avg.cover} max={100} color="#2f66f6" text={pct(v.d.planCoverage)} />
+                      <MeterRow label="แผนครอบคลุม" value={v.d.planCoverage} avg={avg.cover} max={100} color="#305a8a" text={pct(v.d.planCoverage)} />
                     </div>
                     <p className="mt-3 text-[13.5px] text-ink-muted">
                       เกิน SLA {v.overdue} · {v.schools.length} โรงเรียนนำร่อง · {v.d.hasDistrictTeam ? 'มีทีมอำเภอ' : 'ยังไม่มีทีมอำเภอ'}
@@ -313,7 +313,7 @@ export function EsaAreaDetail({ tabs, esaKey: esaKeyProp, readOnly }: { tabs: Re
           <Panel title="สาเหตุหลัก" hint={sel ? 'แถบ = อำเภอนี้ · เส้นตั้ง = ค่าเฉลี่ยเขต' : 'ค่าเฉลี่ยของอำเภอในเขต'} className="h-full">
             <div className="space-y-3">
               {causes.map((c) => (
-                <MeterRow key={c.key} label={t(`cause.${c.key}`)} value={c.value} avg={c.avg} max={causeMax} color={c.avg !== undefined && c.value > c.avg * 1.1 ? '#f97316' : '#2f66f6'} text={pct(c.value)} />
+                <MeterRow key={c.key} label={t(`cause.${c.key}`)} value={c.value} avg={c.avg} max={causeMax} color={c.avg !== undefined && c.value > c.avg * 1.1 ? '#f97316' : '#305a8a'} text={pct(c.value)} />
               ))}
             </div>
           </Panel>

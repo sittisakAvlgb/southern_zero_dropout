@@ -66,7 +66,7 @@ body.lang-ms textarea {
 
 /* Focus visibility for keyboard users */
 :focus-visible {
-  outline: 2px solid #2f66f6;
+  outline: 2px solid #305a8a;
   outline-offset: 2px;
   border-radius: 6px;
 }
@@ -130,8 +130,8 @@ select:focus-visible {
   width: 16px;
   border-radius: 999px;
   background: #ffffff;
-  border: 3px solid #2f66f6;
-  box-shadow: 0 1px 3px rgba(15, 42, 107, 0.25);
+  border: 3px solid #305a8a;
+  box-shadow: 0 1px 3px rgba(14, 31, 53, 0.25);
   cursor: pointer;
   transition: transform 0.15s ease;
 }
@@ -146,8 +146,8 @@ select:focus-visible {
   width: 16px;
   border-radius: 999px;
   background: #ffffff;
-  border: 3px solid #2f66f6;
-  box-shadow: 0 1px 3px rgba(15, 42, 107, 0.25);
+  border: 3px solid #305a8a;
+  box-shadow: 0 1px 3px rgba(14, 31, 53, 0.25);
   cursor: pointer;
 }
 

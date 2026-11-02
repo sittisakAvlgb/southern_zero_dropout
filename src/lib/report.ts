@@ -326,7 +326,7 @@ export function downloadXls(r: ReportDef) {
   const doc = `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel">
 <head><meta charset="utf-8" /><style>
  table{border-collapse:collapse;font-family:Tahoma,sans-serif;font-size:11pt}
- th{background:#0f2a6b;color:#fff;padding:6px 8px;border:1px solid #b8c4dd;text-align:left}
+ th{background:#0e1f35;color:#fff;padding:6px 8px;border:1px solid #b8c4dd;text-align:left}
  td{padding:5px 8px;border:1px solid #d7deea}
  h1{font-family:Tahoma,sans-serif;font-size:14pt;margin:0 0 4px}
  p{font-family:Tahoma,sans-serif;font-size:10pt;color:#555;margin:0 0 10px}
@@ -358,16 +358,16 @@ export function reportDocument(r: ReportDef): string {
   body{margin:0;font-family:'Noto Sans Thai Looped',Tahoma,sans-serif;color:#0f172a;background:#f6f8fc}
   .page{max-width:900px;margin:0 auto;padding:28px 32px;background:#fff}
   h1,h2,h3{font-family:'Bai Jamjuree',sans-serif}
-  h1{font-size:22px;margin:0 0 4px;color:#0f2a6b}
+  h1{font-size:22px;margin:0 0 4px;color:#0e1f35}
   .sub{font-size:13px;color:#5b6b82;margin:0 0 14px}
   .meta{display:flex;flex-wrap:wrap;gap:8px;font-size:11px;color:#5b6b82;margin-bottom:18px}
   .meta span{background:#eef2f8;border-radius:999px;padding:3px 10px}
   .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:20px}
   .kpi{border:1px solid #e6ebf3;border-radius:12px;padding:10px 12px}
-  .kpi b{display:block;font-size:20px;color:#0f2a6b}
+  .kpi b{display:block;font-size:20px;color:#0e1f35}
   .kpi small{font-size:11px;color:#5b6b82}
   table{width:100%;border-collapse:collapse;font-size:12px}
-  th{background:#0f2a6b;color:#fff;text-align:left;padding:7px 9px;font-weight:600}
+  th{background:#0e1f35;color:#fff;text-align:left;padding:7px 9px;font-weight:600}
   td{padding:6px 9px;border-bottom:1px solid #eef2f8}
   tr:nth-child(even) td{background:#fafcff}
   .note{margin-top:16px;font-size:11px;color:#7a8798}

@@ -9,7 +9,7 @@ interface Props {
 /** Tiny inline trend line — no axis, no dependency. */
 export function Sparkline({
   data,
-  color = '#2f66f6',
+  color = '#305a8a',
   width = 96,
   height = 30,
   className = '',

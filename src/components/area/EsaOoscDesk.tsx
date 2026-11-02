@@ -67,7 +67,7 @@ export function EsaOoscDesk({ esaKey: esaKeyProp, readOnly }: { esaKey?: string;
   const done = oosc.filter((r) => DONE.has(r.status)).length
   const steps = [
     { th: 'อยู่ในทะเบียน', n: known, pct: 100, color: '#64748b' },
-    { th: 'ยืนยันตัวตนแล้ว', n: verified, pct: (verified / Math.max(1, known)) * 100, color: '#2f66f6' },
+    { th: 'ยืนยันตัวตนแล้ว', n: verified, pct: (verified / Math.max(1, known)) * 100, color: '#305a8a' },
     { th: 'มีแผนโอกาส', n: planned, pct: (planned / Math.max(1, known)) * 100, color: '#0d9488' },
     { th: 'กลับเข้าเรียน / มีอาชีพ', n: done, pct: (done / Math.max(1, known)) * 100, color: '#16a34a' },
   ]
@@ -187,7 +187,7 @@ export function EsaOoscDesk({ esaKey: esaKeyProp, readOnly }: { esaKey?: string;
                   </div>
                   <div className="mt-2 flex items-center gap-3">
                     <span className="h-2 w-40 max-w-[45%] overflow-hidden rounded-full bg-surface-muted">
-                      <span className="block h-full rounded-full" style={{ width: `${row.vPct}%`, background: row.vPct < 55 ? '#dc2626' : row.vPct < 62 ? '#f97316' : '#2f66f6' }} />
+                      <span className="block h-full rounded-full" style={{ width: `${row.vPct}%`, background: row.vPct < 55 ? '#dc2626' : row.vPct < 62 ? '#f97316' : '#305a8a' }} />
                     </span>
                     <span className="text-[14px] text-ink-muted">
                       ยืนยันแล้ว <b className="text-ink">{row.vPct.toFixed(0)}%</b> · ไม่มีผู้รับผิดชอบ <b className={row.c.owner ? 'text-orange-700' : 'text-ink'}>{row.c.owner}</b> · ไม่มีแผน <b className="text-ink">{row.c.plan}</b>

@@ -536,7 +536,7 @@ export function SouthernMap({
               <stop offset="100%" stopColor="#cddcff" stopOpacity="0" />
             </radialGradient>
             <filter id="sbpHoverGlow" x="-40%" y="-40%" width="180%" height="180%">
-              <feDropShadow dx="0" dy="0" stdDeviation="4" floodColor="#2f66f6" floodOpacity="0.75" />
+              <feDropShadow dx="0" dy="0" stdDeviation="4" floodColor="#305a8a" floodOpacity="0.75" />
             </filter>
           </defs>
 
@@ -565,9 +565,9 @@ export function SouthernMap({
                 width={SBP.w}
                 height={SBP.h}
                 rx={10}
-                fill="#2f66f6"
+                fill="#305a8a"
                 fillOpacity={0.06}
-                stroke="#2f66f6"
+                stroke="#305a8a"
                 strokeWidth={1.4}
                 strokeDasharray="7 5"
                 vectorEffect="non-scaling-stroke"
@@ -657,7 +657,7 @@ export function SouthernMap({
               <motion.path
                 d={PROVINCE_PATHS[focusedProvince.key].d}
                 fill="none"
-                stroke="#0f2a6b"
+                stroke="#0e1f35"
                 strokeWidth={1.8}
                 strokeLinejoin="round"
                 strokeLinecap="round"

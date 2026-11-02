@@ -35,7 +35,7 @@ export function KPICard({
   pulse = false,
 }: Props) {
   const { t } = useI18n()
-  const accent = level ? RISK_COLOR[level] : '#2f66f6'
+  const accent = level ? RISK_COLOR[level] : '#305a8a'
   const isUp = (deltaPct ?? 0) >= 0
   const isGood =
     deltaPct === undefined

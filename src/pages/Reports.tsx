@@ -55,7 +55,7 @@ const TEMPLATES: Template[] = [
       th: 'สรุป KPI ของพื้นที่ที่คุณรับผิดชอบ และตัวชี้วัดหลักรายพื้นที่',
       en: 'KPIs for the area you are responsible for, with headline indicators',
     },
-    tone: '#2f66f6',
+    tone: '#305a8a',
   },
   {
     id: 'prov-risk',
@@ -95,7 +95,7 @@ const TEMPLATES: Template[] = [
       th: 'ความครบถ้วนของข้อมูลและผลการช่วยเหลือรายโรงเรียน',
       en: 'Data completeness and results per school',
     },
-    tone: '#0f2a6b',
+    tone: '#0e1f35',
   },
   {
     id: 'dropout-return',

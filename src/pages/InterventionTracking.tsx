@@ -40,7 +40,7 @@ import {
 } from '@/components/icons'
 
 /* blue → green ramp across the eight stages */
-const PIPE_FROM: [number, number, number] = [47, 102, 246]
+const PIPE_FROM: [number, number, number] = [48, 90, 138]
 const PIPE_TO: [number, number, number] = [22, 163, 74]
 function stageColor(i: number, n = STAGE_SEQUENCE.length): string {
   const r = n > 1 ? i / (n - 1) : 0
@@ -781,7 +781,7 @@ function AgeSlider({
         aria-label={label}
         className="range-brand mt-1 h-1.5 w-full cursor-pointer appearance-none rounded-full"
         style={{
-          background: `linear-gradient(to right, #2f66f6 ${(value / 25) * 100}%, #eef2f7 ${(value / 25) * 100}%)`,
+          background: `linear-gradient(to right, #305a8a ${(value / 25) * 100}%, #eef2f7 ${(value / 25) * 100}%)`,
         }}
       />
     </div>

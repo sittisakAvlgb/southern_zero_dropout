@@ -317,7 +317,7 @@ export function CaseRow({
                 key={m.th}
                 title={m.th}
                 className="h-2.5 w-2.5 rounded-full"
-                style={{ background: m.state === 'done' ? RISK_COLOR.normal : m.state === 'active' ? '#2f66f6' : '#e2e8f0' }}
+                style={{ background: m.state === 'done' ? RISK_COLOR.normal : m.state === 'active' ? '#305a8a' : '#e2e8f0' }}
               />
             ))}
           </div>

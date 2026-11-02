@@ -220,7 +220,7 @@ export function PlanCaseView({
                           <span
                             key={m.th}
                             className="h-2.5 flex-1 rounded-full"
-                            style={{ background: m.state === 'done' ? RISK_COLOR.normal : m.state === 'active' ? '#2f66f6' : '#e2e8f0' }}
+                            style={{ background: m.state === 'done' ? RISK_COLOR.normal : m.state === 'active' ? '#305a8a' : '#e2e8f0' }}
                           />
                         ))}
                       </div>
@@ -244,7 +244,7 @@ export function PlanCaseView({
                           m.state === 'done'
                             ? { background: RISK_COLOR.normal, borderColor: RISK_COLOR.normal, color: '#fff' }
                             : m.state === 'active'
-                              ? { borderColor: '#2f66f6', color: '#2f66f6', background: '#eef3ff' }
+                              ? { borderColor: '#305a8a', color: '#305a8a', background: '#eef2f8' }
                               : { borderColor: '#e2e8f0', color: '#94a3b8' }
                         }
                       >
@@ -277,7 +277,7 @@ export function PlanCaseView({
                               : st.status === 'blocked'
                                 ? { background: RISK_COLOR.critical, color: '#fff' }
                                 : st.status === 'active'
-                                  ? { background: '#2f66f6', color: '#fff' }
+                                  ? { background: '#305a8a', color: '#fff' }
                                   : { background: '#f1f5f9', color: '#94a3b8' }
                           }
                         >
@@ -321,7 +321,7 @@ export function PlanCaseView({
                         className="absolute -left-[23px] top-1 h-3 w-3 rounded-full border-2 border-white"
                         style={{
                           background:
-                            it.kind === 'referral' ? '#7c3aed' : it.kind === 'obstacle' ? RISK_COLOR.critical : it.kind === 'teacher' ? '#2f66f6' : '#94a3b8',
+                            it.kind === 'referral' ? '#7c3aed' : it.kind === 'obstacle' ? RISK_COLOR.critical : it.kind === 'teacher' ? '#305a8a' : '#94a3b8',
                         }}
                       />
                       <p className="text-[12px] font-semibold text-ink-muted">{it.date}</p>
@@ -494,7 +494,7 @@ function NextActionCard({
   onLog: () => void
 }) {
   const n = c.next
-  const tone = n.kind === 'unblock' ? RISK_COLOR.critical : n.kind === 'close' ? RISK_COLOR.normal : '#2f66f6'
+  const tone = n.kind === 'unblock' ? RISK_COLOR.critical : n.kind === 'close' ? RISK_COLOR.normal : '#305a8a'
   const btns: { label: string; on: () => void; primary?: boolean }[] = []
   if (mayAct) {
     if (n.kind === 'unblock' && n.step) {
@@ -870,7 +870,7 @@ function Chips({ items, value, onPick }: { items: string[]; value?: string; onPi
           type="button"
           onClick={() => onPick(it)}
           className="rounded-full border px-4 py-2.5 text-[14px] font-medium"
-          style={{ borderColor: value === it ? '#2f66f6' : '#e2e8f0', background: value === it ? '#eef3ff' : '#fff', color: value === it ? '#1d4ed8' : '#0f172a' }}
+          style={{ borderColor: value === it ? '#305a8a' : '#e2e8f0', background: value === it ? '#eef2f8' : '#fff', color: value === it ? '#22456f' : '#0f172a' }}
         >
           {it}
         </button>

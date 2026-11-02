@@ -204,10 +204,10 @@ export function SchoolCommandCenter() {
 
         <div className="mt-4 flex flex-wrap items-start gap-x-8 gap-y-3 border-y border-surface-border py-3">
           {[
-            { label: th ? 'นักเรียนทั้งโรงเรียน' : 'Enrolled', value: ops.enrolled, tone: '#0f2a6b' },
+            { label: th ? 'นักเรียนทั้งโรงเรียน' : 'Enrolled', value: ops.enrolled, tone: '#0e1f35' },
             { label: th ? 'มีสัญญาณเสี่ยง' : 'Flagged', value: ops.flagged, tone: RISK_COLOR.high },
             // said plainly: this is the subset with a case file, not the whole school
-            { label: th ? 'ติดตามรายคน' : 'Tracked', value: ops.tracked, tone: '#0f2a6b', to: '/student' },
+            { label: th ? 'ติดตามรายคน' : 'Tracked', value: ops.tracked, tone: '#0e1f35', to: '/student' },
             { label: th ? 'เคสที่ยังไม่ปิด' : 'Open cases', value: ops.activeCases, tone: RISK_COLOR.watch, to: '/intervention' },
             { label: th ? 'เกินกำหนด' : 'Overdue', value: ops.overdue, tone: RISK_COLOR.critical, to: '/intervention?focus=overdue' },
             // computed from the tracked students, who skew at-risk — labelling
@@ -460,7 +460,7 @@ export function SchoolCommandCenter() {
                     : p.key === 'assigned'
                       ? RISK_COLOR.watch
                       : p.key === 'working'
-                        ? '#2f66f6'
+                        ? '#305a8a'
                         : RISK_COLOR.normal
                 return (
                   <motion.button

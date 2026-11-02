@@ -242,7 +242,7 @@ export const BUCKET_META: Record<Bucket, { th: string; color: string; rank: numb
   returned: { th: 'ถูกส่งกลับ', color: '#be123c', rank: 2 },
   review: { th: 'ได้ผลแล้ว รอคุณประเมิน', color: '#0d9488', rank: 3 },
   consent: { th: 'รอความยินยอม', color: '#ca8a04', rank: 4 },
-  awaiting: { th: 'รอหน่วยงานรับเรื่อง', color: '#2f66f6', rank: 5 },
+  awaiting: { th: 'รอหน่วยงานรับเรื่อง', color: '#305a8a', rank: 5 },
   needInfo: { th: 'หน่วยงานขอข้อมูลเพิ่ม', color: '#7c3aed', rank: 6 },
   inProgress: { th: 'กำลังดำเนินการ', color: '#0891b2', rank: 7 },
   done: { th: 'เสร็จแล้ว', color: '#16a34a', rank: 8 },

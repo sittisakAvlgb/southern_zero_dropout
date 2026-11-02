@@ -96,7 +96,7 @@ export const ROLE_META: Record<Role, RoleMeta> = {
     descEn: 'SBPAC, province or district — the area this account is responsible for',
     scopeTh: 'ตามขอบเขตของบัญชี',
     scopeEn: 'Account territory',
-    color: '#0f2a6b',
+    color: '#0e1f35',
   },
   obec: {
     role: 'obec',

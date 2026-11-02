@@ -181,7 +181,7 @@ export function TeacherFollowUpCenter({ esaKey }: { esaKey?: string } = {}) {
                 onClick={() => setFilter(x.k)}
                 aria-pressed={filter === x.k}
                 className="inline-flex shrink-0 items-center gap-1.5 rounded-full border px-3.5 py-2 text-[14px] font-medium"
-                style={{ borderColor: filter === x.k ? '#2f66f6' : '#e2e8f0', background: filter === x.k ? '#eef3ff' : '#fff', color: filter === x.k ? '#1d4ed8' : '#0f172a' }}
+                style={{ borderColor: filter === x.k ? '#305a8a' : '#e2e8f0', background: filter === x.k ? '#eef2f8' : '#fff', color: filter === x.k ? '#22456f' : '#0f172a' }}
               >
                 {/* "เคสของฉันทั้งหมด" เป็นคำของครู — ที่นั่งกำกับดูแลไม่ได้ถือเคสเอง */}
                 {x.k === 'all' && !mayAct ? 'เคสทั้งหมดในพื้นที่' : x.th} <span className="font-bold">{n}</span>

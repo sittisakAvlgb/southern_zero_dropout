@@ -19,7 +19,7 @@ export function Logo({
 }) {
   const img = (
     <img
-      src={assetUrl('logo.png')}
+      src={assetUrl('Early.png')}
       alt="Early Warning System"
       className="block h-full w-full object-contain"
       draggable={false}

@@ -329,9 +329,9 @@ function Stepper({ r }: { r: RefCase }) {
               <span
                 className="relative z-10 grid h-8 w-8 place-items-center rounded-full text-[13px] font-bold"
                 style={{
-                  background: done ? '#0f172a' : next ? '#eef3ff' : '#fff',
-                  color: done ? '#fff' : next ? '#1d4ed8' : '#64748b',
-                  boxShadow: done ? undefined : `inset 0 0 0 2px ${next ? '#2f66f6' : '#cbd5e1'}`,
+                  background: done ? '#0f172a' : next ? '#eef2f8' : '#fff',
+                  color: done ? '#fff' : next ? '#22456f' : '#64748b',
+                  boxShadow: done ? undefined : `inset 0 0 0 2px ${next ? '#305a8a' : '#cbd5e1'}`,
                 }}
                 aria-hidden
               >
@@ -466,7 +466,7 @@ function ActionSheet({
               onClick={() => setPick(a.id)}
               aria-pressed={pick === a.id}
               className="w-full rounded-xl border px-3.5 py-3 text-left"
-              style={{ borderColor: pick === a.id ? '#2f66f6' : '#e2e8f0', background: pick === a.id ? '#eef3ff' : '#fff' }}
+              style={{ borderColor: pick === a.id ? '#305a8a' : '#e2e8f0', background: pick === a.id ? '#eef2f8' : '#fff' }}
             >
               <p className="text-[14.5px] font-semibold text-ink">{a.th}</p>
               <p className="text-[12.5px] text-ink-muted">
@@ -682,11 +682,11 @@ function UpdateSheet({
             aria-label={UPDATE_TH[k]}
             aria-pressed={key === k}
             className="flex w-full items-center gap-3 rounded-xl border px-3.5 py-3 text-left"
-            style={{ borderColor: key === k ? '#2f66f6' : '#e2e8f0', background: key === k ? '#eef3ff' : '#fff' }}
+            style={{ borderColor: key === k ? '#305a8a' : '#e2e8f0', background: key === k ? '#eef2f8' : '#fff' }}
           >
             <span
               className="grid h-5 w-5 shrink-0 place-items-center rounded-full border-2"
-              style={{ borderColor: key === k ? '#2f66f6' : '#94a3b8' }}
+              style={{ borderColor: key === k ? '#305a8a' : '#94a3b8' }}
               aria-hidden
             >
               {key === k && <span className="h-2.5 w-2.5 rounded-full bg-brand-500" />}

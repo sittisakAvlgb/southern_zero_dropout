@@ -447,7 +447,7 @@ function OversightReferrals() {
                 { key: 'overdue', label: t('ref.overdue'), value: stats.overdue, color: '#dc2626' },
                 { key: 'urgent', label: t('ref.urgent'), value: stats.urgent, color: '#f97316' },
                 { key: 'consent', label: t('ref.blockedConsent'), value: stats.consent, color: '#eab308' },
-                { key: 'onTrack', label: t('ref.onTrack'), value: stats.onTrack, color: '#2f66f6' },
+                { key: 'onTrack', label: t('ref.onTrack'), value: stats.onTrack, color: '#305a8a' },
                 { key: 'completed', label: t('ref.completed'), value: stats.completed, color: '#16a34a' },
                 { key: 'rejected', label: t('refstatus.rejected'), value: stats.rejected, color: '#94a3b8' },
               ]}
@@ -693,7 +693,7 @@ function OversightReferrals() {
                       },
                     },
                     plotOptions: { bar: { horizontal: true, barHeight: '62%', borderRadius: 4 } },
-                    colors: ['#2f66f6', '#dc2626'],
+                    colors: ['#305a8a', '#dc2626'],
                     dataLabels: { enabled: false },
                     stroke: { width: 0 },
                     grid: { borderColor: '#eef2f7', strokeDashArray: 4 },
@@ -1010,7 +1010,7 @@ function AgeSlider({
         aria-label={label}
         className="range-brand mt-1 h-1.5 w-full cursor-pointer appearance-none rounded-full"
         style={{
-          background: `linear-gradient(to right, #2f66f6 ${(value / 60) * 100}%, #eef2f7 ${(value / 60) * 100}%)`,
+          background: `linear-gradient(to right, #305a8a ${(value / 60) * 100}%, #eef2f7 ${(value / 60) * 100}%)`,
         }}
       />
     </div>
@@ -1337,7 +1337,7 @@ function CaseDrawer({
                     <motion.div
                       className="h-1.5 rounded-full"
                       style={{
-                        backgroundColor: done ? '#2f66f6' : '#eef2f7',
+                        backgroundColor: done ? '#305a8a' : '#eef2f7',
                       }}
                       initial={{ scaleX: 0.2, opacity: 0.4 }}
                       animate={{ scaleX: 1, opacity: 1 }}

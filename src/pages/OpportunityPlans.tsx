@@ -37,7 +37,7 @@ import {
 
 const STEP_STYLE: Record<PlanStepStatus, { dot: string; text: string; ring: string }> = {
   done: { dot: '#16a34a', text: 'text-risk-normal', ring: 'ring-risk-normal/30' },
-  active: { dot: '#2f66f6', text: 'text-brand-600', ring: 'ring-brand-500/30' },
+  active: { dot: '#305a8a', text: 'text-brand-600', ring: 'ring-brand-500/30' },
   blocked: { dot: '#dc2626', text: 'text-risk-critical', ring: 'ring-risk-critical/30' },
   pending: { dot: '#cbd5e1', text: 'text-ink-faint', ring: 'ring-slate-200' },
 }
@@ -348,7 +348,7 @@ function OversightPlans() {
               parts={[
                 { key: 'blocked', label: t('plan.blocked'), value: stats.blocked, color: '#dc2626', filter: true },
                 { key: 'stale', label: t('plan.needsReview'), value: stats.stale, color: '#f97316', filter: true },
-                { key: 'moving', label: t('plan.moving'), value: stats.moving, color: '#2f66f6' },
+                { key: 'moving', label: t('plan.moving'), value: stats.moving, color: '#305a8a' },
                 { key: 'nearDone', label: t('plan.nearDone'), value: stats.nearDone, color: '#16a34a' },
               ]}
             />
@@ -794,7 +794,7 @@ function StaleSlider({
         aria-label={label}
         className="range-brand mt-1 h-1.5 w-full cursor-pointer appearance-none rounded-full"
         style={{
-          background: `linear-gradient(to right, #2f66f6 ${(value / 90) * 100}%, #eef2f7 ${(value / 90) * 100}%)`,
+          background: `linear-gradient(to right, #305a8a ${(value / 90) * 100}%, #eef2f7 ${(value / 90) * 100}%)`,
         }}
       />
     </div>
@@ -826,7 +826,7 @@ function PlanRow({
       initial={{ opacity: 0, y: 6 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: Math.min(index * 0.03, 0.25), duration: 0.28 }}
-      whileHover={{ backgroundColor: 'rgba(47,102,246,0.04)' }}
+      whileHover={{ backgroundColor: 'rgba(48,90,138,0.04)' }}
       className={`group flex w-full items-center gap-3 px-5 py-3 text-left transition-colors ${
         active ? 'bg-brand-50/70' : ''
       }`}
@@ -912,7 +912,7 @@ function ProgressRing({ value, size = 76 }: { value: number; size?: number }) {
         cy={size / 2}
         r={r}
         fill="none"
-        stroke="#2f66f6"
+        stroke="#305a8a"
         strokeWidth={7}
         strokeLinecap="round"
         strokeDasharray={c}
@@ -1117,7 +1117,7 @@ function PlanDrawer({
                     <div className="mt-1 flex flex-wrap items-center gap-1.5">
                       <span
                         className="h-1.5 w-1.5 rounded-full"
-                        style={{ background: agency ? AGENCY_KIND_COLOR[agency.kind] : '#2f66f6' }}
+                        style={{ background: agency ? AGENCY_KIND_COLOR[agency.kind] : '#305a8a' }}
                       />
                       <span className="text-[12px] text-ink-muted">
                         {agency ? (th ? agency.th : agency.en) : th ? SCHOOL_OWNER_TH : 'School · case owner'}

@@ -47,7 +47,7 @@ const STATUS_COLOR: Record<ChildStatus, string> = {
 }
 
 const SOURCE_COLOR: Record<OoscSource, string> = {
-  schoolReport: '#2f66f6',
+  schoolReport: '#305a8a',
   tambonSurvey: '#14b8a6',
   civilSurvey: '#f59e0b',
   religiousLeader: '#10b981',
@@ -403,7 +403,7 @@ function OoscRegistryFull() {
             <ProgressTrack
               total={stats.total}
               steps={[
-                { label: t('oosc.verified'), value: stats.verified, color: '#2f66f6' },
+                { label: t('oosc.verified'), value: stats.verified, color: '#305a8a' },
                 {
                   label: th ? 'มีแผนโอกาส' : 'Has a plan',
                   value: stats.withPlan,
@@ -693,7 +693,7 @@ function OoscRegistryFull() {
                   },
                 },
                 plotOptions: { bar: { horizontal: true, barHeight: '62%', borderRadius: 4 } },
-                colors: ['#2f66f6', '#fcd9a8'],
+                colors: ['#305a8a', '#fcd9a8'],
                 dataLabels: { enabled: false },
                 stroke: { width: 0 },
                 grid: { borderColor: '#eef2f7', strokeDashArray: 4 },
@@ -797,7 +797,7 @@ function OoscRegistryFull() {
                 label={t('oosc.verified')}
                 value={stats.verified}
                 total={stats.total}
-                color="#2f66f6"
+                color="#305a8a"
                 lang={lang}
               />
               <StatLine
@@ -990,7 +990,7 @@ function ConfidenceSlider({
         aria-label={th ? 'ความมั่นใจขั้นต่ำ' : 'Minimum confidence'}
         className="range-brand mt-1 h-1.5 w-full cursor-pointer appearance-none rounded-full bg-surface-muted"
         style={{
-          background: `linear-gradient(to right, #2f66f6 ${(value / 95) * 100}%, #eef2f7 ${(value / 95) * 100}%)`,
+          background: `linear-gradient(to right, #305a8a ${(value / 95) * 100}%, #eef2f7 ${(value / 95) * 100}%)`,
         }}
       />
     </div>
@@ -1039,7 +1039,7 @@ function ChildRow({
       initial={{ opacity: 0, y: 6 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: Math.min(index * 0.03, 0.25), duration: 0.28 }}
-      whileHover={{ backgroundColor: 'rgba(47,102,246,0.04)' }}
+      whileHover={{ backgroundColor: 'rgba(48,90,138,0.04)' }}
       className={`group flex w-full items-center gap-3 px-5 py-3 text-left transition-colors ${
         active ? 'bg-brand-50/70' : ''
       }`}

@@ -361,7 +361,7 @@ export function FilterChip({ on, onClick, label, n, color }: { on: boolean; onCl
       onClick={onClick}
       aria-pressed={on}
       className="inline-flex shrink-0 items-center gap-1.5 rounded-full border px-3.5 py-2 text-[14px] font-medium"
-      style={{ borderColor: on ? '#2f66f6' : '#e2e8f0', background: on ? '#eef3ff' : '#fff', color: on ? '#1d4ed8' : '#0f172a' }}
+      style={{ borderColor: on ? '#305a8a' : '#e2e8f0', background: on ? '#eef2f8' : '#fff', color: on ? '#22456f' : '#0f172a' }}
     >
       {color && <span className="h-2.5 w-2.5 rounded-full" style={{ background: color }} />}
       {label}

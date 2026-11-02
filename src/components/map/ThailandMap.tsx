@@ -239,7 +239,7 @@ export function ThailandMap({
             <stop offset="100%" stopColor="#cddcff" stopOpacity="0" />
           </radialGradient>
           <filter id="thHoverGlow" x="-40%" y="-40%" width="180%" height="180%">
-            <feDropShadow dx="0" dy="0" stdDeviation="6" floodColor="#2f66f6" floodOpacity="0.8" />
+            <feDropShadow dx="0" dy="0" stdDeviation="6" floodColor="#305a8a" floodOpacity="0.8" />
           </filter>
         </defs>
 
@@ -299,7 +299,7 @@ export function ThailandMap({
             <motion.path
               d={PROVINCE_PATHS[focused].d}
               fill="none"
-              stroke="#0f2a6b"
+              stroke="#0e1f35"
               strokeWidth={1.8}
               strokeLinejoin="round"
               strokeLinecap="round"
@@ -327,7 +327,7 @@ export function ThailandMap({
           if (!g || !byKey[k]) return null
           return (
             <text x={g.cx} y={g.cy} textAnchor="middle" className="pointer-events-none"
-              style={{ fontSize: 13 * (view.w / MAP_W), fontWeight: 700, fill: '#0f2a6b', paintOrder: 'stroke', stroke: '#fff', strokeWidth: 3 * (view.w / MAP_W), strokeLinejoin: 'round' }}>
+              style={{ fontSize: 13 * (view.w / MAP_W), fontWeight: 700, fill: '#0e1f35', paintOrder: 'stroke', stroke: '#fff', strokeWidth: 3 * (view.w / MAP_W), strokeLinejoin: 'round' }}>
               {pn(k)}
             </text>
           )

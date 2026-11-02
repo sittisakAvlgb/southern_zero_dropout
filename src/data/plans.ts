@@ -284,7 +284,7 @@ export const PATHWAYS: Pathway[] = [
 ]
 
 export const PATHWAY_COLOR: Record<Pathway, string> = {
-  formalReturn: '#2f66f6',
+  formalReturn: '#305a8a',
   nfe: '#8b5cf6',
   vocational: '#f59e0b',
   islamicSchool: '#10b981',

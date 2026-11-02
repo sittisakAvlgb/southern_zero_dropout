@@ -252,7 +252,7 @@ function ProvinceRanking({
               },
             },
             colors: rows.map((p) =>
-              p.key === selected ? '#1a4fe0' : RISK_COLOR[rateToLevel(p.riskRate)],
+              p.key === selected ? '#22456f' : RISK_COLOR[rateToLevel(p.riskRate)],
             ),
             plotOptions: {
               bar: {

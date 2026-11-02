@@ -476,7 +476,7 @@ function AreaInsightAll() {
                     },
                   },
                 },
-                colors: ['#2f66f6'],
+                colors: ['#305a8a'],
                 markers: {
                   size: 9,
                   strokeWidth: 2,
@@ -575,7 +575,7 @@ function AreaInsightAll() {
               ]}
               options={{
                 chart: { ...CHART_BASE, type: 'bar' },
-                colors: ['#2f66f6', '#cbd5e1'],
+                colors: ['#305a8a', '#cbd5e1'],
                 plotOptions: {
                   bar: { horizontal: true, barHeight: '76%', borderRadius: 3 },
                 },
@@ -762,7 +762,7 @@ function AreaInsightAll() {
                     key={p.key}
                     type="monotone"
                     dataKey={p.key}
-                    stroke={['#2f66f6', '#f97316', '#8b5cf6', '#16a34a'][i % 4]}
+                    stroke={['#305a8a', '#f97316', '#8b5cf6', '#16a34a'][i % 4]}
                     strokeWidth={p.key === province.key ? 2.6 : 1.4}
                     dot={false}
                   />

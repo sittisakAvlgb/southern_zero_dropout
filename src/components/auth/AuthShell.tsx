@@ -144,7 +144,7 @@ export function AuthShell({
             className="flex items-center gap-4"
           >
             <Logo size={44} />
-            <span className="h-10 w-px bg-surface-border" />
+            <span className="h-10 w-px bg-gold-400" />
             <div className="min-w-0">
               <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-ink-faint">
                 {t('app.titleTh')}

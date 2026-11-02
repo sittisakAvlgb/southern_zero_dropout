@@ -426,7 +426,7 @@ export default function GeoIntelligence() {
   const shownRanks = showAllRanks ? ranking : ranking.slice(0, RANK_CAP)
 
   const kpis = [
-    { label: th ? 'นักเรียนทั้งหมด' : 'Students', value: focus.total, tone: '#0f2a6b' },
+    { label: th ? 'นักเรียนทั้งหมด' : 'Students', value: focus.total, tone: '#0e1f35' },
     { label: th ? 'เด็กเสี่ยง' : 'At risk', value: focus.highRisk, tone: RISK_COLOR.high },
     { label: th ? 'เด็กหลุดระบบ' : 'Out of school', value: focus.oos, tone: RISK_COLOR.critical },
     { label: th ? 'กลับเข้าเรียน' : 'Returned', value: focus.returned, tone: RISK_COLOR.normal },
@@ -829,7 +829,7 @@ export default function GeoIntelligence() {
               <div className="flex gap-3 p-4">
                 <span
                   className="grid h-9 w-9 shrink-0 place-items-center rounded-xl text-white"
-                  style={{ background: 'linear-gradient(135deg,#2f66f6,#0891b2)' }}
+                  style={{ background: 'linear-gradient(135deg,#305a8a,#0891b2)' }}
                 >
                   <IconAI width={18} height={18} />
                 </span>

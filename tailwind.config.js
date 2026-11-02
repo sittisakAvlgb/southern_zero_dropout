@@ -5,21 +5,34 @@ export default {
   theme: {
     extend: {
       colors: {
-        // Brand — Modern Government x AI Command Center
+        // Brand — สถาบันราชการ: กรมท่าสุขุม (sober institutional navy)
         brand: {
-          50: '#eef4ff',
-          100: '#dae6ff',
-          200: '#bcd2ff',
-          300: '#8eb5ff',
-          400: '#598cff',
-          500: '#2f66f6', // primary blue
-          600: '#1a4fe0',
-          700: '#163fc0',
-          800: '#17379b',
-          900: '#0f2a6b', // navy
-          950: '#0a1c47',
+          50: '#eef2f8',
+          100: '#d7e1ee',
+          200: '#b1c5de',
+          300: '#86a3c5',
+          400: '#547da9',
+          500: '#305a8a', // primary
+          600: '#22456f', // buttons / strong
+          700: '#1a3659',
+          800: '#152b47',
+          900: '#0e1f35', // navy masthead
+          950: '#091422',
         },
-        navy: '#0f2a6b',
+        navy: '#0e1f35',
+        // Gold/brass — แต้มทางการอย่างสำรวม: เส้นบนหัว ขอบโลโก้ เส้นใต้แท็บที่เลือก
+        // ใช้บนพื้นน้ำเงินเป็นหลัก — gold-600 ~4.5:1 บนพื้นขาว (คู่กับตัวหนาเท่านั้น)
+        gold: {
+          50: '#faf5e8',
+          100: '#f1e4c2',
+          200: '#e5cd91',
+          300: '#d7b25f',
+          400: '#c9a24a', // ring / เส้นใต้แท็บ บนพื้นน้ำเงิน
+          500: '#c08a2d', // เส้นบนหัว (brass)
+          600: '#9a6c18',
+          700: '#78520f',
+          800: '#5a3d0b',
+        },
         // Risk semantic scale
         risk: {
           normal: '#16a34a', // green
@@ -46,9 +59,9 @@ export default {
         en: ['Ubuntu', 'sans-serif'],
       },
       boxShadow: {
-        card: '0 1px 2px rgba(16, 42, 107, 0.04), 0 6px 20px rgba(16, 42, 107, 0.06)',
-        'card-hover': '0 8px 30px rgba(16, 42, 107, 0.12)',
-        panel: '-8px 0 40px rgba(16, 42, 107, 0.12)',
+        card: '0 1px 2px rgba(14, 31, 53, 0.04), 0 6px 20px rgba(14, 31, 53, 0.06)',
+        'card-hover': '0 8px 30px rgba(14, 31, 53, 0.12)',
+        panel: '-8px 0 40px rgba(14, 31, 53, 0.12)',
       },
       borderRadius: {
         xl: '0.875rem',

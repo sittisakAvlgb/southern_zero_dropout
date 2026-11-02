@@ -272,7 +272,7 @@ export function FollowCaseDetail({
             <li key={i} className="relative pb-3 pl-4">
               <span
                 className="absolute -left-[7px] top-1.5 h-3 w-3 rounded-full border-2 border-white"
-                style={{ background: x.who === 'school' ? '#2f66f6' : x.who === 'agency' ? '#7c3aed' : '#94a3b8' }}
+                style={{ background: x.who === 'school' ? '#305a8a' : x.who === 'agency' ? '#7c3aed' : '#94a3b8' }}
               />
               <p className="text-[12.5px] text-ink-faint">
                 {fmtTs(x.ts).replace(/ \d\d:\d\d$/, '')} · {x.who === 'school' ? 'โรงเรียน' : x.who === 'agency' ? 'หน่วยงาน' : 'ระบบ'} · {x.by}
@@ -376,7 +376,7 @@ function Pipeline({ stage }: { stage: FollowCase['s']['caseStage'] }) {
             <li key={p} className="flex items-center gap-2.5 text-[14px]">
               <span
                 className="grid h-6 w-6 shrink-0 place-items-center rounded-full text-[12px] font-bold"
-                style={{ background: i < at ? '#0f172a' : i === at ? '#2f66f6' : '#e2e8f0', color: i <= at ? '#fff' : '#64748b' }}
+                style={{ background: i < at ? '#0f172a' : i === at ? '#305a8a' : '#e2e8f0', color: i <= at ? '#fff' : '#64748b' }}
                 aria-hidden
               >
                 {i < at ? '✓' : i + 1}
@@ -504,7 +504,7 @@ function ActionSheet({
             <label
               key={o.k}
               className="flex items-center gap-3 rounded-xl border px-3.5 py-3 text-[15px]"
-              style={{ borderColor: pickK === o.k ? '#2f66f6' : '#e2e8f0', background: pickK === o.k ? '#eef3ff' : '#fff' }}
+              style={{ borderColor: pickK === o.k ? '#305a8a' : '#e2e8f0', background: pickK === o.k ? '#eef2f8' : '#fff' }}
             >
               <input type="radio" name="outcome" className="h-5 w-5" checked={pickK === o.k} onChange={() => setPickK(o.k)} />
               {o.th}
@@ -700,7 +700,7 @@ function ActionSheet({
         <p className="mt-1 text-[13px] text-ink-muted">ระบบไม่ยกระดับเอง — บันทึกไว้ใน Timeline ให้ตรวจสอบได้ว่าใครแจ้งใครเมื่อไร</p>
         <div className="mt-3 space-y-2">
           {opts.map((o) => (
-            <label key={o} className="flex items-center gap-3 rounded-xl border px-3.5 py-3 text-[15px]" style={{ borderColor: esc === o ? '#2f66f6' : '#e2e8f0', background: esc === o ? '#eef3ff' : '#fff' }}>
+            <label key={o} className="flex items-center gap-3 rounded-xl border px-3.5 py-3 text-[15px]" style={{ borderColor: esc === o ? '#305a8a' : '#e2e8f0', background: esc === o ? '#eef2f8' : '#fff' }}>
               <input type="radio" name="esc" className="h-5 w-5" checked={esc === o} onChange={() => setEsc(o)} />
               {o}
             </label>
@@ -786,7 +786,7 @@ function ActionSheet({
             onClick={() => setQ(x.k)}
             aria-pressed={q === x.k}
             className="rounded-full border px-4 py-2.5 text-left text-[14px] font-medium"
-            style={{ borderColor: q === x.k ? '#2f66f6' : '#e2e8f0', background: q === x.k ? '#eef3ff' : '#fff' }}
+            style={{ borderColor: q === x.k ? '#305a8a' : '#e2e8f0', background: q === x.k ? '#eef2f8' : '#fff' }}
           >
             {x.th}
           </button>

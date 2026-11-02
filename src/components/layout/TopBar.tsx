@@ -313,7 +313,7 @@ export function TopBar({ onToggleSidebar }: { onToggleSidebar: () => void }) {
           >
             <span
               className="grid h-8 w-8 place-items-center rounded-lg text-white"
-              style={{ backgroundColor: meta?.color ?? '#0f2a6b' }}
+              style={{ backgroundColor: meta?.color ?? '#0e1f35' }}
             >
               {user ? roleIcon(user.role, 16) : null}
             </span>

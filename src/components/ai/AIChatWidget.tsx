@@ -526,7 +526,7 @@ export function AIChatWidget() {
         )}
 
         {/* the disc itself */}
-        <span className="absolute inset-0 rounded-full bg-gradient-to-br from-brand-600 via-brand-800 to-brand-900 shadow-[0_6px_20px_rgba(15,42,107,0.42)] ring-1 ring-white/25" />
+        <span className="absolute inset-0 rounded-full bg-gradient-to-br from-brand-600 via-brand-800 to-brand-900 shadow-[0_6px_20px_rgba(14,31,53,0.42)] ring-1 ring-white/25" />
 
         {open ? (
           <motion.span
