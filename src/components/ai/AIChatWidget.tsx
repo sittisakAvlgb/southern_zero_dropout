@@ -513,7 +513,7 @@ export function AIChatWidget() {
         transition={{ type: 'spring', stiffness: 260, damping: 16, delay: 0.4 }}
         whileHover={{ scale: 1.08 }}
         whileTap={{ scale: 0.92 }}
-        aria-label={th ? 'เปิดผู้ช่วย Zero Dropout' : 'Open the Zero Dropout assistant'}
+        aria-label={th ? 'เปิดผู้ช่วย Early Warning System' : 'Open the Early Warning System assistant'}
         className="group fixed bottom-20 right-4 z-[60] grid h-14 w-14 place-items-center rounded-full md:bottom-6 md:right-6"
       >
         {/* one slow halo — enough to catch the eye, quiet enough to ignore */}
@@ -549,7 +549,7 @@ export function AIChatWidget() {
         {/* name tag, on hover */}
         {!open && (
           <span className="pointer-events-none absolute right-full mr-3 whitespace-nowrap rounded-full bg-brand-900 px-3 py-1.5 text-[12px] font-semibold text-white opacity-0 shadow-lg transition-all duration-200 group-hover:-translate-x-0.5 group-hover:opacity-100">
-            {th ? 'ถามผู้ช่วย Zero Dropout' : 'Ask the Zero Dropout assistant'}
+            {th ? 'ถามผู้ช่วย Early Warning System' : 'Ask the Early Warning System assistant'}
           </span>
         )}
       </motion.button>
@@ -577,7 +577,7 @@ export function AIChatWidget() {
             </motion.span>
             <div className="min-w-0 flex-1">
               <p className="truncate text-sm font-bold">
-                {th ? 'ผู้ช่วย Zero Dropout' : 'Zero Dropout assistant'}
+                {th ? 'ผู้ช่วย Early Warning System' : 'Early Warning System assistant'}
               </p>
               <p className="flex items-center gap-1.5 truncate text-[11px] text-white/80">
                 <motion.span

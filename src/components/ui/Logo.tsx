@@ -1,7 +1,7 @@
 import { assetUrl } from '@/lib/asset'
 
 /**
- * The Southern Zero Dropout mark.
+ * The Early Warning System mark.
  *
  * The artwork sits on a transparent background and its palette (bright blue,
  * green, orange) holds up on the navy chrome, so it is placed bare — no plate,
@@ -20,7 +20,7 @@ export function Logo({
   const img = (
     <img
       src={assetUrl('logo.png')}
-      alt="Southern Zero Dropout"
+      alt="Early Warning System"
       className="block h-full w-full object-contain"
       draggable={false}
     />

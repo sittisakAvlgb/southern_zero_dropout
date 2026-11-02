@@ -143,8 +143,8 @@ export function Sidebar({
         <Logo size={44} />
         {!collapsed && (
           <div className="min-w-0">
-            <p className="truncate text-[13px] font-bold leading-tight">Southern Zero Dropout</p>
-            <p className="truncate text-[10px] text-white/55">{t('app.tagline')}</p>
+            <p className="truncate text-[13px] font-bold leading-tight">{t('app.title')}</p>
+            <p className="truncate text-[10px] text-white/55">{t('app.titleTh')}</p>
           </div>
         )}
       </div>

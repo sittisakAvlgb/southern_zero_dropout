@@ -43,8 +43,7 @@ export function AuthShell({
   subtitle: string
   children: ReactNode
 }) {
-  const { lang, toggle } = useI18n()
-  const th = lang === 'th'
+  const { lang, toggle, t } = useI18n()
   /** every loop below is skipped for anyone who asked the OS for less motion */
   const still = useReducedMotion()
 
@@ -148,10 +147,10 @@ export function AuthShell({
             <span className="h-10 w-px bg-surface-border" />
             <div className="min-w-0">
               <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-ink-faint">
-                {th ? 'แพลตฟอร์มชายแดนใต้' : 'Border-provinces platform'}
+                {t('app.titleTh')}
               </p>
               <p className="text-[21px] font-bold leading-tight text-ink">
-                Southern <span className="text-brand-600">Zero Dropout</span>
+                Early Warning <span className="text-brand-600">System</span>
               </p>
             </div>
           </motion.div>

@@ -14,8 +14,8 @@ type Dict = Record<string, string>
 
 export const thSBP: Dict = {
   // ── Identity ──────────────────────────────────────────────
-  'app.title': 'Southern Zero Dropout Platform',
-  'app.titleTh': 'แพลตฟอร์มเด็กชายแดนใต้ไม่หลุดจากระบบ',
+  'app.title': 'Early Warning System',
+  'app.titleTh': 'ระบบเฝ้าระวังและแจ้งเตือนล่วงหน้า',
   'app.tagline': 'มองเห็นทุกคน ออกแบบโอกาสเฉพาะบุคคล',
   'app.subtitle':
     'ระบบกลางดูแลเด็กตั้งแต่เริ่มมีความเสี่ยง จนกลับเข้าสู่การเรียนรู้หรือมีอาชีพอย่างมั่นคง',
@@ -466,8 +466,8 @@ export const thSBP: Dict = {
 }
 
 export const enSBP: Dict = {
-  'app.title': 'Southern Zero Dropout Platform',
-  'app.titleTh': 'Southern Border Zero Dropout',
+  'app.title': 'Early Warning System',
+  'app.titleTh': 'ระบบเฝ้าระวังและแจ้งเตือนล่วงหน้า',
   'app.tagline': 'See every child. Design every opportunity.',
   'app.subtitle':
     'One shared system, from the first sign of risk to a durable outcome — back in learning, or in decent work',
@@ -912,8 +912,8 @@ export const enSBP: Dict = {
 
 /** Bahasa Melayu (Rumi). Keys not present here fall back to English. */
 export const ms: Dict = {
-  'app.title': 'Southern Zero Dropout Platform',
-  'app.titleTh': 'Platform Sifar Keciciran Sempadan Selatan',
+  'app.title': 'Early Warning System',
+  'app.titleTh': 'ระบบเฝ้าระวังและแจ้งเตือนล่วงหน้า',
   'app.tagline': 'Melihat setiap anak, merancang peluang untuk setiap seorang',
   'app.subtitle':
     'Satu sistem bersama — dari tanda risiko pertama sehingga anak kembali belajar atau mempunyai pekerjaan yang stabil',

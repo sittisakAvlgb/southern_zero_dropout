@@ -7,7 +7,7 @@ export type Lang = 'th' | 'en' | 'ms'
 type Dict = Record<string, string>
 
 export const th: Dict = {
-  'app.title': 'Zero Dropout Command Center',
+  'app.title': 'Early Warning System',
   'app.subtitle': 'ระบบเฝ้าระวังและช่วยเหลือนักเรียนเสี่ยงหลุดจากระบบการศึกษา',
   'app.org': 'สำนักงานคณะกรรมการการศึกษาขั้นพื้นฐาน (สพฐ.)',
 
@@ -238,7 +238,7 @@ export const th: Dict = {
   'ai.q5': 'ช่วยสร้างรายงานเสนอผู้บริหาร',
   'ai.q6': 'แนะนำพื้นที่ที่ควรลงตรวจภายในสัปดาห์นี้',
   'ai.greeting':
-    'สวัสดีครับ ผมคือผู้ช่วย AI ของศูนย์บัญชาการ Zero Dropout ถามผมได้เลยว่าอยากรู้สถานการณ์ด้านไหน',
+    'สวัสดีครับ ผมคือผู้ช่วย AI ของ Early Warning System ถามผมได้เลยว่าอยากรู้สถานการณ์ด้านไหน',
 
   // Toasts
   'toast.assigned': 'มอบหมายเคสเรียบร้อยแล้ว',
@@ -250,7 +250,7 @@ export const th: Dict = {
 }
 
 export const en: Dict = {
-  'app.title': 'Zero Dropout Command Center',
+  'app.title': 'Early Warning System',
   'app.subtitle': 'Early Warning & Student Dropout Prevention System',
   'app.org': 'Office of the Basic Education Commission (OBEC)',
 
@@ -464,7 +464,7 @@ export const en: Dict = {
   'ai.q5': 'Help me create an executive report',
   'ai.q6': 'Recommend areas to visit this week',
   'ai.greeting':
-    "Hello, I'm the Zero Dropout Command Center AI assistant. Ask me anything about the current situation.",
+    "Hello, I'm the Early Warning System AI assistant. Ask me anything about the current situation.",
 
   'toast.assigned': 'Case assigned successfully',
   'toast.exported': 'Report exported successfully',
