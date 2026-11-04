@@ -1,0 +1,431 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>บทภาพยนตร์ PR</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bai+Jamjuree:wght@600;700&family=Noto+Sans+Thai+Looped:wght@400;500;600;700&display=swap">
+<style>
+/* Layout: บทถ่ายทำฉบับไม่มีเสียงบรรยาย — ใช้ token ชุดเดียวกับคู่มือครู/ผอ. · จุดที่ปรับจาก brief · เตรียมถ่าย · ช็อตทีละฉาก · ฉาก 6 แบบละเอียด */
+:root {
+  --bg: #f6f8fc;
+  --paper: #ffffff;
+  --ink: #0f1b2d;
+  --muted: #46566c;
+  --line: #e2e8f2;
+  --brand: #2f66f6;
+  --brand-soft: #eef4ff;
+  --navy: #0f2a6b;
+  --gold: #8a6512;  --gold-soft: #fbf3df;
+  --ok: #15803d;   --ok-soft: #e9f7ee;
+  --watch: #a16207; --watch-soft: #fdf6dc;
+  --crit: #b91c1c; --crit-soft: #fdecec;
+  --display: "Bai Jamjuree", "Noto Sans Thai Looped", system-ui, sans-serif;
+  --body: "Noto Sans Thai Looped", "Leelawadee UI", "Tahoma", system-ui, sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0b1324; --paper: #121c31; --ink: #e8eef8; --muted: #a9b6ca; --line: #24324d;
+    --brand: #7aa2ff; --brand-soft: #1a2a4f; --navy: #c9d8ff;
+    --gold: #f2c66d; --gold-soft: #33290b;
+    --ok: #4ade80; --ok-soft: #12301f; --watch: #facc15; --watch-soft: #33290b;
+    --crit: #f87171; --crit-soft: #3a1414;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0b1324; --paper: #121c31; --ink: #e8eef8; --muted: #a9b6ca; --line: #24324d;
+  --brand: #7aa2ff; --brand-soft: #1a2a4f; --navy: #c9d8ff;
+  --gold: #f2c66d; --gold-soft: #33290b;
+  --ok: #4ade80; --ok-soft: #12301f; --watch: #facc15; --watch-soft: #33290b;
+  --crit: #f87171; --crit-soft: #3a1414;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+body {
+  background: var(--bg); color: var(--ink);
+  font-family: var(--body); font-size: 17px; line-height: 1.7; font-weight: 500;
+  padding-inline: 16px; padding-block: 0 64px; margin: 0;
+}
+.wrap { max-width: 920px; margin: 0 auto; display: grid; gap: 40px; }
+h1, h2, h3 { font-family: var(--display); line-height: 1.3; text-wrap: balance; margin: 0; color: var(--navy); }
+h1 { font-size: clamp(30px, 6vw, 40px); }
+h2 { font-size: clamp(23px, 4vw, 28px); }
+h3 { font-size: 19px; color: var(--ink); }
+p { margin: 0; }
+ul, ol { margin: 0; padding-left: 1.3em; display: grid; gap: 6px; }
+.muted { color: var(--muted); }
+.label { font-size: 13px; font-weight: 700; letter-spacing: .06em; color: var(--brand); }
+code { font-family: var(--body); font-weight: 700; color: var(--navy); }
+
+header.hero { padding-top: 40px; display: grid; gap: 14px; }
+.hero p.lead { font-size: 19px; max-width: 64ch; }
+.facts { display: flex; flex-wrap: wrap; gap: 8px; }
+.facts span { font-size: 15px; font-weight: 600; padding: 4px 12px; border-radius: 999px; background: var(--paper); border: 1px solid var(--line); }
+
+nav.jump { display: flex; flex-wrap: wrap; gap: 8px; }
+nav.jump a {
+  font-size: 15px; font-weight: 600; color: var(--ink); text-decoration: none;
+  padding: 7px 14px; border-radius: 999px; border: 1px solid var(--line); background: var(--paper);
+}
+nav.jump a:focus-visible { border-color: var(--brand); color: var(--brand); outline: none; }
+
+section { display: grid; gap: 18px; scroll-margin-top: 16px; }
+.box { background: var(--paper); border: 1px solid var(--line); border-radius: 16px; padding: 20px; display: grid; gap: 12px; }
+
+/* ── จุดที่ปรับจาก brief ── */
+.diff { display: grid; gap: 0; background: var(--paper); border: 1px solid var(--line); border-radius: 14px; overflow: hidden; }
+.diff > div { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 20px; padding: 14px 18px; border-top: 1px solid var(--line); }
+.diff > div:first-child { border-top: 0; }
+.diff .was { color: var(--muted); }
+.diff .was::before { content: "brief: "; font-weight: 700; }
+.diff .now::before { content: "ใช้แทน: "; font-weight: 700; color: var(--ok); }
+@media (max-width: 640px) { .diff > div { grid-template-columns: 1fr; } }
+
+/* ── ฉากและช็อต ── */
+.scene { display: grid; gap: 12px; }
+.scene-head { display: flex; flex-wrap: wrap; gap: 6px 14px; align-items: baseline; }
+.scene-head .tc { font-family: var(--display); font-weight: 700; font-size: 16px; color: var(--brand); font-variant-numeric: tabular-nums; }
+.shot { background: var(--paper); border: 1px solid var(--line); border-radius: 14px; padding: 16px 18px; display: grid; grid-template-columns: 96px 1fr; gap: 6px 16px; }
+.shot .t { font-family: var(--display); font-weight: 700; font-size: 15px; color: var(--muted); font-variant-numeric: tabular-nums; line-height: 1.5; }
+.shot .body { display: grid; gap: 8px; min-width: 0; }
+.shot .src { font-size: 15px; color: var(--muted); }
+.shot .src b { color: var(--ink); }
+/* ข้อความบนจอ — แสดงให้ใกล้ของจริง: พื้นเข้ม ตัวใหญ่ ไม่เกิน 2 บรรทัด */
+.ost {
+  background: #0b1736; color: #ffffff; border-radius: 10px; padding: 12px 16px;
+  font-family: var(--display); font-size: 20px; line-height: 1.45; font-weight: 700;
+}
+.ost.gold { color: #f2c66d; }
+.ost.none { background: transparent; color: var(--muted); border: 1px dashed var(--line); font-family: var(--body); font-size: 15px; font-weight: 500; padding: 8px 14px; }
+.note { border-left: 3px solid var(--watch); background: var(--watch-soft); padding: 8px 12px; border-radius: 0 10px 10px 0; font-size: 15px; }
+.note b { color: var(--watch); }
+.pdpa { border-left: 3px solid var(--crit); background: var(--crit-soft); padding: 8px 12px; border-radius: 0 10px 10px 0; font-size: 15px; }
+.pdpa b { color: var(--crit); }
+.new { display: inline-block; font-size: 12.5px; font-weight: 700; color: var(--gold); background: var(--gold-soft); border-radius: 6px; padding: 0 7px; margin-left: 6px; vertical-align: 2px; }
+@media (max-width: 560px) { .shot { grid-template-columns: 1fr; } }
+
+/* ── ฉาก 6 ── */
+.hero6 { border: 2px solid var(--gold); }
+.relay { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
+.relay li { text-align: center; padding: 10px 6px; border-radius: 10px; background: var(--brand-soft); color: var(--navy); font-weight: 700; font-size: 15px; line-height: 1.4; }
+.relay li small { display: block; font-weight: 500; color: var(--muted); font-size: 13px; }
+@media (max-width: 560px) { .relay { grid-template-columns: 1fr 1fr; } }
+
+table { width: 100%; border-collapse: collapse; background: var(--paper); border: 1px solid var(--line); border-radius: 14px; overflow: hidden; font-size: 15.5px; }
+th, td { text-align: left; padding: 10px 14px; border-top: 1px solid var(--line); vertical-align: top; }
+th { font-weight: 700; background: var(--brand-soft); color: var(--navy); border-top: 0; }
+.tablewrap { overflow-x: auto; }
+
+@media print {
+  body { background: #fff; font-size: 14px; }
+  nav.jump { display: none; }
+  .shot, .box, .diff { break-inside: avoid; }
+}
+</style>
+
+<div class="wrap">
+
+<header class="hero">
+  <span class="label">EARLY WARNING SYSTEM · EXECUTIVE PR FILM</span>
+  <h1>บทถ่ายทำฉบับไม่มีเสียงบรรยาย</h1>
+  <p class="lead">ฉบับนี้ใช้ตัดต่อวิดีโอจริงที่จะฉายให้ ผอ. ดู ข้อความบนจอขึ้นครั้งละ 1–2 บรรทัดเท่านั้น ส่วนคำอธิบายทั้งหมดอยู่ใน<a href="pr-film-presenter.html">สคริปต์ฉบับเต็มสำหรับผู้นำเสนอ</a></p>
+  <div class="facts">
+    <span>4:50 นาที</span><span>16:9 · 4K · 24 fps</span><span>ไม่มีเสียงบรรยาย</span><span>ข้อความไทยเป็นหลัก</span>
+  </div>
+  <p class="muted">ข้อความหลัก: <b>จากเด็กหนึ่งคน สู่ระบบการช่วยเหลือที่เชื่อมถึงกันทุกระดับ</b></p>
+  <nav class="jump" aria-label="ไปยังส่วน">
+    <a href="#diff">จุดที่ปรับจาก brief</a>
+    <a href="#prep">เตรียมก่อนถ่าย</a>
+    <a href="#s1">ฉาก 1</a><a href="#s2">ฉาก 2</a><a href="#s3">ฉาก 3</a><a href="#s4">ฉาก 4</a>
+    <a href="#s5">ฉาก 5</a><a href="#s6">ฉาก 6</a><a href="#s7">ฉาก 7</a>
+    <a href="#text">ข้อความบนจอทั้งหมด</a>
+  </nav>
+</header>
+
+<!-- ───────────────────────────────────────────── -->
+<section id="diff">
+  <h2>จุดที่ปรับจาก brief ให้ตรงกับระบบจริง</h2>
+  <p class="intro muted">brief ข้อ 1 กำหนดให้ใช้หน้าจอจริงและห้ามสร้าง dashboard ที่ต่างจากตัวผลิตภัณฑ์ บางฉากใน brief จึงต้องปรับให้ตรงกับสิ่งที่ระบบทำได้จริง</p>
+  <div class="diff">
+    <div>
+      <p class="was">ฉาก 2 ปิดด้วย "ส่งสถานะเคสจาก Dashboard ครูไปยัง Dashboard ผอ."</p>
+      <p class="now">ครูกด <b>ส่งคำขอถึง ผอ.</b> ได้จริงในระบบ ซึ่งเป็นการขอความช่วยเหลือ ไม่ใช่การรายงานสถานะ เพราะ ผอ. เห็นสถานะเคสในโรงเรียนอยู่แล้ว</p>
+    </div>
+    <div>
+      <p class="was">ฉาก 3 Dashboard ผอ. เน้นจำนวนเคสแยกตามสถานะ</p>
+      <p class="now">หน้าแรกของ ผอ. คือ <b>เรื่องที่ต้องตัดสินใจ</b> แสดงเป็นการ์ดทีละเรื่อง ตัวเลขสี่ช่องอยู่แถบรอง ภาพต้องสื่อว่า ผอ. ตัดสินใจตามคำขอของครู ไม่ได้ทำงานแทนครู</p>
+    </div>
+    <div>
+      <p class="was">ฉาก 4 แผนที่โรงเรียนเชื่อมกันเป็นเครือข่าย</p>
+      <p class="now">ระบบมีหมุดโรงเรียนบนแผนที่และวงคำขอ ผอ. → เขต → ผอ. ที่ทำงานได้จริง ส่วน<b>เส้นเครือข่ายเป็นกราฟิกประกอบ</b> ห้ามสื่อว่าข้อมูลไหลเข้าแบบเรียลไทม์</p>
+    </div>
+    <div>
+      <p class="was">ฉาก 5 กราฟิกแผนที่ประเทศไทยซูมลงสามจังหวัด</p>
+      <p class="now">แผนที่ในระบบ<b>ทำแบบนี้อยู่แล้ว</b> คือแสดงประเทศไทยเป็นพื้นสีเทาและเลือกได้เฉพาะสามจังหวัด ให้บันทึกหน้าจอจริงแทนการทำกราฟิกใหม่ และห้ามมีข้อความที่สื่อถึงระดับประเทศ</p>
+    </div>
+    <div>
+      <p class="was">ฉาก 6 เคสส่งต่อไปถึง สพฐ.</p>
+      <p class="now">เคสเดินทางจริงจากครูไป ผอ. แล้วไปเขต และคำตอบย้อนกลับลงมา ส่วน สพฐ. <b>ไม่ได้รับเคส</b> แต่เห็นเคสนั้นเป็นส่วนหนึ่งของภาพรวมสามจังหวัด ภาพจึงต้องให้การ์ดเคสหลอมเป็นจุดบนแผนที่ ไม่ใช่ส่งเข้ากล่องของ สพฐ.</p>
+    </div>
+    <div>
+      <p class="was">ฉาก 5 ยาว 50 วินาที · ฉาก 6 ยาว 30 วินาที</p>
+      <p class="now">ย้าย 10 วินาทีจากฉาก 5 มาให้ฉาก 6 เป็น <b>ฉาก 5 = 03:05–03:45 · ฉาก 6 = 03:45–04:25</b> ความยาวรวมยังเท่าเดิม เพราะฉาก 6 คือจุดที่ผู้บริหารต้องเห็นคุณค่าของระบบชัดที่สุด</p>
+    </div>
+    <div>
+      <p class="was">ฟอนต์ Sarabun หรือ Noto Sans Thai</p>
+      <p class="now">ใช้ <b>Bai Jamjuree</b> สำหรับหัวข้อ และ <b>Noto Sans Thai Looped</b> สำหรับเนื้อหา ซึ่งเป็นฟอนต์เดียวกับในระบบ เพื่อให้ข้อความบนจอกลืนกับภาพหน้าจอ</p>
+    </div>
+  </div>
+</section>
+
+<!-- ───────────────────────────────────────────── -->
+<section id="prep">
+  <h2>เตรียมก่อนถ่ายหน้าจอ</h2>
+  <div class="box">
+    <h3>เว็บและบัญชี</h3>
+    <ul>
+      <li>ถ่ายจาก <b>Netlify</b> <code>courageous-tapioca-33318a.netlify.app</code> ภาษาไทย ทุกบัญชีใช้รหัสผ่าน <code>demo</code></li>
+      <li>ครู <code>teacher@zerodropout.go.th</code> · ผอ. <code>school@zerodropout.go.th</code> · เขต <code>esa@zerodropout.go.th</code> · สพฐ. <code>obec@zerodropout.go.th</code></li>
+      <li>ครู ผอ. และเขตในบัญชีสาธิตอยู่ในสายเดียวกัน (โรงเรียน TOR-005 อยู่ใน สพท.ปัตตานี เขต 3) จึงถ่ายเคสเดียวเดินทางข้ามทั้งสามบทบาทได้จริง</li>
+      <li>ใช้เบราว์เซอร์และโปรไฟล์เดียวกันตลอด และ<b>ห้ามล้างข้อมูลเว็บระหว่างถ่าย</b> เพราะคำขอที่ส่งระหว่างบทบาทเก็บไว้ในเบราว์เซอร์นั้น</li>
+      <li>หน้าต่าง 1920×1080 ที่สเกลจอ 200% จะได้ภาพคม 4K ซูมเบราว์เซอร์ 100%</li>
+    </ul>
+    <h3>ลำดับถ่าย (เรียงตามเหตุการณ์ ไม่ใช่ตามฉาก)</h3>
+    <ol>
+      <li>ครู: เลือกนักเรียน 1 คนเป็น "นักเรียน ก." บันทึกเยี่ยมบ้าน ทำแผน แล้วกด <b>ส่งคำขอถึง ผอ.</b></li>
+      <li>ออกจากระบบ แล้วเข้าเป็น ผอ.: เปิดคำขอนั้น ตัดสินใจ แล้วเลือก <b>ส่งเรื่องถึงเขต</b></li>
+      <li>ออกจากระบบ แล้วเข้าเป็นเขต: คำขอจะอยู่ใน <b>ส่งมาวันนี้</b> ให้ตอบกลับด้วย <b>ส่งถึง ผอ. โรงเรียน</b></li>
+      <li>เข้าเป็น สพฐ.: ถ่ายแผนที่ ภาพรวม และรายงาน</li>
+      <li>ถ่ายรอบที่สองแบบช้า ๆ ทุกขั้นเพื่อใช้เป็น B-roll</li>
+    </ol>
+  </div>
+  <div class="pdpa"><b>PDPA และความถูกต้อง ต้องทำทุกช็อต</b>
+    <ul>
+      <li>ชื่อนักเรียนในรายการทุกชื่อต้อง<b>เบลอ</b> แม้จะเป็นข้อมูลจำลอง เพราะชื่อที่ระบบสุ่มขึ้นอาจบังเอิญตรงกับเด็กจริงในพื้นที่ นักเรียนที่เป็นตัวเดินเรื่องให้ทับชื่อด้วย <b>"นักเรียน ก. (นามสมมติ)"</b></li>
+      <li>รายชื่อ 46 โรงเรียนเป็น<b>ชื่อโรงเรียนจริง</b>ตามภาคผนวก TOR แต่ตัวเลขความเสี่ยงทุกตัวเป็นข้อมูลจำลอง ต้องเบลอชื่อโรงเรียนหรือทับด้วย "โรงเรียนสาธิต" เพื่อไม่ให้ผู้ชมเข้าใจว่าโรงเรียนนั้นมีเด็กเสี่ยงจริงตามตัวเลขในวิดีโอ</li>
+      <li>ห้ามครอปป้าย <b>ข้อมูลจำลองเพื่อสาธิต</b> ที่แถบบนออกจากเฟรม และใส่ลายน้ำเดียวกันไว้ที่มุมจอทุกช็อตที่เป็น UI</li>
+      <li>ภาพเด็กที่ถ่ายด้วยกล้องให้ใช้นักแสดงที่มีหนังสือยินยอมจากผู้ปกครอง และไม่แสดงใบหน้าชัด ให้ถ่ายมือ รองเท้า ด้านหลัง หรือเงา ภาพเหล่านี้ต้องมีป้าย <b>ภาพจำลองเหตุการณ์</b></li>
+      <li>ห้ามใช้คำว่า "เรียลไทม์" "ทั้งประเทศ" หรือตัวเลขความสำเร็จใด ๆ เพราะระบบยังไม่ได้เชื่อม DMC (TOR ๔.๓) และตัวเลขทั้งหมดเป็นข้อมูลจำลอง</li>
+      <li>ถ้าการ์ด AI ขึ้นว่า "คำนวณจากข้อมูลในระบบ" ให้ถ่ายตามนั้น ห้ามทำเอฟเฟกต์ให้ดูเหมือน AI กำลังพิมพ์</li>
+    </ul>
+  </div>
+</section>
+
+<!-- ───────────────────────────────────────────── -->
+<section id="s1" class="scene">
+  <div class="scene-head"><h2>ฉาก 1 · The Invisible Child</h2><span class="tc">00:00–00:25</span></div>
+  <div class="shot"><span class="t">00:00–00:06</span><div class="body">
+    <p>ภาพมุมกว้างของโรงเรียนในบรรยากาศภาคใต้ยามเช้า เด็กทยอยเดินเข้าประตู มีแต่เสียงบรรยากาศเบา ๆ</p>
+    <p class="ost none">ไม่มีข้อความ</p>
+  </div></div>
+  <div class="shot"><span class="t">00:06–00:12</span><div class="body">
+    <p>ห้องเรียน กล้องค่อย ๆ เลื่อนผ่านแถวโต๊ะไปหยุดที่<b>เก้าอี้ตัวหนึ่งที่ว่าง</b> (เก้าอี้ตัวนี้จะกลับมาในฉาก 6)</p>
+    <p class="ost">เด็กหนึ่งคนที่หายไปจากห้องเรียน...</p>
+  </div></div>
+  <div class="shot"><span class="t">00:12–00:18</span><div class="body">
+    <p>ครูก้มดูแท็บเล็ต เห็นมือและหน้าจอ แต่ไม่เห็นหน้าเด็ก</p>
+    <p class="src"><b>หน้าจอ:</b> ครู · หน้าแรก · ตาราง "นักเรียนที่ฉันรับผิดชอบ" ที่มีแถวป้าย <b>ด่วน</b></p>
+    <p class="ost">อาจกำลังรอโอกาสจากใครสักคน</p>
+  </div></div>
+  <div class="shot"><span class="t">00:18–00:25</span><div class="body">
+    <p>กล้องซูมเข้าไปในหน้าจอจนพื้นขาวของ UI เต็มเฟรม แล้วเปลี่ยนเป็นโลโก้แพลตฟอร์ม</p>
+    <p class="ost gold">ทุกการช่วยเหลือ เริ่มต้นจากการมองเห็น</p>
+  </div></div>
+</section>
+
+<section id="s2" class="scene">
+  <div class="scene-head"><h2>ฉาก 2 · Teacher — The First Connection</h2><span class="tc">00:25–01:25</span></div>
+  <p class="muted">บัญชีครู · ทั้งฉากใช้นักเรียนคนเดียวคือ "นักเรียน ก." · มุมบนซ้ายมีป้ายขั้นตอนที่จุดขึ้นทีละขั้น: <b>คัดกรอง → เคส → เยี่ยมบ้าน → แผน → ติดตาม</b></p>
+  <div class="shot"><span class="t">00:25–00:37</span><div class="body">
+    <p><b>คัดกรอง</b> แถบ AI ช่วยคิดแสดงรายการ "นัดถึงกำหนด · วิกฤต · ยังไม่เยี่ยมบ้าน" แล้วไฮไลต์แถวของนักเรียน ก. พร้อมคะแนนเสี่ยงและปัญหาหลัก</p>
+    <p class="src"><b>หน้าจอ:</b> ครู · หน้าแรก</p>
+    <p class="ost">ครูมองเห็นความเสี่ยงได้เร็วขึ้น</p>
+  </div></div>
+  <div class="shot"><span class="t">00:37–00:49</span><div class="body">
+    <p><b>เปิดเคส</b> เข้าโต๊ะทำงานรายเด็กของนักเรียน ก. ซูมที่ส่วนประกอบของคะแนนเสี่ยง (การมาเรียน ผลการเรียน ครอบครัว)</p>
+    <p class="src"><b>หน้าจอ:</b> ครู · ข้อมูลนักเรียนรายบุคคล</p>
+    <p class="ost none">ไม่มีข้อความ ให้ป้ายขั้นตอนเล่าเรื่องแทน</p>
+  </div></div>
+  <div class="shot"><span class="t">00:49–01:01</span><div class="body">
+    <p><b>เยี่ยมบ้าน</b> ตัดสลับภาพครูเดินถึงบ้าน (ภาพจำลองเหตุการณ์ ไม่เห็นหน้าใคร) กับการพิมพ์บันทึกลงไทม์ไลน์การช่วยเหลือ</p>
+    <p class="src"><b>หน้าจอ:</b> ครู · ไทม์ไลน์การช่วยเหลือ · บันทึกใหม่</p>
+    <p class="ost">คัดกรอง • เยี่ยมบ้าน • ช่วยเหลือ • ติดตาม</p>
+  </div></div>
+  <div class="shot"><span class="t">01:01–01:13</span><div class="body">
+    <p><b>แผน</b> กับ <b>ติดตาม</b>: เปิดแผนโอกาสรายบุคคลที่ระบบเสนอพร้อมเหตุผล จากนั้นสถานะเคสเปลี่ยนและนัดติดตามถูกสร้างขึ้น</p>
+    <p class="src"><b>หน้าจอ:</b> ครู · เส้นทางโอกาส → ติดตามการช่วยเหลือ</p>
+    <p class="ost">หนึ่งเคส หนึ่งแผนช่วยเหลือที่ต่อเนื่อง</p>
+  </div></div>
+  <div class="shot"><span class="t">01:13–01:25</span><div class="body">
+    <p>ครูกด <b>ส่งคำขอถึง ผอ.</b> แล้วระบบแจ้งว่า "ส่งถึง ผอ. แล้ว — รอ ผอ. เปิดอ่าน" การ์ดคำขอลอยออกจากจอ ทำเป็นสะพานเชื่อมไปฉาก 3</p>
+    <p class="src"><b>หน้าจอ:</b> ครู · แผ่นคำขอสนับสนุน</p>
+    <p class="ost">งานที่เกินกำลังครู ส่งถึง ผอ. ได้ทันที <span class="new">เพิ่มจาก brief</span></p>
+  </div></div>
+</section>
+
+<section id="s3" class="scene">
+  <div class="scene-head"><h2>ฉาก 3 · School Director — One School, One Clear Picture</h2><span class="tc">01:25–02:15</span></div>
+  <div class="shot"><span class="t">01:25–01:37</span><div class="body">
+    <p>การ์ดคำขอที่ลอยมาจากฉาก 2 ลงไปอยู่ในกระดิ่งของ ผอ. แล้วไปปรากฏเป็นการ์ดใบแรกใน <b>เรื่องที่ต้องตัดสินใจ</b></p>
+    <p class="src"><b>หน้าจอ:</b> ผอ. · หน้าแรก</p>
+    <p class="ost">จากข้อมูลรายคน สู่การดูแลทั้งโรงเรียน</p>
+  </div></div>
+  <div class="shot"><span class="t">01:37–01:51</span><div class="body">
+    <p>กล้องเลื่อนลงไปที่แถบตัวเลข "นักเรียนมีสัญญาณเสี่ยง · กำลังช่วยเหลือ · ช่วยสำเร็จ (ปิดเคส) · รอการส่งต่อ" และป้ายดีขึ้น/แย่ลง</p>
+    <p class="src"><b>หน้าจอ:</b> ผอ. · หน้าแรก · แถบภาพรวม</p>
+    <p class="ost">ผอ. เห็นปัญหา เห็นความคืบหน้า</p>
+  </div></div>
+  <div class="shot"><span class="t">01:51–02:05</span><div class="body">
+    <p>ผอ. เปิดใบตัดสินใจ เลือกจากรายชื่อบุคลากรว่าจะมอบหมายใคร แล้วกด <b>ส่งเรื่องถึงเขต</b> สำหรับส่วนที่เกินอำนาจโรงเรียน</p>
+    <p class="src"><b>หน้าจอ:</b> ผอ. · ใบตัดสินใจ</p>
+    <p class="ost">สนับสนุนครูได้ตรงจุด</p>
+  </div></div>
+  <div class="shot"><span class="t">02:05–02:15</span><div class="body">
+    <p>หมุดของโรงเรียนถอยออกจนเห็นหมุดโรงเรียนอื่น ๆ ในเขตบนแผนที่ (ภาพจริงจากแผนที่ของเขตในฉาก 4)</p>
+    <p class="ost none">ไม่มีข้อความ เป็นช็อตเชื่อมฉาก</p>
+  </div></div>
+  <div class="note"><b>ขอบเขตสิทธิ์:</b> ใส่ป้ายเล็กมุมจอว่า "ผอ. · เห็นนักเรียนและเคสในโรงเรียนของตน"</div>
+</section>
+
+<section id="s4" class="scene">
+  <div class="scene-head"><h2>ฉาก 4 · Education Area — Connect Every School</h2><span class="tc">02:15–03:05</span></div>
+  <div class="shot"><span class="t">02:15–02:27</span><div class="body">
+    <p>แผนที่อัจฉริยะเชิงพื้นที่ของ สพท.ปัตตานี เขต 3 มีกราฟิกเส้นบาง ๆ เชื่อมหมุดโรงเรียนเข้าหาจุดของเขต</p>
+    <p class="src"><b>หน้าจอ:</b> เขต · แผนที่อัจฉริยะเชิงพื้นที่</p>
+    <p class="ost">ทุกโรงเรียนเชื่อมถึงกัน</p>
+  </div></div>
+  <div class="shot"><span class="t">02:27–02:41</span><div class="body">
+    <p>ศูนย์สนับสนุนของเขต แสดงแถบ "พื้นที่เร่งด่วน · รอเขตตัดสินใจ · โรงเรียนที่ต้องช่วย · เคสเกิน SLA" และคำถาม <b>อำเภอไหนต้องดูแลก่อน?</b></p>
+    <p class="src"><b>หน้าจอ:</b> เขต · หน้าแรก</p>
+    <p class="ost">เห็นพื้นที่เสี่ยง วางแผนช่วยเหลือได้ตรงจุด</p>
+  </div></div>
+  <div class="shot"><span class="t">02:41–02:53</span><div class="body">
+    <p>คำขอที่ ผอ. ส่งมาจากฉาก 3 ไปอยู่ใต้ <b>ส่งมาวันนี้</b> เขตพิมพ์ข้อความถึง ผอ. แล้วกด <b>ส่งถึง ผอ. โรงเรียน</b></p>
+    <p class="src"><b>หน้าจอ:</b> เขต · คำขอจากโรงเรียน</p>
+    <p class="ost">คำขอจากโรงเรียน ได้คำตอบจากเขต <span class="new">เพิ่มจาก brief</span></p>
+  </div></div>
+  <div class="shot"><span class="t">02:53–03:05</span><div class="body">
+    <p>ผลการดำเนินงานของโรงเรียนในเขต เรียงตามความจำเป็น และมีสถานะกับเขตของแต่ละโรงเรียน (ชื่อโรงเรียนเบลอ)</p>
+    <p class="src"><b>หน้าจอ:</b> เขต · ผลการดำเนินงานโรงเรียน</p>
+    <p class="ost">ติดตามได้อย่างต่อเนื่อง</p>
+  </div></div>
+  <div class="note"><b>ขอบเขตสิทธิ์:</b> ป้ายมุมจอ "เขตพื้นที่ · ดูได้ ลงมือแทนโรงเรียนไม่ได้" ระบบให้เขตเปิดดูนักเรียนรายคนได้แต่แก้เคสไม่ได้ ในวิดีโอไม่ต้องเปิดหน้านักเรียนรายคนจากบัญชีเขต</div>
+</section>
+
+<section id="s5" class="scene">
+  <div class="scene-head"><h2>ฉาก 5 · OBEC Executive — From Data to Policy</h2><span class="tc">03:05–03:45</span></div>
+  <div class="shot"><span class="t">03:05–03:17</span><div class="body">
+    <p>บันทึกหน้าจอจริงของแผนที่ ซึ่งเริ่มจากประเทศไทยสีเทาแล้วซูมลงไปที่สามจังหวัดที่เป็นสีขึ้นมา</p>
+    <p class="src"><b>หน้าจอ:</b> สพฐ. · หน้าแรก · แผนที่</p>
+    <p class="ost">ปัตตานี • ยะลา • นราธิวาส</p>
+  </div></div>
+  <div class="shot"><span class="t">03:17–03:31</span><div class="body">
+    <p>การ์ดสรุปสำหรับผู้บริหาร ตามด้วยภาพรวมรายจังหวัดและอำเภอที่เรียงตามความเร่งด่วน ซูมเห็นข้อความ "ข้อมูลจำลองเพื่อสาธิตตามโครงสร้าง TOR"</p>
+    <p class="src"><b>หน้าจอ:</b> สพฐ. · หน้าแรก</p>
+    <p class="ost">ข้อมูลเชื่อมโยงจากโรงเรียนสู่ระดับนโยบาย</p>
+  </div></div>
+  <div class="shot"><span class="t">03:31–03:45</span><div class="body">
+    <p>เจาะจากจังหวัดลงเขต ลงอำเภอ แล้วลงโรงเรียน จบที่หน้ารายงาน กราฟแนวโน้มต้องมีป้ายว่าเป็นข้อมูลจำลอง</p>
+    <p class="src"><b>หน้าจอ:</b> สพฐ. · แผนที่อัจฉริยะ → รายงาน</p>
+    <p class="ost">เห็นปัญหา วางแผน ติดตามผล</p>
+  </div></div>
+</section>
+
+<!-- ───────────────────────────────────────────── -->
+<section id="s6" class="scene">
+  <div class="scene-head"><h2>ฉาก 6 · One Child, One Connected System</h2><span class="tc">03:45–04:25 · ฉากหลักของเรื่อง</span></div>
+  <div class="box hero6">
+    <h3>หลักการต่อภาพแบบ Seamless</h3>
+    <ul>
+      <li><b>มีการ์ดเคสใบเดียวอยู่กลางเฟรมตลอดฉาก</b> ขนาดและตำแหน่งไม่เปลี่ยน มีแค่ "นักเรียน ก. · ม.2" ป้ายระดับเสี่ยง และขั้นของเคส ส่วนหน้าจอด้านหลังสไลด์เปลี่ยนจากครูไป ผอ. เขต และ สพฐ. วิธีนี้ทำให้ผู้ชมรู้สึกว่าเป็นเคสเดียวกันที่เดินทาง ไม่ใช่หน้าจอสี่หน้าที่ตัดต่อกัน</li>
+      <li>เส้นสีทองด้านล่างค่อย ๆ วาดต่อจากจุดของแต่ละบทบาท พร้อมป้ายสิทธิ์ของบทบาทนั้น</li>
+      <li>แต่ละบทบาทเห็นการ์ดใบนี้<b>ไม่เท่ากัน</b> ซึ่งเป็นการแสดงสิทธิ์ตาม brief ข้อ 7 และตรงกับระบบจริง คือ ที่ครูการ์ดมีปุ่มบันทึกและแก้แผน ที่ ผอ. ปุ่มเหล่านั้นเปลี่ยนเป็นปุ่มตัดสินใจ ที่เขตไม่มีปุ่มแก้เคสเลยแต่มีปุ่มตอบกลับ ผอ. และที่ สพฐ. การ์ดหลอมเป็นจุดบนแผนที่ เพราะงานของ สพฐ. คือดูภาพรวม</li>
+      <li>ใช้เสียงประกอบ UI เบา ๆ ทุกครั้งที่การ์ดเข้าที่ แล้วเพิ่มเสียงดนตรีขึ้นตอนตัดกลับไปหาเด็ก</li>
+    </ul>
+    <ol class="relay" aria-label="เส้นทางของเคส">
+      <li>ครู<small>ดูแลเคสของตน</small></li>
+      <li>ผอ.<small>ตัดสินใจ สนับสนุน</small></li>
+      <li>เขตพื้นที่<small>จัดสรร ตอบกลับ</small></li>
+      <li>สพฐ.<small>เห็นภาพรวม</small></li>
+    </ol>
+  </div>
+  <div class="shot"><span class="t">03:45–03:53</span><div class="body">
+    <p>การ์ดของนักเรียน ก. ยกตัวออกจากตารางของครูแล้วลอยมาหยุดกลางเฟรม ไทม์ไลน์เยี่ยมบ้านและแผนเลื่อนผ่านด้านหลัง ป้ายบทบาท: "ครู · เคสที่รับผิดชอบ"</p>
+    <p class="ost">เคสเดียวกัน ส่งต่อครบทุกระดับ</p>
+  </div></div>
+  <div class="shot"><span class="t">03:53–04:01</span><div class="body">
+    <p>หน้าจอครูสไลด์ออก หน้าของ ผอ. สไลด์เข้า การ์ดไปอยู่ใน "เรื่องที่ต้องตัดสินใจ" มีป้าย "มอบหมายแล้ว" ขึ้นที่มุมการ์ด ป้ายบทบาท: "ผอ. · ทั้งโรงเรียน"</p>
+    <p class="ost none">ข้อความเดิมจางออก</p>
+  </div></div>
+  <div class="shot"><span class="t">04:01–04:09</span><div class="body">
+    <p>หน้า ผอ. สไลด์ออก ศูนย์สนับสนุนของเขตสไลด์เข้า การ์ดไปอยู่ใต้ "ส่งมาวันนี้" แล้วได้ป้าย "เขตตอบกลับแล้ว" ปุ่มแก้เคสบนการ์ดหายไปเหลือแค่ปุ่มตอบกลับ ป้ายบทบาท: "เขตพื้นที่ · สนับสนุนโรงเรียน"</p>
+    <p class="ost">ทุกระดับช่วยกันดูแลเด็กคนเดียว</p>
+  </div></div>
+  <div class="shot"><span class="t">04:09–04:15</span><div class="body">
+    <p>หน้าเขตถอยออกจนเห็นแผนที่สามจังหวัดของ สพฐ. การ์ดหดเหลือจุดสีทองแล้วหลอมเข้ากับอำเภอของตนบนแผนที่ ป้ายบทบาท: "สพฐ. · ภาพรวมสามจังหวัด" <b>ห้ามมีตัวเลขเพิ่มขึ้น</b> เพราะเป็นข้อมูลจำลอง</p>
+    <p class="ost none">ไม่มีข้อความ</p>
+  </div></div>
+  <div class="shot"><span class="t">04:15–04:17</span><div class="body">
+    <p>เส้นสีทองไหลกลับจาก สพฐ. ผ่านเขตและ ผอ. ลงมาถึงครูในจังหวะเดียว เพื่อสื่อว่าความช่วยเหลือย้อนกลับลงไปถึงตัวเด็ก (เป็นวงคำขอที่ระบบทำได้จริง)</p>
+  </div></div>
+  <div class="shot"><span class="t">04:17–04:25</span><div class="body">
+    <p><b>ตัดกลับไปที่ห้องเรียนในฉาก 1</b> มุมกล้องเดิม แต่เก้าอี้ตัวเดิม<b>มีคนนั่งแล้ว</b> เห็นแค่ไหล่และมือที่กำลังเปิดสมุด ครูเดินผ่านและแตะโต๊ะเบา ๆ มีป้ายเล็กมุมล่าง "ภาพจำลองเหตุการณ์"</p>
+    <p class="ost gold">เพื่อโอกาสของเด็กทุกคน</p>
+  </div></div>
+</section>
+
+<section id="s7" class="scene">
+  <div class="scene-head"><h2>ฉาก 7 · Ready for Pilot</h2><span class="tc">04:25–04:50</span></div>
+  <div class="shot"><span class="t">04:25–04:33</span><div class="body">
+    <p>ภาพตัดสลับครู ผอ. เขต และผู้บริหาร แล้วรวมเป็นแผนที่สามจังหวัดที่จุดสีทองเชื่อมกัน</p>
+    <p class="ost">ข้อเสนอทดลองนำร่องในสถานศึกษา</p>
+  </div></div>
+  <div class="shot"><span class="t">04:33–04:40</span><div class="body">
+    <p>จุดของโรงเรียนหนึ่งจุดสว่างขึ้นก่อน แล้วค่อย ๆ ลามไปทั้งเขต</p>
+    <p class="ost">เริ่มจากโรงเรียน พร้อมขยายผลสู่เขตพื้นที่</p>
+  </div></div>
+  <div class="shot"><span class="t">04:40–04:50</span><div class="body">
+    <p>โลโก้ "Early Warning System" (ระบบเฝ้าระวังและแจ้งเตือนล่วงหน้า) บนพื้น Deep Navy มี QR Code อยู่ด้านขวา QR นี้ต้องทดสอบสแกนด้วยมือถือ 2 เครื่องก่อนส่งไฟล์</p>
+    <p class="ost gold">เห็นเด็กทุกคน ช่วยทันก่อนหลุด<br><span style="color:#fff;font-size:17px;font-weight:600">courageous-tapioca-33318a.netlify.app</span></p>
+    <p class="note"><b>QR:</b> ชี้ไปที่ลิงก์ Netlify ไม่ใช่ GitHub Pages เพราะ GitHub Pages ไม่มีผู้ช่วย AI ถ้าจะมีโดเมนจริงก่อนวันนำเสนอ ให้เปลี่ยนทั้ง QR และข้อความ</p>
+  </div></div>
+</section>
+
+<!-- ───────────────────────────────────────────── -->
+<section id="text">
+  <h2>ข้อความบนจอทั้งหมด (สำหรับพิสูจน์อักษร)</h2>
+  <p class="muted">ข้อความแต่ละชุดต้องค้างบนจออย่างน้อย 4 วินาที ห้ามซ้อนกับตัวหนังสือใน UI ที่กำลังซูม และให้ทุกบรรทัดผ่านการตรวจโดยคนก่อนใส่ ไม่ใช้ AI สร้างตัวอักษรในภาพ</p>
+  <div class="tablewrap">
+  <table>
+    <tr><th>เวลา</th><th>ข้อความ</th></tr>
+    <tr><td>00:06</td><td>เด็กหนึ่งคนที่หายไปจากห้องเรียน...</td></tr>
+    <tr><td>00:12</td><td>อาจกำลังรอโอกาสจากใครสักคน</td></tr>
+    <tr><td>00:18</td><td>ทุกการช่วยเหลือ เริ่มต้นจากการมองเห็น</td></tr>
+    <tr><td>00:25</td><td>ครูมองเห็นความเสี่ยงได้เร็วขึ้น</td></tr>
+    <tr><td>00:49</td><td>คัดกรอง • เยี่ยมบ้าน • ช่วยเหลือ • ติดตาม</td></tr>
+    <tr><td>01:01</td><td>หนึ่งเคส หนึ่งแผนช่วยเหลือที่ต่อเนื่อง</td></tr>
+    <tr><td>01:13</td><td>งานที่เกินกำลังครู ส่งถึง ผอ. ได้ทันที</td></tr>
+    <tr><td>01:25</td><td>จากข้อมูลรายคน สู่การดูแลทั้งโรงเรียน</td></tr>
+    <tr><td>01:37</td><td>ผอ. เห็นปัญหา เห็นความคืบหน้า</td></tr>
+    <tr><td>01:51</td><td>สนับสนุนครูได้ตรงจุด</td></tr>
+    <tr><td>02:15</td><td>ทุกโรงเรียนเชื่อมถึงกัน</td></tr>
+    <tr><td>02:27</td><td>เห็นพื้นที่เสี่ยง วางแผนช่วยเหลือได้ตรงจุด</td></tr>
+    <tr><td>02:41</td><td>คำขอจากโรงเรียน ได้คำตอบจากเขต</td></tr>
+    <tr><td>02:53</td><td>ติดตามได้อย่างต่อเนื่อง</td></tr>
+    <tr><td>03:05</td><td>ปัตตานี • ยะลา • นราธิวาส</td></tr>
+    <tr><td>03:17</td><td>ข้อมูลเชื่อมโยงจากโรงเรียนสู่ระดับนโยบาย</td></tr>
+    <tr><td>03:31</td><td>เห็นปัญหา วางแผน ติดตามผล</td></tr>
+    <tr><td>03:45</td><td>เคสเดียวกัน ส่งต่อครบทุกระดับ</td></tr>
+    <tr><td>04:01</td><td>ทุกระดับช่วยกันดูแลเด็กคนเดียว</td></tr>
+    <tr><td>04:17</td><td>เพื่อโอกาสของเด็กทุกคน</td></tr>
+    <tr><td>04:25</td><td>ข้อเสนอทดลองนำร่องในสถานศึกษา</td></tr>
+    <tr><td>04:33</td><td>เริ่มจากโรงเรียน พร้อมขยายผลสู่เขตพื้นที่</td></tr>
+    <tr><td>04:40</td><td>เห็นเด็กทุกคน ช่วยทันก่อนหลุด · URL</td></tr>
+    <tr><td>ทุกช็อต UI</td><td>ข้อมูลจำลองเพื่อสาธิต (ลายน้ำมุมจอ)</td></tr>
+    <tr><td>ช็อตแสดงเหตุการณ์</td><td>ภาพจำลองเหตุการณ์ (ป้ายเล็กมุมล่าง)</td></tr>
+  </table>
+  </div>
+</section>
+
+</div>

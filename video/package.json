@@ -1,0 +1,25 @@
+{
+  "name": "sbp-pr-film",
+  "private": true,
+  "version": "1.0.0",
+  "description": "วิดีโอ PR สำหรับผู้บริหาร — Southern Zero Dropout Platform (Remotion)",
+  "type": "module",
+  "scripts": {
+    "capture": "node scripts/capture.mjs",
+    "prepare-assets": "node scripts/geo.mjs && node scripts/qr.mjs && node scripts/music.mjs && node scripts/srt.mjs",
+    "studio": "remotion studio",
+    "render": "remotion render PRFilm out/sbp-pr-film.mp4 --codec=h264 --crf=18",
+    "still": "remotion still PRFilm out/still.png"
+  },
+  "dependencies": {
+    "@remotion/cli": "4.0.537",
+    "@remotion/google-fonts": "4.0.537",
+    "@types/react": "18.3.31",
+    "playwright-core": "1.64.1",
+    "qrcode": "1.5.4",
+    "react": "18.3.1",
+    "react-dom": "18.3.1",
+    "remotion": "4.0.537",
+    "typescript": "7.0.2"
+  }
+}

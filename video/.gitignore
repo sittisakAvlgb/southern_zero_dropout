@@ -1,0 +1,9 @@
+node_modules/
+out/
+# ไฟล์เสียงที่ generate ใหม่ได้ด้วย npm run prepare-assets (score + SFX)
+public/audio/score.wav
+public/audio/whoosh.wav
+public/audio/tick.wav
+public/audio/chime.wav
+public/audio/click.wav
+# เสียงพากย์ (VO) เก็บไว้ใน repo — พากย์จาก Google AI Studio สร้างใหม่ไม่ได้ (vo.wav, vo-fit.wav)
