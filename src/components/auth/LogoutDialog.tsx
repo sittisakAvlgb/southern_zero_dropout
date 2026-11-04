@@ -65,9 +65,9 @@ export function LogoutDialog({
             initial={{ scale: 0.5, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             transition={{ type: 'spring', stiffness: 420, damping: 18, delay: 0.05 }}
-            className="mx-auto grid h-14 w-14 place-items-center rounded-2xl bg-risk-critical/10 text-risk-critical"
+            className="mx-auto grid h-16 w-16 place-items-center rounded-full bg-brand-50 text-brand-600 ring-1 ring-inset ring-brand-100"
           >
-            <IconLogout width={26} height={26} />
+            <IconLogout width={28} height={28} />
           </motion.span>
 
           <h3 className="mt-4 text-[17px] font-bold text-ink">
@@ -80,14 +80,11 @@ export function LogoutDialog({
           </p>
 
           {user && (
-            <div className="mt-4 flex items-center gap-2.5 rounded-xl bg-surface-muted px-3 py-2.5 text-left">
-              <span
-                className="grid h-9 w-9 shrink-0 place-items-center rounded-lg text-white"
-                style={{ backgroundColor: meta.color }}
-              >
+            <div className="mt-5 flex items-center justify-center gap-2.5">
+              <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-brand-600 text-white">
                 {roleIcon(user.role, 18)}
               </span>
-              <span className="min-w-0">
+              <span className="min-w-0 text-left">
                 <span className="block truncate text-[13px] font-semibold text-ink">
                   {user.name}
                 </span>
@@ -113,7 +110,7 @@ export function LogoutDialog({
             autoFocus
             whileHover={{ y: -1 }}
             whileTap={{ scale: 0.98 }}
-            className="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-risk-critical px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:brightness-95"
+            className="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-brand-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-brand-700"
           >
             <IconLogout width={15} height={15} />
             {th ? 'ออกจากระบบ' : 'Sign out'}

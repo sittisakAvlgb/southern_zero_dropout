@@ -1,4 +1,5 @@
-import { Suspense, lazy } from 'react'
+import { Suspense } from 'react'
+import { lazyWithReload as lazy } from '@/lib/lazyWithReload'
 import { Navigate, Route, Routes } from 'react-router-dom'
 import { AppLayout } from './components/layout/AppLayout'
 import { RequireAuth } from './components/auth/RequireAuth'

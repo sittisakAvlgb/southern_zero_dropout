@@ -1,4 +1,5 @@
-import { Suspense, lazy } from 'react'
+import { Suspense } from 'react'
+import { lazyWithReload as lazy } from '@/lib/lazyWithReload'
 import { useScopedData } from '@/auth/scope'
 import { RouteFallback } from '@/components/layout/RouteFallback'
 

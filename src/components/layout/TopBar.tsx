@@ -136,7 +136,9 @@ export function TopBar({ onToggleSidebar }: { onToggleSidebar: () => void }) {
     ].filter((a) => a.n > 0)
   }, [cases, oosc, referrals, th, work])
 
-  const alertTotal = alerts.reduce((s, a) => s + a.n, 0)
+  // badge = จำนวน "เรื่อง" ที่ต้องจัดการ ไม่ใช่ผลรวมตัวเลขในทุกเรื่อง
+  // (เดิมบวก a.n ทุกอันทำให้ 7+18 = 25 ดูน่าตกใจทั้งที่มีจริง 2 เรื่อง ตัวเลขรายเรื่องยังอยู่ในแต่ละแถว)
+  const alertTotal = alerts.length
   const teacher = user?.role === 'teacher'
   const searchLabel = t(teacher ? 'top.searchTeacher' : 'top.search')
   const go = (to: string) => {

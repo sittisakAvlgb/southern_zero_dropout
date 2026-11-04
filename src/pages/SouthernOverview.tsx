@@ -1,4 +1,5 @@
-import { Suspense, lazy, useMemo } from 'react'
+import { Suspense, useMemo } from 'react'
+import { lazyWithReload as lazy } from '@/lib/lazyWithReload'
 import { useI18n } from '@/i18n/LanguageContext'
 import { useScopedData } from '@/auth/scope'
 import { ROLE_META } from '@/auth/roles'

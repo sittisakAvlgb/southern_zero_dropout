@@ -1,4 +1,5 @@
-import { Suspense, lazy, useEffect, useMemo, useRef, useState } from 'react'
+import { Suspense, useEffect, useMemo, useRef, useState } from 'react'
+import { lazyWithReload as lazy } from '@/lib/lazyWithReload'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { canWorkCases } from '@/auth/roles'
 import { studentSystemic } from '@/lib/obecOps'
